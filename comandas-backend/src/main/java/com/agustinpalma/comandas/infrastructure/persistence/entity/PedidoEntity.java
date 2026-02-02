@@ -1,0 +1,111 @@
+package com.agustinpalma.comandas.infrastructure.persistence.entity;
+
+import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
+import com.agustinpalma.comandas.domain.model.DomainEnums.MedioPago;
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+/**
+ * Entidad JPA para Pedido.
+ * Representa la tabla de base de datos, NO el modelo de dominio.
+ * Las anotaciones de JPA viven aquí, no en el dominio.
+ */
+@Entity
+@Table(name = "pedidos")
+public class PedidoEntity {
+
+    @Id
+    @Column(name = "id", nullable = false, updatable = false)
+    private UUID id;
+
+    @Column(name = "local_id", nullable = false)
+    private UUID localId;
+
+    @Column(name = "mesa_id", nullable = false)
+    private UUID mesaId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", nullable = false, length = 20)
+    private EstadoPedido estado;
+
+    @Column(name = "fecha_apertura", nullable = false)
+    private LocalDateTime fechaApertura;
+
+    @Column(name = "fecha_cierre")
+    private LocalDateTime fechaCierre;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "medio_pago", length = 20)
+    private MedioPago medioPago;
+
+    // Constructor vacío requerido por JPA
+    protected PedidoEntity() {
+    }
+
+    public PedidoEntity(UUID id, UUID localId, UUID mesaId, EstadoPedido estado, LocalDateTime fechaApertura) {
+        this.id = id;
+        this.localId = localId;
+        this.mesaId = mesaId;
+        this.estado = estado;
+        this.fechaApertura = fechaApertura;
+    }
+
+    // Getters y setters
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public UUID getLocalId() {
+        return localId;
+    }
+
+    public void setLocalId(UUID localId) {
+        this.localId = localId;
+    }
+
+    public UUID getMesaId() {
+        return mesaId;
+    }
+
+    public void setMesaId(UUID mesaId) {
+        this.mesaId = mesaId;
+    }
+
+    public EstadoPedido getEstado() {
+        return estado;
+    }
+
+    public void setEstado(EstadoPedido estado) {
+        this.estado = estado;
+    }
+
+    public LocalDateTime getFechaApertura() {
+        return fechaApertura;
+    }
+
+    public void setFechaApertura(LocalDateTime fechaApertura) {
+        this.fechaApertura = fechaApertura;
+    }
+
+    public LocalDateTime getFechaCierre() {
+        return fechaCierre;
+    }
+
+    public void setFechaCierre(LocalDateTime fechaCierre) {
+        this.fechaCierre = fechaCierre;
+    }
+
+    public MedioPago getMedioPago() {
+        return medioPago;
+    }
+
+    public void setMedioPago(MedioPago medioPago) {
+        this.medioPago = medioPago;
+    }
+}

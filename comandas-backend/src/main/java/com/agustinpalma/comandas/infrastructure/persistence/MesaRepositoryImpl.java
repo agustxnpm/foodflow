@@ -1,6 +1,7 @@
 package com.agustinpalma.comandas.infrastructure.persistence;
 
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
+import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import com.agustinpalma.comandas.domain.model.Mesa;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.infrastructure.mapper.MesaMapper;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -35,5 +37,20 @@ public class MesaRepositoryImpl implements MesaRepository {
             .stream()
             .map(mapper::toDomain)
             .collect(Collectors.toList());
+    }
+
+    @Override
+    public Optional<Mesa> buscarPorId(MesaId mesaId) {
+        return springDataRepository
+            .findById(mesaId.getValue())
+            .map(mapper::toDomain);
+    }
+
+    @Override
+    @Transactional
+    public Mesa guardar(Mesa mesa) {
+        var entity = mapper.toEntity(mesa);
+        var guardada = springDataRepository.save(entity);
+        return mapper.toDomain(guardada);
     }
 }
