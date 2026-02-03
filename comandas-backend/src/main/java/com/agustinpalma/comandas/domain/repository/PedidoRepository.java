@@ -29,4 +29,16 @@ public interface PedidoRepository {
      * @return Optional con el pedido si existe, vacío si no
      */
     Optional<Pedido> buscarPorMesaYEstado(MesaId mesaId, EstadoPedido estado);
+
+    /**
+     * Busca el pedido actualmente abierto para una mesa.
+     * Es un caso particular de buscarPorMesaYEstado, usado frecuentemente
+     * en operaciones que requieren el pedido activo.
+     *
+     * @param mesaId identificador de la mesa
+     * @return Optional con el pedido abierto si existe, vacío si no
+     */
+    default Optional<Pedido> buscarAbiertoPorMesa(MesaId mesaId) {
+        return buscarPorMesaYEstado(mesaId, EstadoPedido.ABIERTO);
+    }
 }

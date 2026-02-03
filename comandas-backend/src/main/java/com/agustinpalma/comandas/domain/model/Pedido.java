@@ -70,6 +70,39 @@ public class Pedido {
         return Collections.unmodifiableList(descuentos);
     }
 
+
+    /**
+     * Finaliza el pedido registrando el medio de pago y la fecha de cierre.
+     * Transiciona el estado de ABIERTO a CERRADO.
+     *
+     * Reglas de negocio:
+     * - Solo se pueden cerrar pedidos en estado ABIERTO
+     * - El pedido debe tener al menos un ítem cargado
+     * - El medio de pago es obligatorio
+     * - La fecha de cierre queda registrada para auditoría
+     *
+     * @param medio el medio de pago utilizado (obligatorio)
+     * @param fechaCierre la fecha y hora del cierre (obligatorio)
+     * @throws IllegalStateException si el pedido no está ABIERTO
+     * @throws IllegalArgumentException si el pedido no tiene ítems o el medio de pago es nulo
+     */
+    public void finalizar(MedioPago medio, LocalDateTime fechaCierre) {
+        Objects.requireNonNull(medio, "El medio de pago es obligatorio para cerrar el pedido");
+        Objects.requireNonNull(fechaCierre, "La fecha de cierre es obligatoria");
+
+        if (this.estado != EstadoPedido.ABIERTO) {
+            throw new IllegalStateException("Solo se pueden cerrar pedidos que estén en estado ABIERTO");
+        }
+
+        if (this.items.isEmpty()) {
+            throw new IllegalArgumentException("No se puede cerrar un pedido sin ítems");
+        }
+
+        this.medioPago = medio;
+        this.fechaCierre = fechaCierre;
+        this.estado = EstadoPedido.CERRADO;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
