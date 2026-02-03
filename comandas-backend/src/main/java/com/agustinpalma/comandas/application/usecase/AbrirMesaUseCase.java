@@ -15,6 +15,8 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
+import org.springframework.transaction.annotation.Transactional;
+
 /**
  * Caso de uso para abrir una mesa libre y crear su pedido inicial.
  * Orquesta la lógica de aplicación cumpliendo con las invariantes del dominio.
@@ -26,6 +28,7 @@ import java.util.UUID;
  * 4. Una mesa solo puede tener un único pedido ABIERTO a la vez
  * 5. El pedido queda vinculado inmutablemente a MesaId y LocalId
  */
+@Transactional
 public class AbrirMesaUseCase {
 
     private final MesaRepository mesaRepository;
