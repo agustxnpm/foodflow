@@ -12,6 +12,7 @@ public record AbrirMesaResponse(
     int numeroMesa,
     String estadoMesa,
     String pedidoId,
+    int numeroPedido,
     String estadoPedido,
     String fechaApertura
 ) {
@@ -24,6 +25,7 @@ public record AbrirMesaResponse(
             mesa.getNumero(),
             mesa.getEstado().name(),
             pedido.getId().getValue().toString(),
+            pedido.getNumero(),
             pedido.getEstado().name(),
             pedido.getFechaApertura().toString()
         );

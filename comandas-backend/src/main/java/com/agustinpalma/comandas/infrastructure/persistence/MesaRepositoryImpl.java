@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 /**
  * Implementación JPA del repositorio de mesas.
  * Adaptador que conecta el contrato del dominio con Spring Data JPA.
- * Aquí SÍ viven las anotaciones de Spring, aisladas del dominio.
  */
 @Repository
 @Transactional(readOnly = true)
@@ -52,5 +51,21 @@ public class MesaRepositoryImpl implements MesaRepository {
         var entity = mapper.toEntity(mesa);
         var guardada = springDataRepository.save(entity);
         return mapper.toDomain(guardada);
+    }
+
+    @Override
+    public boolean existePorNumeroYLocal(int numero, LocalId localId) {
+        return springDataRepository.existsByNumeroAndLocalId(numero, localId.getValue());
+    }
+
+    @Override
+    public int contarPorLocal(LocalId localId) {
+        return (int) springDataRepository.countByLocalId(localId.getValue());
+    }
+
+    @Override
+    @Transactional
+    public void eliminar(MesaId mesaId) {
+        springDataRepository.deleteById(mesaId.getValue());
     }
 }

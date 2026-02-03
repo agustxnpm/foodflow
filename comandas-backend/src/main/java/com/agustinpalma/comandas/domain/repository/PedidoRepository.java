@@ -1,6 +1,7 @@
 package com.agustinpalma.comandas.domain.repository;
 
 import com.agustinpalma.comandas.domain.model.Pedido;
+import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
 import java.util.Optional;
@@ -19,6 +20,15 @@ public interface PedidoRepository {
      * @return el pedido guardado
      */
     Pedido guardar(Pedido pedido);
+
+    /**
+     * Obtiene el siguiente número de pedido disponible para un local.
+     * Calcula el máximo número existente + 1 para ese local.
+     *
+     * @param localId identificador del local
+     * @return el siguiente número secuencial disponible
+     */
+    int obtenerSiguienteNumero(LocalId localId);
 
     /**
      * Busca un pedido en un estado específico para una mesa dada.

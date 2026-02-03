@@ -67,6 +67,7 @@ class AbrirMesaUseCaseTest {
         when(mesaRepository.buscarPorId(mesaId)).thenReturn(Optional.of(mesaLibre));
         when(pedidoRepository.buscarPorMesaYEstado(mesaId, EstadoPedido.ABIERTO))
             .thenReturn(Optional.empty());
+        when(pedidoRepository.obtenerSiguienteNumero(localId)).thenReturn(42);
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(mesaRepository.guardar(any(Mesa.class)))
@@ -80,10 +81,14 @@ class AbrirMesaUseCaseTest {
         assertThat(response.mesaId()).isEqualTo(mesaId.getValue().toString());
         assertThat(response.numeroMesa()).isEqualTo(5);
         assertThat(response.estadoMesa()).isEqualTo("ABIERTA");
+        assertThat(response.numeroPedido()).isEqualTo(42);
         assertThat(response.estadoPedido()).isEqualTo("ABIERTO");
         assertThat(response.pedidoId()).isNotBlank();
         assertThat(response.fechaApertura()).isNotBlank();
 
+        // Verifica que se obtiene el siguiente número
+        verify(pedidoRepository, times(1)).obtenerSiguienteNumero(localId);
+        
         // Verifica que se guardaron ambos cambios
         verify(pedidoRepository, times(1)).guardar(any(Pedido.class));
         verify(mesaRepository, times(1)).guardar(any(Mesa.class));
@@ -134,6 +139,7 @@ class AbrirMesaUseCaseTest {
             new PedidoId(UUID.randomUUID()),
             localId,
             mesaId,
+            1,
             EstadoPedido.ABIERTO,
             LocalDateTime.now().minusHours(1)
         );
@@ -179,6 +185,7 @@ class AbrirMesaUseCaseTest {
         when(mesaRepository.buscarPorId(mesaId)).thenReturn(Optional.of(mesaLibre));
         when(pedidoRepository.buscarPorMesaYEstado(mesaId, EstadoPedido.ABIERTO))
             .thenReturn(Optional.empty());
+        when(pedidoRepository.obtenerSiguienteNumero(localId)).thenReturn(1);
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(mesaRepository.guardar(any(Mesa.class)))
@@ -246,6 +253,7 @@ class AbrirMesaUseCaseTest {
         when(mesaRepository.buscarPorId(mesaId)).thenReturn(Optional.of(mesaLibre));
         when(pedidoRepository.buscarPorMesaYEstado(mesaId, EstadoPedido.ABIERTO))
             .thenReturn(Optional.empty());
+        when(pedidoRepository.obtenerSiguienteNumero(localId)).thenReturn(1);
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
         when(mesaRepository.guardar(any(Mesa.class)))

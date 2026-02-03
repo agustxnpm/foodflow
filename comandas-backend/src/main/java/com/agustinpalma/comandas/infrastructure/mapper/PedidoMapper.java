@@ -31,6 +31,7 @@ public class PedidoMapper {
             new PedidoId(entity.getId()),
             new LocalId(entity.getLocalId()),
             new MesaId(entity.getMesaId()),
+            entity.getNumero(),
             entity.getEstado(),
             entity.getFechaApertura()
         );
@@ -51,6 +52,7 @@ public class PedidoMapper {
             pedido.getId().getValue(),
             pedido.getLocalId().getValue(),
             pedido.getMesaId().getValue(),
+            pedido.getNumero(),
             pedido.getEstado(),
             pedido.getFechaApertura()
         );

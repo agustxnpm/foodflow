@@ -36,4 +36,31 @@ public interface MesaRepository {
      * @return la mesa guardada
      */
     Mesa guardar(Mesa mesa);
+
+    /**
+     * Verifica si ya existe una mesa con el número dado en un local específico.
+     * Necesario para validar unicidad del número de mesa dentro del local.
+     *
+     * @param numero número de la mesa a verificar
+     * @param localId identificador del local (tenant)
+     * @return true si ya existe una mesa con ese número en el local, false si no
+     */
+    boolean existePorNumeroYLocal(int numero, LocalId localId);
+
+    /**
+     * Cuenta cuántas mesas tiene un local específico.
+     * Necesario para validar que no se elimine la última mesa del local.
+     *
+     * @param localId identificador del local (tenant)
+     * @return cantidad de mesas que tiene el local
+     */
+    int contarPorLocal(LocalId localId);
+
+    /**
+     * Elimina físicamente una mesa del sistema.
+     * Solo debe invocarse tras validar las reglas de negocio correspondientes.
+     *
+     * @param mesaId identificador de la mesa a eliminar
+     */
+    void eliminar(MesaId mesaId);
 }

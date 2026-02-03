@@ -79,20 +79,24 @@ public class AbrirMesaUseCase {
         // 4. Abrir la mesa (la entidad valida que esté LIBRE)
         mesa.abrir();
 
-        // 5. Crear el nuevo pedido en estado ABIERTO vinculado al local (multi-tenancy)
+        // 5. Obtener el siguiente número secuencial para el pedido del local
+        int numeroPedido = pedidoRepository.obtenerSiguienteNumero(localId);
+
+        // 6. Crear el nuevo pedido en estado ABIERTO vinculado al local (multi-tenancy)
         Pedido nuevoPedido = new Pedido(
             new PedidoId(UUID.randomUUID()),
             localId,
             mesaId,
+            numeroPedido,
             EstadoPedido.ABIERTO,
             LocalDateTime.now()
         );
 
-        // 6. Persistir los cambios (orden: primero pedido, luego mesa)
+        // 7. Persistir los cambios (orden: primero pedido, luego mesa)
         Pedido pedidoGuardado = pedidoRepository.guardar(nuevoPedido);
         Mesa mesaGuardada = mesaRepository.guardar(mesa);
 
-        // 7. Retornar DTO de respuesta
+        // 8. Retornar DTO de respuesta
         return AbrirMesaResponse.fromDomain(mesaGuardada, pedidoGuardado);
     }
 }

@@ -24,4 +24,23 @@ public interface SpringDataMesaRepository extends JpaRepository<MesaEntity, UUID
      */
     @Query("SELECT m FROM MesaEntity m WHERE m.localId = :localId ORDER BY m.numero ASC")
     List<MesaEntity> findByLocalIdOrderByNumeroAsc(@Param("localId") UUID localId);
+
+    /**
+     * Verifica si existe una mesa con el número dado en un local específico.
+     *
+     * @param numero número de la mesa
+     * @param localId UUID del local
+     * @return true si existe, false si no
+     */
+    @Query("SELECT COUNT(m) > 0 FROM MesaEntity m WHERE m.numero = :numero AND m.localId = :localId")
+    boolean existsByNumeroAndLocalId(@Param("numero") int numero, @Param("localId") UUID localId);
+
+    /**
+     * Cuenta cuántas mesas tiene un local específico.
+     *
+     * @param localId UUID del local
+     * @return cantidad de mesas
+     */
+    @Query("SELECT COUNT(m) FROM MesaEntity m WHERE m.localId = :localId")
+    long countByLocalId(@Param("localId") UUID localId);
 }

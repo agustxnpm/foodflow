@@ -1,6 +1,7 @@
 package com.agustinpalma.comandas.infrastructure.persistence;
 
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
+import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
@@ -41,5 +42,11 @@ public class PedidoRepositoryImpl implements PedidoRepository {
         return springDataRepository
             .findByMesaIdAndEstado(mesaId.getValue(), estado)
             .map(mapper::toDomain);
+    }
+
+    @Override
+    public int obtenerSiguienteNumero(LocalId localId) {
+        int maxNumero = springDataRepository.findMaxNumeroByLocalId(localId.getValue());
+        return maxNumero + 1;
     }
 }

@@ -3,6 +3,8 @@ package com.agustinpalma.comandas.infrastructure.config;
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
+import com.agustinpalma.comandas.application.usecase.CrearMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import org.springframework.context.annotation.Bean;
@@ -52,6 +54,30 @@ public class ApplicationConfig {
     @Bean
     public CerrarMesaUseCase cerrarMesaUseCase(MesaRepository mesaRepository, PedidoRepository pedidoRepository) {
         return new CerrarMesaUseCase(mesaRepository, pedidoRepository);
+    }
+
+    /**
+     * Bean del caso de uso para crear mesa.
+     * Spring inyectará automáticamente la implementación JPA del repositorio.
+     *
+     * @param mesaRepository implementación del repositorio de mesas
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public CrearMesaUseCase crearMesaUseCase(MesaRepository mesaRepository) {
+        return new CrearMesaUseCase(mesaRepository);
+    }
+
+    /**
+     * Bean del caso de uso para eliminar mesa.
+     * Spring inyectará automáticamente la implementación JPA del repositorio.
+     *
+     * @param mesaRepository implementación del repositorio de mesas
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public EliminarMesaUseCase eliminarMesaUseCase(MesaRepository mesaRepository) {
+        return new EliminarMesaUseCase(mesaRepository);
     }
 }
 

@@ -29,4 +29,14 @@ public interface SpringDataPedidoRepository extends JpaRepository<PedidoEntity, 
         @Param("mesaId") UUID mesaId, 
         @Param("estado") EstadoPedido estado
     );
+
+    /**
+     * Obtiene el número máximo de pedido para un local específico.
+     * Se usa para calcular el siguiente número secuencial.
+     *
+     * @param localId UUID del local
+     * @return el número máximo encontrado, o 0 si no hay pedidos
+     */
+    @Query("SELECT COALESCE(MAX(p.numero), 0) FROM PedidoEntity p WHERE p.localId = :localId")
+    int findMaxNumeroByLocalId(@Param("localId") UUID localId);
 }

@@ -172,6 +172,7 @@ class CerrarMesaUseCaseTest {
             pedidoIdValido,
             localIdValido,
             mesaIdValida,
+            1,
             EstadoPedido.ABIERTO,
             LocalDateTime.now()
         );
@@ -311,7 +312,7 @@ class CerrarMesaUseCaseTest {
      * ya que no existe un método público agregarItem() aún.
      */
     private Pedido crearPedidoConItems(PedidoId id, LocalId localId, MesaId mesaId) {
-        Pedido pedido = new Pedido(id, localId, mesaId, EstadoPedido.ABIERTO, LocalDateTime.now());
+        Pedido pedido = new Pedido(id, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
         
 
         // TODO: Agregar ítems reales cuando exista el método agregarItem() en Pedido

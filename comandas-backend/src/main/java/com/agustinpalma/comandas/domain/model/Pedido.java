@@ -17,6 +17,7 @@ public class Pedido {
     private final PedidoId id;
     private final LocalId localId;
     private final MesaId mesaId;
+    private final int numero;  // Número secuencial legible por humanos, único por local
     private EstadoPedido estado;
     private final LocalDateTime fechaApertura;
     private LocalDateTime fechaCierre;
@@ -24,14 +25,22 @@ public class Pedido {
     private final List<ItemPedido> items;
     private final List<DescuentoAplicado> descuentos;
 
-    public Pedido(PedidoId id, LocalId localId, MesaId mesaId, EstadoPedido estado, LocalDateTime fechaApertura) {
+    public Pedido(PedidoId id, LocalId localId, MesaId mesaId, int numero, EstadoPedido estado, LocalDateTime fechaApertura) {
         this.id = Objects.requireNonNull(id, "El id del pedido no puede ser null");
         this.localId = Objects.requireNonNull(localId, "El localId no puede ser null");
         this.mesaId = Objects.requireNonNull(mesaId, "El mesaId no puede ser null");
+        this.numero = validarNumero(numero);
         this.estado = Objects.requireNonNull(estado, "El estado del pedido no puede ser null");
         this.fechaApertura = Objects.requireNonNull(fechaApertura, "La fecha de apertura no puede ser null");
         this.items = new ArrayList<>();
         this.descuentos = new ArrayList<>();
+    }
+
+    private int validarNumero(int numero) {
+        if (numero <= 0) {
+            throw new IllegalArgumentException("El número de pedido debe ser mayor a 0");
+        }
+        return numero;
     }
 
     public PedidoId getId() {
@@ -44,6 +53,10 @@ public class Pedido {
 
     public MesaId getMesaId() {
         return mesaId;
+    }
+
+    public int getNumero() {
+        return numero;
     }
 
     public EstadoPedido getEstado() {

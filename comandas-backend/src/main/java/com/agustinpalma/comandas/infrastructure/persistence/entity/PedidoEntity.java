@@ -26,6 +26,9 @@ public class PedidoEntity {
     @Column(name = "mesa_id", nullable = false)
     private UUID mesaId;
 
+    @Column(name = "numero", nullable = false)
+    private int numero;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 20)
     private EstadoPedido estado;
@@ -44,10 +47,11 @@ public class PedidoEntity {
     protected PedidoEntity() {
     }
 
-    public PedidoEntity(UUID id, UUID localId, UUID mesaId, EstadoPedido estado, LocalDateTime fechaApertura) {
+    public PedidoEntity(UUID id, UUID localId, UUID mesaId, int numero, EstadoPedido estado, LocalDateTime fechaApertura) {
         this.id = id;
         this.localId = localId;
         this.mesaId = mesaId;
+        this.numero = numero;
         this.estado = estado;
         this.fechaApertura = fechaApertura;
     }
@@ -75,6 +79,14 @@ public class PedidoEntity {
 
     public void setMesaId(UUID mesaId) {
         this.mesaId = mesaId;
+    }
+
+    public int getNumero() {
+        return numero;
+    }
+
+    public void setNumero(int numero) {
+        this.numero = numero;
     }
 
     public EstadoPedido getEstado() {
