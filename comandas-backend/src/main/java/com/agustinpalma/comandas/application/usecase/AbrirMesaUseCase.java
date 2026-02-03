@@ -10,7 +10,6 @@ import com.agustinpalma.comandas.domain.model.Mesa;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
-import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -27,7 +26,6 @@ import java.util.UUID;
  * 4. Una mesa solo puede tener un único pedido ABIERTO a la vez
  * 5. El pedido queda vinculado inmutablemente a MesaId y LocalId
  */
-@Service
 public class AbrirMesaUseCase {
 
     private final MesaRepository mesaRepository;
