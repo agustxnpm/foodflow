@@ -3,6 +3,7 @@ package com.agustinpalma.comandas.infrastructure.persistence;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
+import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.infrastructure.mapper.PedidoMapper;
@@ -35,6 +36,13 @@ public class PedidoRepositoryImpl implements PedidoRepository {
         var entity = mapper.toEntity(pedido);
         var guardado = springDataRepository.save(entity);
         return mapper.toDomain(guardado);
+    }
+
+    @Override
+    public Optional<Pedido> buscarPorId(PedidoId id) {
+        return springDataRepository
+            .findById(id.getValue())
+            .map(mapper::toDomain);
     }
 
     @Override

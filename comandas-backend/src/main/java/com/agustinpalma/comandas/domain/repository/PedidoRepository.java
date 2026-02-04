@@ -3,6 +3,7 @@ package com.agustinpalma.comandas.domain.repository;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
+import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
 import java.util.Optional;
 
@@ -20,6 +21,14 @@ public interface PedidoRepository {
      * @return el pedido guardado
      */
     Pedido guardar(Pedido pedido);
+
+    /**
+     * Busca un pedido por su identificador.
+     *
+     * @param id identificador del pedido
+     * @return Optional con el pedido si existe, vacío en caso contrario
+     */
+    Optional<Pedido> buscarPorId(PedidoId id);
 
     /**
      * Obtiene el siguiente número de pedido disponible para un local.

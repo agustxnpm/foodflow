@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.domain.model;
 
 import com.agustinpalma.comandas.domain.model.DomainIds.*;
 import com.agustinpalma.comandas.domain.model.DomainEnums.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -81,6 +82,70 @@ public class Pedido {
 
     public List<DescuentoAplicado> getDescuentos() {
         return Collections.unmodifiableList(descuentos);
+    }
+
+    /**
+     * Agrega un producto al pedido con la lógica de Snapshot.
+     *      * 
+     * AC1 - Gestión de ítems: Permite agregar el mismo producto múltiples veces.
+     * AC2 - Personalización: Soporta cantidad y observaciones.
+     * AC3 - Inmutabilidad de Precios (Snapshot): Captura el precio actual del producto.
+     * AC4 - Validación de Estado: Solo permite agregar a pedidos ABIERTOS.
+     * AC5 - Aislamiento Multi-tenant: Valida que producto y pedido pertenezcan al mismo local.
+     * 
+     * @param producto el producto del catálogo a agregar
+     * @param cantidad cantidad de unidades (debe ser > 0)
+     * @param observaciones notas adicionales (ej: "sin cebolla"), puede ser null
+     * @throws IllegalStateException si el pedido NO está en estado ABIERTO
+     * @throws IllegalArgumentException si el producto no pertenece al mismo local
+     * @throws IllegalArgumentException si la cantidad es <= 0
+     */
+    public void agregarProducto(Producto producto, int cantidad, String observaciones) {
+        Objects.requireNonNull(producto, "El producto no puede ser null");
+        
+        // AC4 - Validación de Estado
+        if (this.estado != EstadoPedido.ABIERTO) {
+            throw new IllegalStateException(
+                String.format("No se puede agregar productos a un pedido en estado %s. Solo se permiten modificaciones en estado ABIERTO.", 
+                    this.estado)
+            );
+        }
+        
+        // AC5 - Aislamiento Multi-tenant
+        if (!this.localId.equals(producto.getLocalId())) {
+            throw new IllegalArgumentException(
+                String.format("El producto (local: %s) no pertenece al mismo local que el pedido (local: %s)", 
+                    producto.getLocalId().getValue(), 
+                    this.localId.getValue())
+            );
+        }
+        
+        // AC3 - Patrón Snapshot: Crear ítem capturando precio y nombre actuales
+        ItemPedido nuevoItem = ItemPedido.crearDesdeProducto(
+            ItemPedidoId.generate(),
+            this.id,
+            producto,
+            cantidad,
+            observaciones
+        );
+        
+        // AC1 - Permitir múltiples líneas del mismo producto
+        this.items.add(nuevoItem);
+    }
+
+    /**
+     * Calcula el subtotal del pedido sumando los subtotales de todos los ítems.
+     * Este cálculo NO incluye descuentos.
+     * 
+     * Regla de Oro del Dominio:
+     * "El total del pedido se calcula a partir de los ítems base + descuentos acumulables"
+     * 
+     * @return el subtotal antes de aplicar descuentos
+     */
+    public BigDecimal calcularSubtotalItems() {
+        return items.stream()
+            .map(ItemPedido::calcularSubtotal)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
 
