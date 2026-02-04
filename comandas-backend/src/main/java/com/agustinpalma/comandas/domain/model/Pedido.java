@@ -80,6 +80,19 @@ public class Pedido {
         return Collections.unmodifiableList(items);
     }
 
+    /**
+     * Método público SOLO para reconstrucción desde persistencia.
+     * 
+     * ADVERTENCIA: Este método NO ejecuta validaciones de negocio.
+     * Solo debe ser usado por la capa de infraestructura (mappers) al hidratar el aggregate desde BD.
+     * Para agregar items con lógica de negocio, usar agregarProducto() en su lugar.
+     * 
+     * @param item el item a agregar directamente (sin validaciones)
+     */
+    public void agregarItemDesdePersistencia(ItemPedido item) {
+        this.items.add(item);
+    }
+
     public List<DescuentoAplicado> getDescuentos() {
         return Collections.unmodifiableList(descuentos);
     }

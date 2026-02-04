@@ -1,0 +1,58 @@
+package com.agustinpalma.comandas.infrastructure.mapper;
+
+import com.agustinpalma.comandas.domain.model.DomainIds.*;
+import com.agustinpalma.comandas.domain.model.ItemPedido;
+import com.agustinpalma.comandas.infrastructure.persistence.entity.ItemPedidoEntity;
+import org.springframework.stereotype.Component;
+
+/**
+ * Mapper entre la entidad de dominio ItemPedido y la entidad JPA ItemPedidoEntity.
+ * Actúa como anti-corruption layer, protegiendo el dominio de detalles de persistencia.
+ */
+@Component
+public class ItemPedidoMapper {
+
+    /**
+     * Convierte de entidad JPA a entidad de dominio.
+     *
+     * @param entity entidad JPA
+     * @return entidad de dominio reconstruida
+     */
+    public ItemPedido toDomain(ItemPedidoEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        return new ItemPedido(
+            new ItemPedidoId(entity.getId()),
+            new PedidoId(entity.getPedidoId()),
+            new ProductoId(entity.getProductoId()),
+            entity.getNombreProducto(),
+            entity.getCantidad(),
+            entity.getPrecioUnitario(),
+            entity.getObservacion()
+        );
+    }
+
+    /**
+     * Convierte de entidad de dominio a entidad JPA.
+     *
+     * @param domain entidad de dominio
+     * @return entidad JPA para persistencia
+     */
+    public ItemPedidoEntity toEntity(ItemPedido domain) {
+        if (domain == null) {
+            return null;
+        }
+
+        return new ItemPedidoEntity(
+            domain.getId().getValue(),
+            domain.getPedidoId().getValue(),
+            domain.getProductoId().getValue(),
+            domain.getNombreProducto(),
+            domain.getCantidad(),
+            domain.getPrecioUnitario(),
+            domain.getObservacion()
+        );
+    }
+}

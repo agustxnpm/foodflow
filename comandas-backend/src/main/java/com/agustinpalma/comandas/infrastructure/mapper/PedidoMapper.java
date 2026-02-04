@@ -3,9 +3,14 @@ package com.agustinpalma.comandas.infrastructure.mapper;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
+import com.agustinpalma.comandas.domain.model.ItemPedido;
 import com.agustinpalma.comandas.domain.model.Pedido;
+import com.agustinpalma.comandas.infrastructure.persistence.entity.ItemPedidoEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PedidoEntity;
+import com.agustinpalma.comandas.infrastructure.persistence.jpa.SpringDataItemPedidoRepository;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 /**
  * Mapper entre entidades de dominio Pedido y entidades JPA PedidoEntity.
@@ -13,6 +18,14 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class PedidoMapper {
+
+    private final ItemPedidoMapper itemPedidoMapper;
+    private final SpringDataItemPedidoRepository itemPedidoRepository;
+
+    public PedidoMapper(ItemPedidoMapper itemPedidoMapper, SpringDataItemPedidoRepository itemPedidoRepository) {
+        this.itemPedidoMapper = itemPedidoMapper;
+        this.itemPedidoRepository = itemPedidoRepository;
+    }
 
     /**
      * Convierte de entidad JPA a entidad de dominio.
@@ -26,8 +39,7 @@ public class PedidoMapper {
         }
 
         // Reconstruimos el pedido con sus datos base
-        // Los items y descuentos se cargarán desde sus propios repositorios/mappers cuando sea necesario
-        return new Pedido(
+        Pedido pedido = new Pedido(
             new PedidoId(entity.getId()),
             new LocalId(entity.getLocalId()),
             new MesaId(entity.getMesaId()),
@@ -35,6 +47,16 @@ public class PedidoMapper {
             entity.getEstado(),
             entity.getFechaApertura()
         );
+
+        // Cargar items del pedido desde la base de datos
+        List<ItemPedidoEntity> itemsEntities = itemPedidoRepository.findByPedidoId(entity.getId());
+        for (ItemPedidoEntity itemEntity : itemsEntities) {
+            ItemPedido item = itemPedidoMapper.toDomain(itemEntity);
+            // Usar método package-private para reconstrucción desde persistencia
+            pedido.agregarItemDesdePersistencia(item);
+        }
+
+        return pedido;
     }
 
     /**
@@ -59,6 +81,14 @@ public class PedidoMapper {
 
         entity.setFechaCierre(pedido.getFechaCierre());
         entity.setMedioPago(pedido.getMedioPago());
+
+        // Persistir items del pedido
+        // IMPORTANTE: Los items se persisten por separado en el repositorio
+        // Aquí solo convertimos la entidad principal
+        for (ItemPedido item : pedido.getItems()) {
+            ItemPedidoEntity itemEntity = itemPedidoMapper.toEntity(item);
+            itemPedidoRepository.save(itemEntity);
+        }
 
         return entity;
     }
