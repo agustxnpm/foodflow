@@ -3,6 +3,7 @@ package com.agustinpalma.comandas.infrastructure.config;
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
@@ -93,6 +94,22 @@ public class ApplicationConfig {
     @Bean
     public AgregarProductoUseCase agregarProductoUseCase(PedidoRepository pedidoRepository, ProductoRepository productoRepository) {
         return new AgregarProductoUseCase(pedidoRepository, productoRepository);
+    }
+
+    /**
+     * Bean del caso de uso para consultar detalle de pedido.
+     * Spring inyectará automáticamente las implementaciones JPA de los repositorios.
+     *
+     * @param mesaRepository implementación del repositorio de mesas
+     * @param pedidoRepository implementación del repositorio de pedidos
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase(
+        MesaRepository mesaRepository, 
+        PedidoRepository pedidoRepository
+    ) {
+        return new ConsultarDetallePedidoUseCase(mesaRepository, pedidoRepository);
     }
 }
 

@@ -161,6 +161,31 @@ public class Pedido {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /**
+     * Calcula el total final del pedido aplicando descuentos sobre el subtotal.
+     * 
+     * Regla de Oro del Dominio:
+     * "El total del pedido se calcula a partir de los ítems base + descuentos acumulables"
+     * 
+     * Actualmente (sin implementación de descuentos), este método retorna
+     * el mismo valor que calcularSubtotalItems(). Cuando se implementen descuentos,
+     * este método restará los descuentos acumulados al subtotal.
+     * 
+     * @return el total final del pedido (subtotal - descuentos)
+     */
+    public BigDecimal calcularTotal() {
+        BigDecimal subtotal = calcularSubtotalItems();
+        
+        // MVP: Sin descuentos implementados aún
+        // Cuando se agreguen descuentos, aquí se aplicarían:
+        // BigDecimal totalDescuentos = descuentos.stream()
+        //     .map(DescuentoAplicado::getMonto)
+        //     .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // return subtotal.subtract(totalDescuentos);
+        
+        return subtotal;
+    }
+
 
     /**
      * Finaliza el pedido registrando el medio de pago y la fecha de cierre.

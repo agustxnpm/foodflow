@@ -3,8 +3,10 @@ package com.agustinpalma.comandas.presentation.rest;
 import com.agustinpalma.comandas.application.dto.AbrirMesaRequest;
 import com.agustinpalma.comandas.application.dto.AbrirMesaResponse;
 import com.agustinpalma.comandas.application.dto.CrearMesaRequest;
+import com.agustinpalma.comandas.application.dto.DetallePedidoResponse;
 import com.agustinpalma.comandas.application.dto.MesaResponse;
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
@@ -30,17 +32,20 @@ public class MesaController {
     private final AbrirMesaUseCase abrirMesaUseCase;
     private final CrearMesaUseCase crearMesaUseCase;
     private final EliminarMesaUseCase eliminarMesaUseCase;
+    private final ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase;
 
     public MesaController(
         ConsultarMesasUseCase consultarMesasUseCase,
         AbrirMesaUseCase abrirMesaUseCase,
         CrearMesaUseCase crearMesaUseCase,
-        EliminarMesaUseCase eliminarMesaUseCase
+        EliminarMesaUseCase eliminarMesaUseCase,
+        ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase
     ) {
         this.consultarMesasUseCase = consultarMesasUseCase;
         this.abrirMesaUseCase = abrirMesaUseCase;
         this.crearMesaUseCase = crearMesaUseCase;
         this.eliminarMesaUseCase = eliminarMesaUseCase;
+        this.consultarDetallePedidoUseCase = consultarDetallePedidoUseCase;
     }
 
     /**
@@ -137,6 +142,33 @@ public class MesaController {
         eliminarMesaUseCase.ejecutar(localIdSimulado, id);
 
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Consulta el detalle del pedido activo de una mesa específica.
+     *
+     * GET /api/mesas/{mesaId}/pedido-actual
+     *
+     * HU-06: Ver pedido de una mesa
+     *
+     * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
+     *       Por ahora se usa un localId hardcodeado para permitir testing del endpoint.
+     * TODO: Implementar manejo de excepciones con @ControllerAdvice para capturar:
+     *       - IllegalStateException (mesa no existe o está libre) -> 404 Not Found
+     *       - IllegalArgumentException (mesa de otro local) -> 403 Forbidden
+     *
+     * @param mesaId ID de la mesa cuyo pedido se desea consultar
+     * @return detalle completo del pedido activo (ítems, totales, contexto)
+     */
+    @GetMapping("/{mesaId}/pedido-actual")
+    public ResponseEntity<DetallePedidoResponse> consultarPedidoActual(@PathVariable String mesaId) {
+        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
+        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+
+        MesaId id = MesaId.from(mesaId);
+        DetallePedidoResponse detalle = consultarDetallePedidoUseCase.ejecutar(localIdSimulado, id);
+
+        return ResponseEntity.ok(detalle);
     }
 }
 

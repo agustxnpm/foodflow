@@ -1,0 +1,47 @@
+package com.agustinpalma.comandas.application.dto;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+/**
+ * DTO de respuesta para la consulta de detalle de un pedido.
+ * 
+ */
+public record DetallePedidoResponse(
+    String pedidoId,
+    int numeroPedido,
+    int numeroMesa,
+    String estado,
+    LocalDateTime fechaApertura,
+    List<ItemDetalleDTO> items,
+    BigDecimal totalParcial
+) {
+    /**
+     * Valida que los campos obligatorios no sean nulos.
+     * Se ejecuta automáticamente por el compilador en el constructor canónico.
+     */
+    public DetallePedidoResponse {
+        if (pedidoId == null || pedidoId.isBlank()) {
+            throw new IllegalArgumentException("El pedidoId no puede ser nulo o vacío");
+        }
+        if (numeroPedido <= 0) {
+            throw new IllegalArgumentException("El número de pedido debe ser mayor a cero");
+        }
+        if (numeroMesa <= 0) {
+            throw new IllegalArgumentException("El número de mesa debe ser mayor a cero");
+        }
+        if (estado == null || estado.isBlank()) {
+            throw new IllegalArgumentException("El estado no puede ser nulo o vacío");
+        }
+        if (fechaApertura == null) {
+            throw new IllegalArgumentException("La fecha de apertura no puede ser nula");
+        }
+        if (items == null) {
+            throw new IllegalArgumentException("La lista de ítems no puede ser nula");
+        }
+        if (totalParcial == null || totalParcial.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El total parcial no puede ser nulo ni negativo");
+        }
+    }
+}
