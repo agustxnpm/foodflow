@@ -9,6 +9,7 @@ import com.agustinpalma.comandas.infrastructure.persistence.jpa.SpringDataProduc
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -49,5 +50,41 @@ public class ProductoRepositoryImpl implements ProductoRepository {
             .findById(id.getValue())
             .filter(entity -> entity.getLocalId().equals(localId.getValue()))
             .map(mapper::toDomain);
+    }
+
+    @Override
+    public boolean existePorNombreYLocal(String nombre, LocalId localId) {
+        return springDataRepository.existsByLocalIdAndNombreIgnoreCase(localId.getValue(), nombre);
+    }
+
+    @Override
+    public boolean existePorNombreYLocalExcluyendo(String nombre, LocalId localId, ProductoId productoIdExcluido) {
+        return springDataRepository.existsByLocalIdAndNombreIgnoreCaseAndIdNot(
+            localId.getValue(), 
+            nombre, 
+            productoIdExcluido.getValue()
+        );
+    }
+
+    @Override
+    public List<Producto> buscarPorLocal(LocalId localId) {
+        return springDataRepository.findByLocalId(localId.getValue())
+            .stream()
+            .map(mapper::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<Producto> buscarPorLocalYColor(LocalId localId, String colorHex) {
+        return springDataRepository.findByLocalIdAndColorHex(localId.getValue(), colorHex)
+            .stream()
+            .map(mapper::toDomain)
+            .toList();
+    }
+
+    @Override
+    @Transactional
+    public void eliminar(ProductoId id) {
+        springDataRepository.deleteById(id.getValue());
     }
 }

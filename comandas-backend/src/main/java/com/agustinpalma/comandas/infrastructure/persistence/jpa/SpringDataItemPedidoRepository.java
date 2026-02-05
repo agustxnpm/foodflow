@@ -18,10 +18,11 @@ public interface SpringDataItemPedidoRepository extends JpaRepository<ItemPedido
 
     /**
      * Busca todos los items de un pedido específico.
+     * Usa la relación ManyToOne para filtrar por el ID del pedido.
      *
      * @param pedidoId UUID del pedido
      * @return lista de items del pedido
      */
-    @Query("SELECT i FROM ItemPedidoEntity i WHERE i.pedidoId = :pedidoId")
+    @Query("SELECT i FROM ItemPedidoEntity i WHERE i.pedido.id = :pedidoId")
     List<ItemPedidoEntity> findByPedidoId(@Param("pedidoId") UUID pedidoId);
 }

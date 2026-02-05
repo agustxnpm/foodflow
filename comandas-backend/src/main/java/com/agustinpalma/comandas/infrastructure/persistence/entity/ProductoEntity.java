@@ -28,16 +28,20 @@ public class ProductoEntity {
     @Column(name = "activo", nullable = false)
     private boolean activo;
 
+    @Column(name = "color_hex", length = 7)
+    private String colorHex;
+
     // Constructor vacío para JPA
     public ProductoEntity() {}
 
     // Constructor con parámetros
-    public ProductoEntity(UUID id, UUID localId, String nombre, BigDecimal precio, boolean activo) {
+    public ProductoEntity(UUID id, UUID localId, String nombre, BigDecimal precio, boolean activo, String colorHex) {
         this.id = id;
         this.localId = localId;
         this.nombre = nombre;
         this.precio = precio;
         this.activo = activo;
+        this.colorHex = colorHex;
     }
 
     // Getters y setters
@@ -79,5 +83,13 @@ public class ProductoEntity {
 
     public void setActivo(boolean activo) {
         this.activo = activo;
+    }
+
+    public String getColorHex() {
+        return colorHex;
+    }
+
+    public void setColorHex(String colorHex) {
+        this.colorHex = colorHex;
     }
 }

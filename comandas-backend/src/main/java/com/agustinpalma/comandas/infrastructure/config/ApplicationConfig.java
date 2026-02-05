@@ -5,8 +5,12 @@ import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
+import com.agustinpalma.comandas.application.usecase.ConsultarProductosUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.CrearProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
@@ -110,6 +114,54 @@ public class ApplicationConfig {
         PedidoRepository pedidoRepository
     ) {
         return new ConsultarDetallePedidoUseCase(mesaRepository, pedidoRepository);
+    }
+
+    /**
+     * Bean del caso de uso para consultar productos.
+     * Spring inyectará automáticamente la implementación JPA del repositorio.
+     *
+     * @param productoRepository implementación del repositorio de productos
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public ConsultarProductosUseCase consultarProductosUseCase(ProductoRepository productoRepository) {
+        return new ConsultarProductosUseCase(productoRepository);
+    }
+
+    /**
+     * Bean del caso de uso para crear producto.
+     * Spring inyectará automáticamente la implementación JPA del repositorio.
+     *
+     * @param productoRepository implementación del repositorio de productos
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public CrearProductoUseCase crearProductoUseCase(ProductoRepository productoRepository) {
+        return new CrearProductoUseCase(productoRepository);
+    }
+
+    /**
+     * Bean del caso de uso para editar producto.
+     * Spring inyectará automáticamente la implementación JPA del repositorio.
+     *
+     * @param productoRepository implementación del repositorio de productos
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public EditarProductoUseCase editarProductoUseCase(ProductoRepository productoRepository) {
+        return new EditarProductoUseCase(productoRepository);
+    }
+
+    /**
+     * Bean del caso de uso para eliminar producto.
+     * Spring inyectará automáticamente la implementación JPA del repositorio.
+     *
+     * @param productoRepository implementación del repositorio de productos
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public EliminarProductoUseCase eliminarProductoUseCase(ProductoRepository productoRepository) {
+        return new EliminarProductoUseCase(productoRepository);
     }
 }
 

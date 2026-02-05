@@ -62,7 +62,8 @@ class PedidoRepositoryIntegrationTest {
             localId,
             "Milanesa con papas",
             new BigDecimal("3500.00"),
-            true
+            true,
+            "#FF5500"
         );
 
         productoCerveza = new Producto(
@@ -70,7 +71,8 @@ class PedidoRepositoryIntegrationTest {
             localId,
             "Cerveza artesanal",
             new BigDecimal("1200.00"),
-            true
+            true,
+            "#FFD700"
         );
 
         // Guardar productos en la BD
@@ -280,7 +282,8 @@ class PedidoRepositoryIntegrationTest {
             local1,
             "Producto Local 1",
             new BigDecimal("1000.00"),
-            true
+            true,
+            "#AA0000"
         );
         
         Producto productoLocal2 = new Producto(
@@ -288,7 +291,8 @@ class PedidoRepositoryIntegrationTest {
             local2,
             "Producto Local 2",
             new BigDecimal("2000.00"),
-            true
+            true,
+            "#00AA00"
         );
         
         productoRepository.guardar(productoLocal1);

@@ -62,7 +62,7 @@ class AgregarProductoUseCaseTest {
     @DisplayName("AC3 - Snapshot de Precio: El ítem debe guardar el precio actual del producto")
     void deberia_capturar_precio_del_producto_al_momento_de_agregar() {
         // Given: Un producto con precio $100
-        Producto producto = new Producto(productoId, localId, "Hamburguesa", new BigDecimal("100.00"), true);
+        Producto producto = new Producto(productoId, localId, "Hamburguesa", new BigDecimal("100.00"), true, "#FF0000");
         Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
@@ -95,7 +95,7 @@ class AgregarProductoUseCaseTest {
     @DisplayName("AC3 - Inmutabilidad: Cambios posteriores en el catálogo NO afectan ítems históricos")
     void cambios_en_precio_del_producto_no_deben_afectar_items_existentes() {
         // Given: Un producto con precio inicial $100
-        Producto producto = new Producto(productoId, localId, "Pizza", new BigDecimal("100.00"), true);
+        Producto producto = new Producto(productoId, localId, "Pizza", new BigDecimal("100.00"), true, "#00FF00");
         Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
@@ -131,7 +131,7 @@ class AgregarProductoUseCaseTest {
         LocalId localB = new LocalId(UUID.randomUUID());
         
         Pedido pedidoLocalA = new Pedido(pedidoId, localA, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
-        Producto productoLocalB = new Producto(productoId, localB, "Producto Ajeno", new BigDecimal("50.00"), true);
+        Producto productoLocalB = new Producto(productoId, localB, "Producto Ajeno", new BigDecimal("50.00"), true, "#0000FF");
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedidoLocalA));
         when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(productoLocalB));
@@ -153,7 +153,7 @@ class AgregarProductoUseCaseTest {
     @DisplayName("AC4 - Estado del Pedido: Solo permite agregar a pedidos ABIERTOS")
     void deberia_rechazar_agregar_a_pedido_cerrado() {
         // Given: Un pedido en estado ABIERTO que cerraremos
-        Producto producto = new Producto(productoId, localId, "Café", new BigDecimal("30.00"), true);
+        Producto producto = new Producto(productoId, localId, "Café", new BigDecimal("30.00"), true, "#FFFF00");
         Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
         
         // Agregamos un ítem primero para poder cerrarlo
@@ -184,7 +184,7 @@ class AgregarProductoUseCaseTest {
     @DisplayName("AC1 - Acumulación: Permite agregar el mismo producto múltiples veces")
     void deberia_permitir_agregar_mismo_producto_multiples_veces() {
         // Given: Un producto y un pedido abierto
-        Producto producto = new Producto(productoId, localId, "Empanada", new BigDecimal("25.00"), true);
+        Producto producto = new Producto(productoId, localId, "Empanada", new BigDecimal("25.00"), true, "#FF00FF");
         Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
@@ -254,7 +254,7 @@ class AgregarProductoUseCaseTest {
     @DisplayName("AC2 - Personalización: Debe soportar cantidad y observaciones")
     void deberia_soportar_personalizacion_de_cantidad_y_observaciones() {
         // Given: Un producto y un pedido
-        Producto producto = new Producto(productoId, localId, "Milanesa", new BigDecimal("150.00"), true);
+        Producto producto = new Producto(productoId, localId, "Milanesa", new BigDecimal("150.00"), true, "#00FFFF");
         Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));

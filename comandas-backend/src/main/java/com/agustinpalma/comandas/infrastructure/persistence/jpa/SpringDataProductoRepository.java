@@ -4,6 +4,7 @@ import com.agustinpalma.comandas.infrastructure.persistence.entity.ProductoEntit
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,4 +22,42 @@ public interface SpringDataProductoRepository extends JpaRepository<ProductoEnti
      * @return Optional con el producto si existe
      */
     Optional<ProductoEntity> findById(UUID id);
+
+    /**
+     * Verifica si existe un producto con el nombre dado en el local especificado.
+     * La comparación es case-insensitive para garantizar unicidad.
+     *
+     * @param localId UUID del local
+     * @param nombre nombre del producto
+     * @return true si existe, false en caso contrario
+     */
+    boolean existsByLocalIdAndNombreIgnoreCase(UUID localId, String nombre);
+
+    /**
+     * Verifica si existe un producto con el nombre dado en el local,
+     * excluyendo un producto específico.
+     *
+     * @param localId UUID del local
+     * @param nombre nombre del producto
+     * @param productoId UUID del producto a excluir
+     * @return true si existe otro producto con ese nombre, false en caso contrario
+     */
+    boolean existsByLocalIdAndNombreIgnoreCaseAndIdNot(UUID localId, String nombre, UUID productoId);
+
+    /**
+     * Busca todos los productos de un local.
+     *
+     * @param localId UUID del local
+     * @return lista de productos (puede estar vacía)
+     */
+    List<ProductoEntity> findByLocalId(UUID localId);
+
+    /**
+     * Busca productos de un local filtrados por color hexadecimal.
+     *
+     * @param localId UUID del local
+     * @param colorHex código hexadecimal del color
+     * @return lista de productos que coinciden (puede estar vacía)
+     */
+    List<ProductoEntity> findByLocalIdAndColorHex(UUID localId, String colorHex);
 }

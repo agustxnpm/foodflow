@@ -25,7 +25,8 @@ public class ProductoMapper {
             new LocalId(entity.getLocalId()),
             entity.getNombre(),
             entity.getPrecio(),
-            entity.isActivo()
+            entity.isActivo(),
+            entity.getColorHex()
         );
     }
 
@@ -41,7 +42,8 @@ public class ProductoMapper {
             domain.getLocalId().getValue(),
             domain.getNombre(),
             domain.getPrecio(),
-            domain.isActivo()
+            domain.isActivo(),
+            domain.getColorHex()
         );
     }
 }
