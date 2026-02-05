@@ -36,6 +36,9 @@ public class ItemPedidoMapper {
 
     /**
      * Convierte de entidad de dominio a entidad JPA.
+     * 
+     * No establece la relación con PedidoEntity aquí.
+     * Eso se hace en PedidoMapper.toEntity() usando el método agregarItem().
      *
      * @param domain entidad de dominio
      * @return entidad JPA para persistencia
@@ -47,7 +50,6 @@ public class ItemPedidoMapper {
 
         return new ItemPedidoEntity(
             domain.getId().getValue(),
-            domain.getPedidoId().getValue(),
             domain.getProductoId().getValue(),
             domain.getNombreProducto(),
             domain.getCantidad(),

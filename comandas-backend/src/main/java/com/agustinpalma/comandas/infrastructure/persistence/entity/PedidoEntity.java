@@ -5,15 +5,23 @@ import com.agustinpalma.comandas.domain.model.DomainEnums.MedioPago;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * Entidad JPA para Pedido.
  * Representa la tabla de base de datos, NO el modelo de dominio.
  * Las anotaciones de JPA viven aquí, no en el dominio.
+ * 
+ * HU-07: Incluye relación @OneToMany con ItemPedidoEntity
+ * usando cascade y orphanRemoval para persistencia atómica.
  */
 @Entity
-@Table(name = "pedidos")
+@Table(name = "pedidos", indexes = {
+    @Index(name = "idx_pedido_mesa_estado", columnList = "mesa_id, estado"),
+    @Index(name = "idx_pedido_local_numero", columnList = "local_id, numero")
+})
 public class PedidoEntity {
 
     @Id
@@ -42,6 +50,22 @@ public class PedidoEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "medio_pago", length = 20)
     private MedioPago medioPago;
+
+    /**
+     * HU-07: Relación bidireccional con ítems del pedido.
+     * 
+     * CASCADE.ALL: Al guardar el pedido, automáticamente se guardan/actualizan sus ítems.
+     * orphanRemoval = true: Si un ítem se elimina de la lista, se borra de la BD.
+     * 
+     * Esta configuración garantiza atomicidad en las operaciones de persistencia.
+     */
+    @OneToMany(
+        mappedBy = "pedido",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true,
+        fetch = FetchType.LAZY
+    )
+    private List<ItemPedidoEntity> items = new ArrayList<>();
 
     // Constructor vacío requerido por JPA
     protected PedidoEntity() {
@@ -119,5 +143,31 @@ public class PedidoEntity {
 
     public void setMedioPago(MedioPago medioPago) {
         this.medioPago = medioPago;
+    }
+
+    public List<ItemPedidoEntity> getItems() {
+        return items;
+    }
+
+    /**
+     * HU-07: Método helper para agregar un ítem manteniendo la sincronización bidireccional.
+     * Establece automáticamente la referencia inversa del ítem al pedido.
+     * 
+     * @param item el ítem a agregar
+     */
+    public void agregarItem(ItemPedidoEntity item) {
+        items.add(item);
+        item.setPedido(this);
+    }
+
+    /**
+     * HU-07: Método helper para eliminar un ítem manteniendo la sincronización bidireccional.
+     * Limpia la referencia inversa del ítem al pedido.
+     * 
+     * @param item el ítem a eliminar
+     */
+    public void eliminarItem(ItemPedidoEntity item) {
+        items.remove(item);
+        item.setPedido(null);
     }
 }

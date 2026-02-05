@@ -78,8 +78,8 @@ public class ConsultarDetallePedidoUseCase {
             throw new IllegalStateException("La mesa no tiene un pedido activo");
         }
 
-        // 4. Buscar el pedido abierto de la mesa
-        Pedido pedido = pedidoRepository.buscarAbiertoPorMesa(mesaId)
+        // 4. Buscar el pedido abierto de la mesa (con aislamiento multi-tenant)
+        Pedido pedido = pedidoRepository.buscarAbiertoPorMesa(mesaId, localId)
             .orElseThrow(() -> new IllegalStateException(
                 "La mesa está marcada como ABIERTA pero no tiene un pedido activo. Inconsistencia de datos."
             ));

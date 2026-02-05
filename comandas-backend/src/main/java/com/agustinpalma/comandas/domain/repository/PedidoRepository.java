@@ -50,14 +50,15 @@ public interface PedidoRepository {
     Optional<Pedido> buscarPorMesaYEstado(MesaId mesaId, EstadoPedido estado);
 
     /**
-     * Busca el pedido actualmente abierto para una mesa.
-     * Es un caso particular de buscarPorMesaYEstado, usado frecuentemente
-     * en operaciones que requieren el pedido activo.
+     * Busca el pedido actualmente abierto para una mesa específica dentro de un local.
+     * Este método es clave para mantener pedidos abiertos: permite recuperar un pedido
+     * existente sin necesidad de que el frontend envíe el PedidoId.
+     * 
+     * El aislamiento multi-tenant se garantiza filtrando también por LocalId.
      *
      * @param mesaId identificador de la mesa
+     * @param localId identificador del local (para aislamiento multi-tenant)
      * @return Optional con el pedido abierto si existe, vacío si no
      */
-    default Optional<Pedido> buscarAbiertoPorMesa(MesaId mesaId) {
-        return buscarPorMesaYEstado(mesaId, EstadoPedido.ABIERTO);
-    }
+    Optional<Pedido> buscarAbiertoPorMesa(MesaId mesaId, LocalId localId);
 }

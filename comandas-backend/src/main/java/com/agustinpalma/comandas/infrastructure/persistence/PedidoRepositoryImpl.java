@@ -53,6 +53,13 @@ public class PedidoRepositoryImpl implements PedidoRepository {
     }
 
     @Override
+    public Optional<Pedido> buscarAbiertoPorMesa(MesaId mesaId, LocalId localId) {
+        return springDataRepository
+            .findByMesaIdAndLocalIdAndEstado(mesaId.getValue(), localId.getValue(), EstadoPedido.ABIERTO)
+            .map(mapper::toDomain);
+    }
+
+    @Override
     public int obtenerSiguienteNumero(LocalId localId) {
         int maxNumero = springDataRepository.findMaxNumeroByLocalId(localId.getValue());
         return maxNumero + 1;

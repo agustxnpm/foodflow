@@ -7,28 +7,28 @@ import com.agustinpalma.comandas.domain.model.ItemPedido;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.ItemPedidoEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PedidoEntity;
-import com.agustinpalma.comandas.infrastructure.persistence.jpa.SpringDataItemPedidoRepository;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 /**
  * Mapper entre entidades de dominio Pedido y entidades JPA PedidoEntity.
  * Actúa como anti-corruption layer, protegiendo el dominio de detalles de persistencia.
+ * 
+ * HU-07: Utiliza la relación @OneToMany para persistencia atómica de pedido + ítems.
  */
 @Component
 public class PedidoMapper {
 
     private final ItemPedidoMapper itemPedidoMapper;
-    private final SpringDataItemPedidoRepository itemPedidoRepository;
 
-    public PedidoMapper(ItemPedidoMapper itemPedidoMapper, SpringDataItemPedidoRepository itemPedidoRepository) {
+    public PedidoMapper(ItemPedidoMapper itemPedidoMapper) {
         this.itemPedidoMapper = itemPedidoMapper;
-        this.itemPedidoRepository = itemPedidoRepository;
     }
 
     /**
      * Convierte de entidad JPA a entidad de dominio.
+     * 
+     * HU-07: Reconstruye el pedido completo con todos sus ítems desde la relación @OneToMany.
+     * No es necesario consultar la BD por separado - JPA ya carga los ítems.
      *
      * @param entity entidad JPA
      * @return entidad de dominio reconstruida
@@ -48,9 +48,9 @@ public class PedidoMapper {
             entity.getFechaApertura()
         );
 
-        // Cargar items del pedido desde la base de datos
-        List<ItemPedidoEntity> itemsEntities = itemPedidoRepository.findByPedidoId(entity.getId());
-        for (ItemPedidoEntity itemEntity : itemsEntities) {
+        // HU-07: Cargar ítems desde la relación @OneToMany
+        // Los ítems ya están cargados por JPA, no necesitamos consultar por separado
+        for (ItemPedidoEntity itemEntity : entity.getItems()) {
             ItemPedido item = itemPedidoMapper.toDomain(itemEntity);
             // Usar método package-private para reconstrucción desde persistencia
             pedido.agregarItemDesdePersistencia(item);
@@ -61,6 +61,10 @@ public class PedidoMapper {
 
     /**
      * Convierte de entidad de dominio a entidad JPA.
+     * 
+     * Utiliza la relación bidireccional para garantizar persistencia atómica.
+     * Al guardar el PedidoEntity, JPA automáticamente persiste todos los ítems
+     * gracias a cascade = CascadeType.ALL.
      *
      * @param pedido entidad de dominio
      * @return entidad JPA para persistencia
@@ -82,12 +86,12 @@ public class PedidoMapper {
         entity.setFechaCierre(pedido.getFechaCierre());
         entity.setMedioPago(pedido.getMedioPago());
 
-        // Persistir items del pedido
-        // IMPORTANTE: Los items se persisten por separado en el repositorio
-        // Aquí solo convertimos la entidad principal
+        // Convertir y agregar ítems usando la relación bidireccional
+        // El método agregarItem() mantiene la sincronización pedido ↔ item
+        // Gracias a cascade = CascadeType.ALL, al guardar el pedido se guardan automáticamente los ítems
         for (ItemPedido item : pedido.getItems()) {
             ItemPedidoEntity itemEntity = itemPedidoMapper.toEntity(item);
-            itemPedidoRepository.save(itemEntity);
+            entity.agregarItem(itemEntity);
         }
 
         return entity;

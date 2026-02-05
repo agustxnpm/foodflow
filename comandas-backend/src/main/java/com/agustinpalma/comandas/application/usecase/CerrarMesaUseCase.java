@@ -73,8 +73,8 @@ public class CerrarMesaUseCase {
             throw new IllegalArgumentException("La mesa no pertenece a este local");
         }
 
-        // 3. Buscar el pedido abierto asociado a la mesa
-        Pedido pedido = pedidoRepository.buscarAbiertoPorMesa(mesaId)
+        // 3. Buscar el pedido abierto asociado a la mesa (con aislamiento multi-tenant)
+        Pedido pedido = pedidoRepository.buscarAbiertoPorMesa(mesaId, localId)
             .orElseThrow(() -> new IllegalStateException("La mesa no tiene un pedido abierto"));
 
         // 4. Finalizar el pedido (valida estado ABIERTO y que tenga ítems)

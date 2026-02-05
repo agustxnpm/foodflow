@@ -31,6 +31,22 @@ public interface SpringDataPedidoRepository extends JpaRepository<PedidoEntity, 
     );
 
     /**
+     * HU-07: Busca un pedido abierto para una mesa específica dentro de un local.
+     * Este método garantiza aislamiento multi-tenant al filtrar por mesa, local y estado.
+     *
+     * @param mesaId UUID de la mesa
+     * @param localId UUID del local (aislamiento multi-tenant)
+     * @param estado estado del pedido (típicamente ABIERTO)
+     * @return Optional con el pedido si existe
+     */
+    @Query("SELECT p FROM PedidoEntity p WHERE p.mesaId = :mesaId AND p.localId = :localId AND p.estado = :estado")
+    Optional<PedidoEntity> findByMesaIdAndLocalIdAndEstado(
+        @Param("mesaId") UUID mesaId,
+        @Param("localId") UUID localId,
+        @Param("estado") EstadoPedido estado
+    );
+
+    /**
      * Obtiene el número máximo de pedido para un local específico.
      * Se usa para calcular el siguiente número secuencial.
      *

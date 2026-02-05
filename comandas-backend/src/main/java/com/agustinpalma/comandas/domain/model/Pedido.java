@@ -98,6 +98,20 @@ public class Pedido {
     }
 
     /**
+     * Valida que el pedido permita modificaciones.
+     * Solo los pedidos en estado ABIERTO pueden ser modificados.     * 
+     * @throws IllegalStateException si el pedido NO está en estado ABIERTO
+     */
+    public void validarPermiteModificacion() {
+        if (this.estado != EstadoPedido.ABIERTO) {
+            throw new IllegalStateException(
+                String.format("No se puede modificar un pedido en estado %s. Solo se permiten modificaciones en estado ABIERTO.", 
+                    this.estado)
+            );
+        }
+    }
+
+    /**
      * Agrega un producto al pedido con la lógica de Snapshot.
      *      * 
      * AC1 - Gestión de ítems: Permite agregar el mismo producto múltiples veces.
@@ -116,13 +130,8 @@ public class Pedido {
     public void agregarProducto(Producto producto, int cantidad, String observaciones) {
         Objects.requireNonNull(producto, "El producto no puede ser null");
         
-        // AC4 - Validación de Estado
-        if (this.estado != EstadoPedido.ABIERTO) {
-            throw new IllegalStateException(
-                String.format("No se puede agregar productos a un pedido en estado %s. Solo se permiten modificaciones en estado ABIERTO.", 
-                    this.estado)
-            );
-        }
+        // AC4 - Validación de Estado (HU-07)
+        validarPermiteModificacion();
         
         // AC5 - Aislamiento Multi-tenant
         if (!this.localId.equals(producto.getLocalId())) {
