@@ -36,13 +36,11 @@ class ConsultarProductosUseCaseTest {
     private ConsultarProductosUseCase useCase;
 
     private LocalId localId;
-    private LocalId otroLocalId;
 
     @BeforeEach
     void setUp() {
         useCase = new ConsultarProductosUseCase(productoRepository);
         localId = LocalId.generate();
-        otroLocalId = LocalId.generate();
     }
 
     @Test
@@ -93,7 +91,7 @@ class ConsultarProductosUseCaseTest {
             .thenReturn(List.of(productoVerde));
 
         // When - Filtro en minúsculas
-        List<ProductoResponse> resultado = useCase.ejecutar(localId, "#00ff00");
+        useCase.ejecutar(localId, "#00ff00");
 
         // Then - Debe normalizarse a mayúsculas antes de consultar
         verify(productoRepository).buscarPorLocalYColor(localId, "#00FF00");

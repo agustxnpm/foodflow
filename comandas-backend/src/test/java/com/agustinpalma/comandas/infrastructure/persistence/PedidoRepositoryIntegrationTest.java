@@ -127,7 +127,7 @@ class PedidoRepositoryIntegrationTest {
         Pedido pedidoExistente = pedidoRecuperado.get();
         pedidoExistente.agregarProducto(productoMilanesa, 2, "Sin ajo");
         
-        Pedido pedidoActualizado = pedidoRepository.guardar(pedidoExistente);
+        pedidoRepository.guardar(pedidoExistente);
 
         // THEN - Paso 4: Recuperar nuevamente y verificar que tiene el ítem
         Optional<Pedido> pedidoFinal = pedidoRepository.buscarAbiertoPorMesa(mesa5Id, localId);

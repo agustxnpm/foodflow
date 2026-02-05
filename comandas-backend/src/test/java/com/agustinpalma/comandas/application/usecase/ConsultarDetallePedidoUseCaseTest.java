@@ -109,7 +109,7 @@ class ConsultarDetallePedidoUseCaseTest {
         pedido.agregarItemDesdePersistencia(item2);
         
         when(mesaRepository.buscarPorId(mesaId)).thenReturn(Optional.of(mesaAbierta));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaId)).thenReturn(Optional.of(pedido));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaId, localId)).thenReturn(Optional.of(pedido));
 
         // When: Se consulta el detalle
         DetallePedidoResponse response = useCase.ejecutar(localId, mesaId);
@@ -147,7 +147,7 @@ class ConsultarDetallePedidoUseCaseTest {
 
         // Verifica interacciones
         verify(mesaRepository, times(1)).buscarPorId(mesaId);
-        verify(pedidoRepository, times(1)).buscarAbiertoPorMesa(mesaId);
+        verify(pedidoRepository, times(1)).buscarAbiertoPorMesa(mesaId, localId);
     }
 
     @Test
@@ -209,7 +209,7 @@ class ConsultarDetallePedidoUseCaseTest {
         // El pedido ya está creado en setUp() sin ítems
         
         when(mesaRepository.buscarPorId(mesaId)).thenReturn(Optional.of(mesaAbierta));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaId)).thenReturn(Optional.of(pedido));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaId, localId)).thenReturn(Optional.of(pedido));
 
         // When: Se consulta el detalle
         DetallePedidoResponse response = useCase.ejecutar(localId, mesaId);
@@ -238,7 +238,7 @@ class ConsultarDetallePedidoUseCaseTest {
         pedido.agregarItemDesdePersistencia(itemSinObservaciones);
         
         when(mesaRepository.buscarPorId(mesaId)).thenReturn(Optional.of(mesaAbierta));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaId)).thenReturn(Optional.of(pedido));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaId, localId)).thenReturn(Optional.of(pedido));
 
         // When: Se consulta el detalle
         DetallePedidoResponse response = useCase.ejecutar(localId, mesaId);

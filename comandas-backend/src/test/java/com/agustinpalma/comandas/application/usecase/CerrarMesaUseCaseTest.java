@@ -73,7 +73,7 @@ class CerrarMesaUseCaseTest {
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida)).thenReturn(Optional.of(pedido));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
         when(pedidoRepository.guardar(any(Pedido.class))).thenReturn(pedido);
         when(mesaRepository.guardar(any(Mesa.class))).thenReturn(mesa);
 
@@ -150,7 +150,7 @@ class CerrarMesaUseCaseTest {
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida)).thenReturn(Optional.empty());
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.empty());
 
         // When/Then: Debe lanzar excepción
         assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
@@ -183,7 +183,7 @@ class CerrarMesaUseCaseTest {
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida)).thenReturn(Optional.of(pedidoSinItems));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedidoSinItems));
 
         // When/Then: El dominio debe rechazar la finalización del pedido
         assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
@@ -209,7 +209,7 @@ class CerrarMesaUseCaseTest {
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida)).thenReturn(Optional.of(pedido));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
 
         // When/Then: La entidad Mesa debe rechazar el cierre
         assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
@@ -253,7 +253,7 @@ class CerrarMesaUseCaseTest {
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida)).thenReturn(Optional.of(pedido));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
         when(pedidoRepository.guardar(any(Pedido.class))).thenReturn(pedido);
         when(mesaRepository.guardar(any(Mesa.class))).thenReturn(mesa);
 
@@ -286,7 +286,7 @@ class CerrarMesaUseCaseTest {
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida)).thenReturn(Optional.of(pedido));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
         when(pedidoRepository.guardar(any(Pedido.class))).thenReturn(pedido);
         when(mesaRepository.guardar(any(Mesa.class))).thenReturn(mesa);
 
