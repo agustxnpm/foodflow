@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: foodflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: foodflow_db
+      POSTGRES_USER: foodflow_user
+      POSTGRES_PASSWORD: foodflow_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Directorio para scripts de inicialización (opcional)
+      - ./scripts/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foodflow_user -d foodflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    driver: local
