@@ -10,6 +10,7 @@ import java.util.List;
  * Contiene la información del pedido actualizado con los ítems agregados.
  * 
  * HU-05: Agregar productos a un pedido
+ * HU-10: Incluye información de promociones aplicadas
  */
 public record AgregarProductoResponse(
     String pedidoId,
@@ -17,6 +18,8 @@ public record AgregarProductoResponse(
     String estadoPedido,
     List<ItemPedidoDTO> items,
     BigDecimal subtotal,
+    BigDecimal totalDescuentos,
+    BigDecimal total,
     String fechaApertura
 ) {
     /**
@@ -27,27 +30,40 @@ public record AgregarProductoResponse(
             .map(ItemPedidoDTO::fromDomain)
             .toList();
 
+        BigDecimal subtotal = pedido.calcularSubtotalItems();
+        BigDecimal totalDescuentos = pedido.getItems().stream()
+            .map(ItemPedido::getMontoDescuento)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal total = subtotal.subtract(totalDescuentos);
+
         return new AgregarProductoResponse(
             pedido.getId().getValue().toString(),
             pedido.getNumero(),
             pedido.getEstado().name(),
             itemsDTO,
-            pedido.calcularSubtotalItems(),
+            subtotal,
+            totalDescuentos,
+            total,
             pedido.getFechaApertura().toString()
         );
     }
 
     /**
      * DTO anidado para representar un ítem del pedido.
+     * HU-10: Incluye campos de promoción para UX (precio tachado, ahorro, precio final).
      */
     public record ItemPedidoDTO(
         String itemId,
         String productoId,
         String nombreProducto,
         int cantidad,
-        BigDecimal precioUnitario,
-        BigDecimal subtotalItem,
-        String observacion
+        BigDecimal precioUnitarioBase,    // El precio de lista (para tachar en UI)
+        BigDecimal subtotalItem,           // precioBase * cantidad (sin descuento)
+        BigDecimal descuentoTotal,         // El ahorro (monto del descuento)
+        BigDecimal precioFinal,            // Lo que paga el cliente (subtotal - descuento)
+        String observacion,
+        String nombrePromocion,            // Para mostrar etiqueta de la promo
+        boolean tienePromocion             // Flag para UI
     ) {
         public static ItemPedidoDTO fromDomain(ItemPedido item) {
             return new ItemPedidoDTO(
@@ -57,7 +73,11 @@ public record AgregarProductoResponse(
                 item.getCantidad(),
                 item.getPrecioUnitario(),
                 item.calcularSubtotal(),
-                item.getObservacion()
+                item.getMontoDescuento(),
+                item.calcularPrecioFinal(),
+                item.getObservacion(),
+                item.getNombrePromocion(),
+                item.tienePromocion()
             );
         }
     }

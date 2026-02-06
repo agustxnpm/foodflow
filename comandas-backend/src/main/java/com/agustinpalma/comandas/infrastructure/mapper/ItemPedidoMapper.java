@@ -8,12 +8,15 @@ import org.springframework.stereotype.Component;
 /**
  * Mapper entre la entidad de dominio ItemPedido y la entidad JPA ItemPedidoEntity.
  * Actúa como anti-corruption layer, protegiendo el dominio de detalles de persistencia.
+ * 
+ * HU-10: Incluye mapeo de campos de promoción (montoDescuento, nombrePromocion, promocionId).
  */
 @Component
 public class ItemPedidoMapper {
 
     /**
      * Convierte de entidad JPA a entidad de dominio.
+     * HU-10: Incluye campos de promoción.
      *
      * @param entity entidad JPA
      * @return entidad de dominio reconstruida
@@ -30,12 +33,16 @@ public class ItemPedidoMapper {
             entity.getNombreProducto(),
             entity.getCantidad(),
             entity.getPrecioUnitario(),
-            entity.getObservacion()
+            entity.getObservacion(),
+            entity.getMontoDescuento(),
+            entity.getNombrePromocion(),
+            entity.getPromocionId()
         );
     }
 
     /**
      * Convierte de entidad de dominio a entidad JPA.
+     * HU-10: Incluye campos de promoción.
      * 
      * No establece la relación con PedidoEntity aquí.
      * Eso se hace en PedidoMapper.toEntity() usando el método agregarItem().
@@ -54,7 +61,10 @@ public class ItemPedidoMapper {
             domain.getNombreProducto(),
             domain.getCantidad(),
             domain.getPrecioUnitario(),
-            domain.getObservacion()
+            domain.getObservacion(),
+            domain.getMontoDescuento(),
+            domain.getNombrePromocion(),
+            domain.getPromocionId()
         );
     }
 }

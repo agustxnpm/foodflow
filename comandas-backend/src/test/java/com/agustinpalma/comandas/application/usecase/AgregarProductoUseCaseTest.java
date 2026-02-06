@@ -2,21 +2,30 @@ package com.agustinpalma.comandas.application.usecase;
 
 import com.agustinpalma.comandas.application.dto.AgregarProductoRequest;
 import com.agustinpalma.comandas.application.dto.AgregarProductoResponse;
-import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
+import com.agustinpalma.comandas.domain.model.*;
+import com.agustinpalma.comandas.domain.model.DomainEnums.*;
 import com.agustinpalma.comandas.domain.model.DomainIds.*;
-import com.agustinpalma.comandas.domain.model.Pedido;
-import com.agustinpalma.comandas.domain.model.Producto;
+import com.agustinpalma.comandas.domain.model.CriterioActivacion.*;
+import com.agustinpalma.comandas.domain.model.EstrategiaPromocion.*;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
+import com.agustinpalma.comandas.domain.repository.PromocionRepository;
+import com.agustinpalma.comandas.domain.service.MotorReglasService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,16 +49,29 @@ class AgregarProductoUseCaseTest {
     @Mock
     private ProductoRepository productoRepository;
 
+    @Mock
+    private PromocionRepository promocionRepository;
+
+    private MotorReglasService motorReglasService;
+
     private AgregarProductoUseCase useCase;
 
     private LocalId localId;
     private PedidoId pedidoId;
     private ProductoId productoId;
     private MesaId mesaId;
+    private Clock clock;
 
     @BeforeEach
     void setUp() {
-        useCase = new AgregarProductoUseCase(pedidoRepository, productoRepository);
+        // Clock fijo para tests deterministas: 6 feb 2026, 19:00 (Jueves)
+        clock = Clock.fixed(
+            LocalDateTime.of(2026, 2, 6, 19, 0).atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant(),
+            ZoneId.of("America/Argentina/Buenos_Aires")
+        );
+        
+        motorReglasService = new MotorReglasService();
+        useCase = new AgregarProductoUseCase(pedidoRepository, productoRepository, promocionRepository, motorReglasService, clock);
         
         // Datos de prueba comunes
         localId = new LocalId(UUID.randomUUID());
@@ -67,6 +89,7 @@ class AgregarProductoUseCaseTest {
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
         when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(producto));
+        when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(java.util.Collections.emptyList());
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -79,7 +102,7 @@ class AgregarProductoUseCaseTest {
 
         // Then: El ítem debe tener el precio capturado ($100)
         assertThat(response.items()).hasSize(1);
-        assertThat(response.items().get(0).precioUnitario()).isEqualByComparingTo(new BigDecimal("100.00"));
+        assertThat(response.items().get(0).precioUnitarioBase()).isEqualByComparingTo(new BigDecimal("100.00"));
         assertThat(response.items().get(0).nombreProducto()).isEqualTo("Hamburguesa");
         assertThat(response.items().get(0).cantidad()).isEqualTo(2);
         assertThat(response.items().get(0).subtotalItem()).isEqualByComparingTo(new BigDecimal("200.00"));
@@ -100,6 +123,7 @@ class AgregarProductoUseCaseTest {
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
         when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(producto));
+        when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(java.util.Collections.emptyList());
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -116,7 +140,7 @@ class AgregarProductoUseCaseTest {
         
         // Then: El ítem debe seguir teniendo el precio original ($100)
         assertThat(primeraRespuesta.items()).hasSize(1);
-        assertThat(primeraRespuesta.items().get(0).precioUnitario())
+        assertThat(primeraRespuesta.items().get(0).precioUnitarioBase())
             .isEqualByComparingTo(new BigDecimal("100.00"));
         
         // Verificamos que el subtotal se calcula correctamente
@@ -189,6 +213,7 @@ class AgregarProductoUseCaseTest {
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
         when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(producto));
+        when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(Collections.emptyList());
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -259,6 +284,7 @@ class AgregarProductoUseCaseTest {
         
         when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
         when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(producto));
+        when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(Collections.emptyList());
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -287,5 +313,296 @@ class AgregarProductoUseCaseTest {
         assertThatThrownBy(() -> new AgregarProductoRequest(pedidoId, productoId, -5, null))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("cantidad debe ser mayor a 0");
+    }
+
+    // =================================================
+    // HU-10: APLICAR PROMOCIONES AUTOMÁTICAMENTE
+    // =================================================
+
+    @Nested
+    @DisplayName("HU-10: Aplicación Automática de Promociones")
+    class PromocionesAutomaticasTests {
+
+        @Test
+        @DisplayName("HU-10 AC1: Debería aplicar descuento al agregar producto cuando existe promoción vigente")
+        void deberia_aplicar_descuento_al_agregar_producto_cuando_existe_promocion_vigente() {
+            // Given: Un producto de $100 con una promo de 20% de descuento
+            Producto cerveza = new Producto(productoId, localId, "Cerveza Artesanal", new BigDecimal("100.00"), true, "#FFD700");
+            Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
+            
+            // Crear promoción Happy Hour con 20% de descuento
+            Promocion happyHour = crearPromocionDescuento(
+                "Happy Hour",
+                new BigDecimal("20"),
+                cerveza.getId().getValue(),
+                10
+            );
+            
+            when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
+            when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(cerveza));
+            when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(List.of(happyHour));
+            when(pedidoRepository.guardar(any(Pedido.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedidoId, productoId, 1, null
+            );
+
+            // When: Se agrega el producto
+            AgregarProductoResponse response = useCase.ejecutar(request);
+
+            // Then: El ítem debe tener el descuento aplicado
+            assertThat(response.items()).hasSize(1);
+            var item = response.items().get(0);
+            
+            // AC1: Snapshot del precio base (para tachar en UI)
+            assertThat(item.precioUnitarioBase()).isEqualByComparingTo(new BigDecimal("100.00"));
+            
+            // AC1: Descuento del 20% = $20
+            assertThat(item.descuentoTotal()).isEqualByComparingTo(new BigDecimal("20.00"));
+            
+            // AC1: Precio final = $100 - $20 = $80
+            assertThat(item.precioFinal()).isEqualByComparingTo(new BigDecimal("80.00"));
+            
+            // AC1: El subtotal del pedido debe reflejar el precio CON descuento
+            assertThat(response.total()).isEqualByComparingTo(new BigDecimal("80.00"));
+            assertThat(response.totalDescuentos()).isEqualByComparingTo(new BigDecimal("20.00"));
+            assertThat(response.subtotal()).isEqualByComparingTo(new BigDecimal("100.00"));
+            
+            // Verificar que se llamó al motor de reglas
+            verify(promocionRepository, times(1)).buscarActivasPorLocal(localId);
+            verify(pedidoRepository, times(1)).guardar(any(Pedido.class));
+        }
+
+        @Test
+        @DisplayName("HU-10 AC3: Debería guardar el nombre de la promoción en el ítem para transparencia con el cliente")
+        void deberia_guardar_nombre_de_promocion_en_el_item_para_la_cuenta_del_cliente() {
+            // Given: Producto con promoción activa
+            Producto producto = new Producto(productoId, localId, "Hamburguesa Completa", new BigDecimal("200.00"), true, "#FF5733");
+            Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
+            
+            Promocion promoHamburguesa = crearPromocionDescuento(
+                "Promo Hamburguesas",
+                new BigDecimal("15"),
+                producto.getId().getValue(),
+                5
+            );
+            
+            when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
+            when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(producto));
+            when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(List.of(promoHamburguesa));
+            when(pedidoRepository.guardar(any(Pedido.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedidoId, productoId, 1, null
+            );
+
+            // When
+            AgregarProductoResponse response = useCase.ejecutar(request);
+
+            // Then: AC3 - El nombre de la promoción debe estar en el ítem (snapshot para factura)
+            assertThat(response.items()).hasSize(1);
+            var item = response.items().get(0);
+            
+            assertThat(item.nombrePromocion()).isEqualTo("Promo Hamburguesas");
+            assertThat(item.tienePromocion()).isTrue();
+            
+            // Verificar que el descuento es correcto (15% de 200 = 30)
+            assertThat(item.descuentoTotal()).isEqualByComparingTo(new BigDecimal("30.00"));
+            assertThat(item.precioFinal()).isEqualByComparingTo(new BigDecimal("170.00"));
+        }
+
+        @Test
+        @DisplayName("HU-10 AC2: La cantidad para cocina debe ser la real independientemente del descuento (2x1)")
+        void la_cantidad_para_cocina_debe_ser_la_real_independientemente_del_descuento() {
+            // Given: Promo 2x1 en empanadas
+            Producto empanada = new Producto(productoId, localId, "Empanada de Carne", new BigDecimal("50.00"), true, "#8B4513");
+            Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
+            
+            // Promoción 2x1: lleva 2, paga 1
+            Promocion promo2x1 = crearPromocionCantidadFija(
+                "2x1 Empanadas",
+                2, 1,
+                empanada.getId().getValue(),
+                10
+            );
+            
+            when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
+            when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(empanada));
+            when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(List.of(promo2x1));
+            when(pedidoRepository.guardar(any(Pedido.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedidoId, productoId, 2, null // Cliente pide 2 empanadas
+            );
+
+            // When
+            AgregarProductoResponse response = useCase.ejecutar(request);
+
+            // Then: AC2 - La cantidad DEBE ser 2 (lo que cocina debe preparar)
+            assertThat(response.items()).hasSize(1);
+            var item = response.items().get(0);
+            
+            assertThat(item.cantidad()).isEqualTo(2); // CRÍTICO: Cocina prepara 2, no 1
+            
+            // El descuento es de 1 empanada completa
+            assertThat(item.descuentoTotal()).isEqualByComparingTo(new BigDecimal("50.00")); // 1 gratis
+            
+            // Precio final: paga 1 empanada
+            assertThat(item.precioFinal()).isEqualByComparingTo(new BigDecimal("50.00")); // 100 - 50
+            
+            // Subtotal base: 2 × $50 = $100
+            assertThat(item.subtotalItem()).isEqualByComparingTo(new BigDecimal("100.00"));
+        }
+
+        @Test
+        @DisplayName("HU-10: Debería aplicar descuento con cantidad mayor a 1")
+        void deberia_aplicar_descuento_con_cantidad_mayor_a_uno() {
+            // Given: Producto con promo de 25% y cantidad 3
+            Producto cafe = new Producto(productoId, localId, "Café Espresso", new BigDecimal("80.00"), true, "#6F4E37");
+            Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
+            
+            Promocion promoCafe = crearPromocionDescuento(
+                "Promo Café",
+                new BigDecimal("25"),
+                cafe.getId().getValue(),
+                5
+            );
+            
+            when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
+            when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(cafe));
+            when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(List.of(promoCafe));
+            when(pedidoRepository.guardar(any(Pedido.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedidoId, productoId, 3, null
+            );
+
+            // When
+            AgregarProductoResponse response = useCase.ejecutar(request);
+
+            // Then: El descuento se aplica por cada unidad
+            var item = response.items().get(0);
+            
+            assertThat(item.cantidad()).isEqualTo(3);
+            assertThat(item.precioUnitarioBase()).isEqualByComparingTo(new BigDecimal("80.00"));
+            
+            // Descuento: 25% × 80 × 3 = 60
+            assertThat(item.descuentoTotal()).isEqualByComparingTo(new BigDecimal("60.00"));
+            
+            // Precio final: (80 × 3) - 60 = 240 - 60 = 180
+            assertThat(item.precioFinal()).isEqualByComparingTo(new BigDecimal("180.00"));
+            
+            assertThat(response.total()).isEqualByComparingTo(new BigDecimal("180.00"));
+        }
+
+        @Test
+        @DisplayName("HU-10: No debería aplicar promoción si el producto NO es target")
+        void no_deberia_aplicar_promocion_si_producto_no_es_target() {
+            // Given: Promo solo para pizzas, pero se agrega una hamburguesa
+            Producto hamburguesa = new Producto(productoId, localId, "Hamburguesa", new BigDecimal("150.00"), true, "#FF6347");
+            ProductoId pizzaId = ProductoId.generate();
+            Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
+            
+            // Promo solo aplica a pizzas (otro producto)
+            Promocion promoPizzas = crearPromocionDescuento(
+                "Promo Pizzas",
+                new BigDecimal("30"),
+                pizzaId.getValue(),
+                5
+            );
+            
+            when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
+            when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(hamburguesa));
+            when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(List.of(promoPizzas));
+            when(pedidoRepository.guardar(any(Pedido.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedidoId, productoId, 1, null
+            );
+
+            // When
+            AgregarProductoResponse response = useCase.ejecutar(request);
+
+            // Then: NO debe aplicar la promo porque el producto no es target
+            var item = response.items().get(0);
+            
+            assertThat(item.tienePromocion()).isFalse();
+            assertThat(item.nombrePromocion()).isNull();
+            assertThat(item.descuentoTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(item.precioFinal()).isEqualByComparingTo(new BigDecimal("150.00"));
+        }
+    }
+
+    // =================================================
+    // HELPERS: Métodos para crear promociones de prueba
+    // =================================================
+
+    private Promocion crearPromocionDescuento(
+            String nombre,
+            BigDecimal porcentaje,
+            UUID productoTargetId,
+            int prioridad
+    ) {
+        EstrategiaPromocion estrategia = new DescuentoDirecto(
+            ModoDescuento.PORCENTAJE,
+            porcentaje
+        );
+        
+        CriterioActivacion trigger = CriterioTemporal.soloFechas(
+            LocalDate.now().minusDays(1),
+            LocalDate.now().plusDays(30)
+        );
+        
+        Promocion promo = new Promocion(
+            PromocionId.generate(),
+            localId,
+            nombre,
+            "Promoción de prueba",
+            prioridad,
+            EstadoPromocion.ACTIVA,
+            estrategia,
+            List.of(trigger)
+        );
+        
+        ItemPromocion itemTarget = ItemPromocion.productoTarget(productoTargetId);
+        promo.definirAlcance(new AlcancePromocion(List.of(itemTarget)));
+        
+        return promo;
+    }
+
+    private Promocion crearPromocionCantidadFija(
+            String nombre,
+            int cantidadLlevas,
+            int cantidadPagas,
+            UUID productoTargetId,
+            int prioridad
+    ) {
+        EstrategiaPromocion estrategia = new CantidadFija(cantidadLlevas, cantidadPagas);
+        
+        CriterioActivacion trigger = CriterioTemporal.soloFechas(
+            LocalDate.now().minusDays(1),
+            LocalDate.now().plusDays(30)
+        );
+        
+        Promocion promo = new Promocion(
+            PromocionId.generate(),
+            localId,
+            nombre,
+            "Promoción NxM de prueba",
+            prioridad,
+            EstadoPromocion.ACTIVA,
+            estrategia,
+            List.of(trigger)
+        );
+        
+        ItemPromocion itemTarget = ItemPromocion.productoTarget(productoTargetId);
+        promo.definirAlcance(new AlcancePromocion(List.of(itemTarget)));
+        
+        return promo;
     }
 }

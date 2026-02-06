@@ -1,6 +1,7 @@
 package com.agustinpalma.comandas.infrastructure.persistence;
 
 import com.agustinpalma.comandas.domain.model.AlcancePromocion;
+import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPromocion;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PromocionId;
 import com.agustinpalma.comandas.domain.model.Promocion;
@@ -87,6 +88,24 @@ public class PromocionRepositoryImpl implements PromocionRepository {
     @Override
     public List<Promocion> buscarPorLocal(LocalId localId) {
         return springDataRepository.findByLocalId(localId.getValue())
+                .stream()
+                .map(entity -> {
+                    Promocion promocion = mapper.toDomain(entity);
+                    cargarAlcance(promocion, new PromocionId(entity.getId()));
+                    return promocion;
+                })
+                .toList();
+    }
+
+    /**
+     * HU-10: Busca todas las promociones activas de un local.
+     * 
+     * Utiliza consulta optimizada para filtrar por estado directamente en BD.
+     */
+    @Override
+    public List<Promocion> buscarActivasPorLocal(LocalId localId) {
+        return springDataRepository
+                .findByLocalIdAndEstado(localId.getValue(), EstadoPromocion.ACTIVA.name())
                 .stream()
                 .map(entity -> {
                     Promocion promocion = mapper.toDomain(entity);

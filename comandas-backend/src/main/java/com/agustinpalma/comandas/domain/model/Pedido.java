@@ -120,6 +120,9 @@ public class Pedido {
      * AC4 - Validación de Estado: Solo permite agregar a pedidos ABIERTOS.
      * AC5 - Aislamiento Multi-tenant: Valida que producto y pedido pertenezcan al mismo local.
      * 
+     * NOTA: Este método NO aplica promociones. Para aplicar promociones automáticamente,
+     * usar agregarItem(ItemPedido) con un ítem construido por MotorReglasService.
+     * 
      * @param producto el producto del catálogo a agregar
      * @param cantidad cantidad de unidades (debe ser > 0)
      * @param observaciones notas adicionales (ej: "sin cebolla"), puede ser null
@@ -153,6 +156,38 @@ public class Pedido {
         
         // AC1 - Permitir múltiples líneas del mismo producto
         this.items.add(nuevoItem);
+    }
+
+    /**
+     * HU-10: Agrega un ítem ya construido al pedido.
+     * 
+     * Este método permite agregar un ItemPedido que ya fue creado externamente
+     * (por ejemplo, por el MotorReglasService con promociones aplicadas).
+     * 
+     * Validaciones:
+     * - AC4: El pedido debe estar ABIERTO
+     * - AC5: El ítem debe pertenecer a este pedido (pedidoId coincide)
+     * 
+     * @param item el ítem ya construido (con o sin promoción)
+     * @throws IllegalStateException si el pedido NO está en estado ABIERTO
+     * @throws IllegalArgumentException si el ítem no pertenece a este pedido
+     */
+    public void agregarItem(ItemPedido item) {
+        Objects.requireNonNull(item, "El item no puede ser null");
+        
+        // AC4 - Validación de Estado
+        validarPermiteModificacion();
+        
+        // Validar que el ítem pertenece a este pedido
+        if (!this.id.equals(item.getPedidoId())) {
+            throw new IllegalArgumentException(
+                String.format("El ítem pertenece al pedido %s, pero se intentó agregar al pedido %s",
+                    item.getPedidoId().getValue(),
+                    this.id.getValue())
+            );
+        }
+        
+        this.items.add(item);
     }
 
     /**

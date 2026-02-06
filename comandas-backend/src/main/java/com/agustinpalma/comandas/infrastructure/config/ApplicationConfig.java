@@ -21,8 +21,11 @@ import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import com.agustinpalma.comandas.domain.repository.PromocionRepository;
+import com.agustinpalma.comandas.domain.service.MotorReglasService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.time.Clock;
 
 /**
  * Configuración de Spring para inyección de dependencias.
@@ -96,15 +99,42 @@ public class ApplicationConfig {
 
     /**
      * Bean del caso de uso para agregar producto a un pedido.
-     * Spring inyectará automáticamente las implementaciones JPA de los repositorios.
+     * HU-10: Ahora incluye motor de reglas para aplicar promociones automáticamente.
+     * Spring inyectará automáticamente las implementaciones de los repositorios y servicios.
      *
      * @param pedidoRepository implementación del repositorio de pedidos
      * @param productoRepository implementación del repositorio de productos
+     * @param promocionRepository implementación del repositorio de promociones
+     * @param motorReglasService servicio de dominio para evaluar promociones
+     * @param clock reloj del sistema configurado para zona horaria de Argentina
      * @return instancia del caso de uso lista para usar
      */
     @Bean
-    public AgregarProductoUseCase agregarProductoUseCase(PedidoRepository pedidoRepository, ProductoRepository productoRepository) {
-        return new AgregarProductoUseCase(pedidoRepository, productoRepository);
+    public AgregarProductoUseCase agregarProductoUseCase(
+            PedidoRepository pedidoRepository, 
+            ProductoRepository productoRepository,
+            PromocionRepository promocionRepository,
+            MotorReglasService motorReglasService,
+            Clock clock
+    ) {
+        return new AgregarProductoUseCase(
+            pedidoRepository, 
+            productoRepository, 
+            promocionRepository, 
+            motorReglasService,
+            clock
+        );
+    }
+
+    /**
+     * HU-10: Bean del servicio de dominio para el motor de reglas de promociones.
+     * Es un servicio de dominio puro (sin dependencias de infraestructura).
+     *
+     * @return instancia del servicio de dominio
+     */
+    @Bean
+    public MotorReglasService motorReglasService() {
+        return new MotorReglasService();
     }
 
     /**

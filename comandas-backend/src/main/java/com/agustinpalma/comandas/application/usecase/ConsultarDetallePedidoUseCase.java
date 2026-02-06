@@ -105,8 +105,12 @@ public class ConsultarDetallePedidoUseCase {
             .map(this::mapearItem)
             .toList();
 
-        // AC2 - Obtener total parcial (calculado por el dominio)
-        var totalParcial = pedido.calcularTotal();
+        // HU-10 - Calcular subtotal y descuentos totales
+        var subtotal = pedido.calcularSubtotalItems();
+        var totalDescuentos = pedido.getItems().stream()
+            .map(ItemPedido::getMontoDescuento)
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        var totalParcial = subtotal.subtract(totalDescuentos);
 
         // AC3 - Construir respuesta con información de contexto
         return new DetallePedidoResponse(
@@ -116,6 +120,8 @@ public class ConsultarDetallePedidoUseCase {
             pedido.getEstado().name(),
             pedido.getFechaApertura(),
             itemsDTO,
+            subtotal,
+            totalDescuentos,
             totalParcial
         );
     }
@@ -123,8 +129,10 @@ public class ConsultarDetallePedidoUseCase {
     /**
      * Mapea un ítem de dominio a DTO.
      * 
+     * HU-10: Incluye información de promoción aplicada.
+     * 
      * REGLA CRÍTICA:
-     * El subtotal se calcula invocando calcularSubtotal() del ítem (dominio).
+     * Los cálculos se invocan desde el dominio (calcularSubtotal, calcularPrecioFinal).
      * Este método NO calcula, solo transporta el resultado.
      * 
      * @param item entidad de dominio ItemPedido
@@ -137,7 +145,11 @@ public class ConsultarDetallePedidoUseCase {
             item.getCantidad(),
             item.getPrecioUnitario(),
             item.calcularSubtotal(),
-            item.getObservacion()
+            item.getMontoDescuento(),
+            item.calcularPrecioFinal(),
+            item.getObservacion(),
+            item.getNombrePromocion(),
+            item.tienePromocion()
         );
     }
 }

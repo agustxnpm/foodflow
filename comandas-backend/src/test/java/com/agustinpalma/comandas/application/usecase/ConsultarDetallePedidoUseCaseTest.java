@@ -122,7 +122,7 @@ class ConsultarDetallePedidoUseCaseTest {
         ItemDetalleDTO itemDTO1 = response.items().get(0);
         assertThat(itemDTO1.nombreProducto()).isEqualTo("Pizza Napolitana");
         assertThat(itemDTO1.cantidad()).isEqualTo(2);
-        assertThat(itemDTO1.precioUnitario()).isEqualByComparingTo("350.00");
+        assertThat(itemDTO1.precioUnitarioBase()).isEqualByComparingTo("350.00");
         assertThat(itemDTO1.subtotal()).isEqualByComparingTo("700.00");  // 2 * 350
         assertThat(itemDTO1.observacion()).isEqualTo("Sin aceitunas");
         
@@ -130,7 +130,7 @@ class ConsultarDetallePedidoUseCaseTest {
         ItemDetalleDTO itemDTO2 = response.items().get(1);
         assertThat(itemDTO2.nombreProducto()).isEqualTo("Coca Cola 1.5L");
         assertThat(itemDTO2.cantidad()).isEqualTo(3);
-        assertThat(itemDTO2.precioUnitario()).isEqualByComparingTo("120.50");
+        assertThat(itemDTO2.precioUnitarioBase()).isEqualByComparingTo("120.50");
         assertThat(itemDTO2.subtotal()).isEqualByComparingTo("361.50");  // 3 * 120.50
         assertThat(itemDTO2.observacion()).isNull();
         

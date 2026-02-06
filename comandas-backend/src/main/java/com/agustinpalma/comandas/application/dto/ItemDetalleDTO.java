@@ -6,15 +6,25 @@ import java.math.BigDecimal;
  * DTO que representa un ítem individual dentro del detalle del pedido.
  * Contiene información snapshot del producto y cálculos financieros.
  * 
+ * HU-10: Incluye información de promoción para UX:
+ * - precioUnitarioBase: precio de lista (para tachar)
+ * - descuentoTotal: el ahorro del cliente
+ * - precioFinal: lo que paga el cliente
+ * - nombrePromocion: etiqueta a mostrar
+ * 
  * Se usa como parte de la respuesta en la consulta de detalle de pedido.
  */
 public record ItemDetalleDTO(
     String id,
     String nombreProducto,
     int cantidad,
-    BigDecimal precioUnitario,
-    BigDecimal subtotal,
-    String observacion
+    BigDecimal precioUnitarioBase,   // Precio de lista (para tachar en UI)
+    BigDecimal subtotal,              // precioBase * cantidad
+    BigDecimal descuentoTotal,        // Monto de descuento aplicado
+    BigDecimal precioFinal,           // Lo que paga el cliente
+    String observacion,
+    String nombrePromocion,           // Nombre de la promo aplicada (puede ser null)
+    boolean tienePromocion            // Flag para condicionales en UI
 ) {
     /**
      * Valida que los campos obligatorios no sean nulos.
@@ -30,11 +40,17 @@ public record ItemDetalleDTO(
         if (cantidad <= 0) {
             throw new IllegalArgumentException("La cantidad debe ser mayor a cero");
         }
-        if (precioUnitario == null || precioUnitario.compareTo(BigDecimal.ZERO) < 0) {
+        if (precioUnitarioBase == null || precioUnitarioBase.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("El precio unitario no puede ser nulo ni negativo");
         }
         if (subtotal == null || subtotal.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("El subtotal no puede ser nulo ni negativo");
+        }
+        if (descuentoTotal == null || descuentoTotal.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El descuento no puede ser nulo ni negativo");
+        }
+        if (precioFinal == null || precioFinal.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El precio final no puede ser nulo ni negativo");
         }
     }
 }

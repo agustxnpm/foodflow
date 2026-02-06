@@ -10,6 +10,7 @@ import java.util.UUID;
  * NO es la entidad de dominio - vive exclusivamente en la capa de infraestructura.
  * 
  * HU-07: Incluye relación @ManyToOne con PedidoEntity para persistencia bidireccional.
+ * HU-10: Incluye campos de snapshot de promoción para auditoría y visualización.
  */
 @Entity
 @Table(name = "items_pedido", indexes = {
@@ -45,18 +46,62 @@ public class ItemPedidoEntity {
     @Column(name = "observacion", length = 255)
     private String observacion;
 
+    // ============================================
+    // HU-10: Campos de snapshot de promoción
+    // ============================================
+
+    /**
+     * Monto del descuento calculado al momento de agregar el ítem.
+     * Valor monetario (ej: $250). Por defecto 0 si no hay promoción.
+     */
+    @Column(name = "monto_descuento", nullable = false, precision = 10, scale = 2)
+    private BigDecimal montoDescuento = BigDecimal.ZERO;
+
+    /**
+     * Nombre de la promoción para mostrar al cliente en el ticket.
+     * Null si no hay promoción aplicada.
+     */
+    @Column(name = "nombre_promocion", length = 150)
+    private String nombrePromocion;
+
+    /**
+     * ID de la promoción para auditoría y trazabilidad.
+     * Null si no hay promoción aplicada.
+     */
+    @Column(name = "promocion_id")
+    private UUID promocionId;
+
     // Constructor vacío para JPA
     protected ItemPedidoEntity() {}
 
-    // Constructor con parámetros
+    // Constructor con parámetros (sin promoción - compatibilidad)
     public ItemPedidoEntity(UUID id, UUID productoId, String nombreProducto,
                              int cantidad, BigDecimal precioUnitario, String observacion) {
+        this(id, productoId, nombreProducto, cantidad, precioUnitario, observacion, 
+             BigDecimal.ZERO, null, null);
+    }
+
+    // Constructor completo con promoción (HU-10)
+    public ItemPedidoEntity(
+            UUID id, 
+            UUID productoId, 
+            String nombreProducto,
+            int cantidad, 
+            BigDecimal precioUnitario, 
+            String observacion,
+            BigDecimal montoDescuento,
+            String nombrePromocion,
+            UUID promocionId
+    ) {
         this.id = id;
         this.productoId = productoId;
         this.nombreProducto = nombreProducto;
         this.cantidad = cantidad;
         this.precioUnitario = precioUnitario;
         this.observacion = observacion;
+        this.montoDescuento = montoDescuento != null ? montoDescuento : BigDecimal.ZERO;
+        this.nombrePromocion = nombrePromocion;
+        this.promocionId = promocionId;
     }
 
     // Getters y setters
@@ -122,5 +167,33 @@ public class ItemPedidoEntity {
 
     public void setObservacion(String observacion) {
         this.observacion = observacion;
+    }
+
+    // ============================================
+    // HU-10: Getters y Setters de promoción
+    // ============================================
+
+    public BigDecimal getMontoDescuento() {
+        return montoDescuento;
+    }
+
+    public void setMontoDescuento(BigDecimal montoDescuento) {
+        this.montoDescuento = montoDescuento;
+    }
+
+    public String getNombrePromocion() {
+        return nombrePromocion;
+    }
+
+    public void setNombrePromocion(String nombrePromocion) {
+        this.nombrePromocion = nombrePromocion;
+    }
+
+    public UUID getPromocionId() {
+        return promocionId;
+    }
+
+    public void setPromocionId(UUID promocionId) {
+        this.promocionId = promocionId;
     }
 }
