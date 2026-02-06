@@ -11,9 +11,15 @@ import com.agustinpalma.comandas.application.usecase.CrearProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.ConsultarPromocionesUseCase;
+import com.agustinpalma.comandas.application.usecase.ConsultarPromocionUseCase;
+import com.agustinpalma.comandas.application.usecase.CrearPromocionUseCase;
+import com.agustinpalma.comandas.application.usecase.EditarPromocionUseCase;
+import com.agustinpalma.comandas.application.usecase.EliminarPromocionUseCase;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
+import com.agustinpalma.comandas.domain.repository.PromocionRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -162,6 +168,50 @@ public class ApplicationConfig {
     @Bean
     public EliminarProductoUseCase eliminarProductoUseCase(ProductoRepository productoRepository) {
         return new EliminarProductoUseCase(productoRepository);
+    }
+
+    /**
+     * Bean del caso de uso para crear promoción.
+     * Spring inyectará automáticamente la implementación JPA del repositorio.
+     *
+     * @param promocionRepository implementación del repositorio de promociones
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public CrearPromocionUseCase crearPromocionUseCase(PromocionRepository promocionRepository) {
+        return new CrearPromocionUseCase(promocionRepository);
+    }
+
+    /**
+     * Bean del caso de uso para consultar todas las promociones de un local.
+     */
+    @Bean
+    public ConsultarPromocionesUseCase consultarPromocionesUseCase(PromocionRepository promocionRepository) {
+        return new ConsultarPromocionesUseCase(promocionRepository);
+    }
+
+    /**
+     * Bean del caso de uso para consultar el detalle de una promoción.
+     */
+    @Bean
+    public ConsultarPromocionUseCase consultarPromocionUseCase(PromocionRepository promocionRepository) {
+        return new ConsultarPromocionUseCase(promocionRepository);
+    }
+
+    /**
+     * Bean del caso de uso para editar una promoción.
+     */
+    @Bean
+    public EditarPromocionUseCase editarPromocionUseCase(PromocionRepository promocionRepository) {
+        return new EditarPromocionUseCase(promocionRepository);
+    }
+
+    /**
+     * Bean del caso de uso para eliminar (desactivar) una promoción.
+     */
+    @Bean
+    public EliminarPromocionUseCase eliminarPromocionUseCase(PromocionRepository promocionRepository) {
+        return new EliminarPromocionUseCase(promocionRepository);
     }
 }
 
