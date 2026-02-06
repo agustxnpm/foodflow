@@ -1,12 +1,15 @@
 package com.agustinpalma.comandas.infrastructure.mapper;
 
+import com.agustinpalma.comandas.domain.model.AlcancePromocion;
 import com.agustinpalma.comandas.domain.model.CriterioActivacion;
 import com.agustinpalma.comandas.domain.model.CriterioActivacion.*;
 import com.agustinpalma.comandas.domain.model.DomainEnums.*;
 import com.agustinpalma.comandas.domain.model.DomainIds.*;
 import com.agustinpalma.comandas.domain.model.EstrategiaPromocion;
 import com.agustinpalma.comandas.domain.model.EstrategiaPromocion.*;
+import com.agustinpalma.comandas.domain.model.ItemPromocion;
 import com.agustinpalma.comandas.domain.model.Promocion;
+import com.agustinpalma.comandas.infrastructure.persistence.entity.ItemPromocionEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PromocionEntity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -27,6 +30,7 @@ import java.util.stream.Collectors;
  * Responsabilidades:
  * - Traducir la jerarquía sellada EstrategiaPromocion ↔ columnas aplanadas
  * - Traducir List<CriterioActivacion> ↔ JSON en columna triggers_json
+ * - Traducir AlcancePromocion ↔ tabla intermedia promocion_productos_scope (HU-09)
  * - Manejar serialización/deserialización JSONB con estructura polimórfica
  */
 @Component
@@ -40,6 +44,10 @@ public class PromocionMapper {
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
+    /**
+     * Convierte la entidad JPA a dominio.
+     * El alcance (scope) se carga por separado en PromocionRepositoryImpl.
+     */
     public Promocion toDomain(PromocionEntity entity) {
         EstrategiaPromocion estrategia = reconstruirEstrategia(entity);
         List<CriterioActivacion> triggers = deserializarTriggers(entity.getTriggersJson());
@@ -56,6 +64,10 @@ public class PromocionMapper {
         );
     }
 
+    /**
+     * Convierte el dominio a entidad JPA.
+     * El alcance (scope) se persiste por separado en PromocionRepositoryImpl.
+     */
     public PromocionEntity toEntity(Promocion domain) {
         PromocionEntity entity = new PromocionEntity();
         entity.setId(domain.getId().getValue());
@@ -72,6 +84,63 @@ public class PromocionMapper {
         entity.setTriggersJson(serializarTriggers(domain.getTriggers()));
 
         return entity;
+    }
+
+    // ============================================
+    // Alcance (Scope) - HU-09
+    // ============================================
+
+    /**
+     * Convierte una lista de entidades ItemPromocion a dominio AlcancePromocion.
+     */
+    public AlcancePromocion toDomainAlcance(List<ItemPromocionEntity> entities) {
+        if (entities == null || entities.isEmpty()) {
+            return AlcancePromocion.vacio();
+        }
+
+        List<ItemPromocion> items = entities.stream()
+                .map(this::toDomainItem)
+                .toList();
+
+        return new AlcancePromocion(items);
+    }
+
+    /**
+     * Convierte una entidad ItemPromocion a dominio.
+     */
+    private ItemPromocion toDomainItem(ItemPromocionEntity entity) {
+        return new ItemPromocion(
+                new ItemPromocionId(entity.getId()),
+                entity.getReferenciaId(),
+                entity.getTipoAlcance(),
+                entity.getRol()
+        );
+    }
+
+    /**
+     * Convierte un AlcancePromocion del dominio a entidades JPA.
+     */
+    public List<ItemPromocionEntity> toEntityAlcance(AlcancePromocion alcance, UUID promocionId) {
+        if (alcance == null || !alcance.tieneItems()) {
+            return Collections.emptyList();
+        }
+
+        return alcance.getItems().stream()
+                .map(item -> toEntityItem(item, promocionId))
+                .toList();
+    }
+
+    /**
+     * Convierte un ItemPromocion del dominio a entidad JPA.
+     */
+    private ItemPromocionEntity toEntityItem(ItemPromocion item, UUID promocionId) {
+        return new ItemPromocionEntity(
+                item.getId().getValue(),
+                promocionId,
+                item.getReferenciaId(),
+                item.getTipo(),
+                item.getRol()
+        );
     }
 
     // ============================================

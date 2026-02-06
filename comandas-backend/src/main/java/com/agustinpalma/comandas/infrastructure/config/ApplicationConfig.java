@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.infrastructure.config;
 
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.AsociarProductoAPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
@@ -212,6 +213,17 @@ public class ApplicationConfig {
     @Bean
     public EliminarPromocionUseCase eliminarPromocionUseCase(PromocionRepository promocionRepository) {
         return new EliminarPromocionUseCase(promocionRepository);
+    }
+
+    /**
+     * Bean del caso de uso para asociar productos a una promoción (HU-09).
+     */
+    @Bean
+    public AsociarProductoAPromocionUseCase asociarProductoAPromocionUseCase(
+            PromocionRepository promocionRepository,
+            ProductoRepository productoRepository
+    ) {
+        return new AsociarProductoAPromocionUseCase(promocionRepository, productoRepository);
     }
 }
 

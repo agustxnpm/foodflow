@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.presentation.rest;
 
+import com.agustinpalma.comandas.application.dto.AsociarScopeCommand;
 import com.agustinpalma.comandas.application.dto.CrearPromocionCommand;
 import com.agustinpalma.comandas.application.dto.EditarPromocionCommand;
 import com.agustinpalma.comandas.application.dto.PromocionResponse;
@@ -24,6 +25,7 @@ import java.util.UUID;
  * - POST /api/promociones: Crear una nueva promoción con triggers configurables
  * - PUT /api/promociones/{id}: Actualizar una promoción existente
  * - DELETE /api/promociones/{id}: Eliminar (desactivar) una promoción
+ * - PUT /api/promociones/{id}/alcance: Asociar productos a la promoción (HU-09)
  * 
  */
 @RestController
@@ -35,19 +37,22 @@ public class PromocionController {
     private final ConsultarPromocionUseCase consultarPromocionUseCase;
     private final EditarPromocionUseCase editarPromocionUseCase;
     private final EliminarPromocionUseCase eliminarPromocionUseCase;
+    private final AsociarProductoAPromocionUseCase asociarProductoAPromocionUseCase;
 
     public PromocionController(
             CrearPromocionUseCase crearPromocionUseCase,
             ConsultarPromocionesUseCase consultarPromocionesUseCase,
             ConsultarPromocionUseCase consultarPromocionUseCase,
             EditarPromocionUseCase editarPromocionUseCase,
-            EliminarPromocionUseCase eliminarPromocionUseCase
+            EliminarPromocionUseCase eliminarPromocionUseCase,
+            AsociarProductoAPromocionUseCase asociarProductoAPromocionUseCase
     ) {
         this.crearPromocionUseCase = crearPromocionUseCase;
         this.consultarPromocionesUseCase = consultarPromocionesUseCase;
         this.consultarPromocionUseCase = consultarPromocionUseCase;
         this.editarPromocionUseCase = editarPromocionUseCase;
         this.eliminarPromocionUseCase = eliminarPromocionUseCase;
+        this.asociarProductoAPromocionUseCase = asociarProductoAPromocionUseCase;
     }
 
     /**
@@ -146,5 +151,44 @@ public class PromocionController {
         
         eliminarPromocionUseCase.ejecutar(localIdSimulado, promocionId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Asocia productos/categorías a una promoción, definiendo su alcance (scope).
+     * HU-09: Asociar productos a promociones.
+     * 
+     * Define:
+     * - Qué productos/categorías ACTIVAN la promoción (rol TRIGGER)
+     * - Qué productos/categorías RECIBEN el beneficio (rol TARGET)
+     * 
+     * Ejemplo de request (Caso Torta + Licuado):
+     * {
+     *   "items": [
+     *     { "referenciaId": "uuid-torta-chocolate", "tipo": "PRODUCTO", "rol": "TRIGGER" },
+     *     { "referenciaId": "uuid-cat-licuados", "tipo": "CATEGORIA", "rol": "TARGET" },
+     *     { "referenciaId": "uuid-agua-mineral", "tipo": "PRODUCTO", "rol": "TARGET" }
+     *   ]
+     * }
+     * 
+     * Seguridad:
+     * - Valida que la promoción pertenezca al local autenticado
+     * - Valida que todos los productos referenciados existan y pertenezcan al local
+     */
+    @PutMapping("/{id}/alcance")
+    public ResponseEntity<PromocionResponse> asociarProductos(
+            @PathVariable String id,
+            @Valid @RequestBody AsociarScopeCommand command
+    ) {
+        // TODO: Reemplazar por localId del contexto de autenticación cuando se implemente JWT
+        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        PromocionId promocionId = new PromocionId(UUID.fromString(id));
+
+        PromocionResponse response = asociarProductoAPromocionUseCase.ejecutar(
+                localIdSimulado,
+                promocionId,
+                command
+        );
+
+        return ResponseEntity.ok(response);
     }
 }

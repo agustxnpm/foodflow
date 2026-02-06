@@ -16,12 +16,14 @@ import java.util.Objects;
  * - **Triggers (Criterios de Activación):** Lista de condiciones que deben cumplirse
  *   simultáneamente (lógica AND) para que la promoción pueda activarse.
  * - **Estrategia (Beneficio):** Define QUÉ beneficio se otorga una vez activada.
+ * - **Alcance (Scope):** Define QUÉ productos/categorías participan y CON QUÉ ROL (HU-09).
  * 
  * Separación de responsabilidades:
  * - Los triggers responden: "¿CUÁNDO y BAJO QUÉ CONDICIONES aplico?"
  * - La estrategia responde: "¿QUÉ BENEFICIO otorgo?" (calculado en HU-10)
+ * - El alcance responde: "¿A QUÉ productos/categorías aplico?" (HU-09)
  * 
- * La asociación con productos concretos se realizará en HU-09 (PromocionProducto).
+ * HU-09: AlcancePromocion define los productos trigger y target.
  * La aplicación automática a pedidos se realizará en HU-10.
  * 
  * Invariantes:
@@ -42,6 +44,7 @@ public class Promocion {
     private EstadoPromocion estado;
     private final EstrategiaPromocion estrategia;
     private final List<CriterioActivacion> triggers;
+    private AlcancePromocion alcance; // HU-09
 
     public Promocion(
             PromocionId id,
@@ -61,6 +64,7 @@ public class Promocion {
         this.estado = Objects.requireNonNull(estado, "El estado de la promoción no puede ser null");
         this.estrategia = Objects.requireNonNull(estrategia, "La estrategia de la promoción es obligatoria");
         this.triggers = validarTriggers(triggers);
+        this.alcance = AlcancePromocion.vacio(); // Inicialmente vacío
     }
 
     private String validarNombre(String nombre) {
@@ -147,6 +151,14 @@ public class Promocion {
         this.prioridad = validarPrioridad(nuevaPrioridad);
     }
 
+    /**
+     * Define el alcance de la promoción (qué productos/categorías participan y con qué rol).
+     * HU-09: Asociar productos a promociones.
+     */
+    public void definirAlcance(AlcancePromocion nuevoAlcance) {
+        this.alcance = Objects.requireNonNull(nuevoAlcance, "El alcance no puede ser null");
+    }
+
     // ============================================
     // Getters (sin setters públicos)
     // ============================================
@@ -181,6 +193,10 @@ public class Promocion {
 
     public List<CriterioActivacion> getTriggers() {
         return Collections.unmodifiableList(triggers);
+    }
+
+    public AlcancePromocion getAlcance() {
+        return alcance;
     }
 
     @Override

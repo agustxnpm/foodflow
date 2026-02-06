@@ -1,14 +1,18 @@
 package com.agustinpalma.comandas.application.dto;
 
+import com.agustinpalma.comandas.domain.model.AlcancePromocion;
 import com.agustinpalma.comandas.domain.model.CriterioActivacion;
 import com.agustinpalma.comandas.domain.model.CriterioActivacion.*;
+import com.agustinpalma.comandas.domain.model.DomainEnums.*;
 import com.agustinpalma.comandas.domain.model.EstrategiaPromocion;
 import com.agustinpalma.comandas.domain.model.EstrategiaPromocion.*;
+import com.agustinpalma.comandas.domain.model.ItemPromocion;
 import com.agustinpalma.comandas.domain.model.Promocion;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -16,6 +20,7 @@ import java.util.stream.Collectors;
 /**
  * DTO de respuesta para una promoción con triggers configurables.
  * Mapea todos los datos relevantes del aggregate Promocion para la API REST.
+ * HU-09: Incluye información del alcance (scope) de productos/categorías.
  */
 public record PromocionResponse(
         String id,
@@ -24,7 +29,8 @@ public record PromocionResponse(
         int prioridad,
         String estado,
         EstrategiaResponse estrategia,
-        List<TriggerResponse> triggers
+        List<TriggerResponse> triggers,
+        AlcanceResponse alcance
 ) {
 
     public static PromocionResponse fromDomain(Promocion promocion) {
@@ -37,8 +43,47 @@ public record PromocionResponse(
                 EstrategiaResponse.fromDomain(promocion.getEstrategia()),
                 promocion.getTriggers().stream()
                         .map(TriggerResponse::fromDomain)
-                        .collect(Collectors.toList())
+                        .collect(Collectors.toList()),
+                AlcanceResponse.fromDomain(promocion.getAlcance())
         );
+    }
+
+    /**
+     * Representación del alcance (scope) de la promoción.
+     * HU-09: Define qué productos/categorías participan y con qué rol (TRIGGER o TARGET).
+     */
+    public record AlcanceResponse(
+            List<ItemAlcanceResponse> items
+    ) {
+        public static AlcanceResponse fromDomain(AlcancePromocion alcance) {
+            if (alcance == null || !alcance.tieneItems()) {
+                return new AlcanceResponse(Collections.emptyList());
+            }
+
+            return new AlcanceResponse(
+                    alcance.getItems().stream()
+                            .map(ItemAlcanceResponse::fromDomain)
+                            .toList()
+            );
+        }
+    }
+
+    /**
+     * Representación de un ítem dentro del alcance.
+     * Mapea el ItemPromocion del dominio a un formato REST.
+     */
+    public record ItemAlcanceResponse(
+            String referenciaId,
+            TipoAlcance tipo,
+            RolPromocion rol
+    ) {
+        public static ItemAlcanceResponse fromDomain(ItemPromocion item) {
+            return new ItemAlcanceResponse(
+                    item.getReferenciaId().toString(),
+                    item.getTipo(),
+                    item.getRol()
+            );
+        }
     }
 
     /**
