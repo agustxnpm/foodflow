@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -71,6 +72,38 @@ public class ItemPedidoEntity {
     @Column(name = "promocion_id")
     private UUID promocionId;
 
+    // ============================================
+    // HU-14: Campos de descuento manual dinámico
+    // ============================================
+
+    /**
+     * Porcentaje del descuento manual aplicado al ítem.
+     * Null si no tiene descuento manual.
+     */
+    @Column(name = "desc_manual_porcentaje", precision = 5, scale = 2)
+    private BigDecimal descManualPorcentaje;
+
+    /**
+     * Razón del descuento manual.
+     * Null si no tiene descuento manual.
+     */
+    @Column(name = "desc_manual_razon", length = 255)
+    private String descManualRazon;
+
+    /**
+     * ID del usuario que aplicó el descuento manual.
+     * Null si no tiene descuento manual.
+     */
+    @Column(name = "desc_manual_usuario_id")
+    private UUID descManualUsuarioId;
+
+    /**
+     * Fecha de aplicación del descuento manual.
+     * Null si no tiene descuento manual.
+     */
+    @Column(name = "desc_manual_fecha")
+    private LocalDateTime descManualFecha;
+
     // Constructor vacío para JPA
     protected ItemPedidoEntity() {}
 
@@ -78,10 +111,10 @@ public class ItemPedidoEntity {
     public ItemPedidoEntity(UUID id, UUID productoId, String nombreProducto,
                              int cantidad, BigDecimal precioUnitario, String observacion) {
         this(id, productoId, nombreProducto, cantidad, precioUnitario, observacion, 
-             BigDecimal.ZERO, null, null);
+             BigDecimal.ZERO, null, null, null, null, null, null);
     }
 
-    // Constructor completo con promoción (HU-10)
+    // Constructor completo con promoción (HU-10) y descuento manual (HU-14)
     public ItemPedidoEntity(
             UUID id, 
             UUID productoId, 
@@ -91,7 +124,11 @@ public class ItemPedidoEntity {
             String observacion,
             BigDecimal montoDescuento,
             String nombrePromocion,
-            UUID promocionId
+            UUID promocionId,
+            BigDecimal descManualPorcentaje,
+            String descManualRazon,
+            UUID descManualUsuarioId,
+            LocalDateTime descManualFecha
     ) {
         this.id = id;
         this.productoId = productoId;
@@ -102,6 +139,10 @@ public class ItemPedidoEntity {
         this.montoDescuento = montoDescuento != null ? montoDescuento : BigDecimal.ZERO;
         this.nombrePromocion = nombrePromocion;
         this.promocionId = promocionId;
+        this.descManualPorcentaje = descManualPorcentaje;
+        this.descManualRazon = descManualRazon;
+        this.descManualUsuarioId = descManualUsuarioId;
+        this.descManualFecha = descManualFecha;
     }
 
     // Getters y setters
@@ -195,5 +236,41 @@ public class ItemPedidoEntity {
 
     public void setPromocionId(UUID promocionId) {
         this.promocionId = promocionId;
+    }
+
+    // ============================================
+    // HU-14: Getters y Setters de descuento manual
+    // ============================================
+
+    public BigDecimal getDescManualPorcentaje() {
+        return descManualPorcentaje;
+    }
+
+    public void setDescManualPorcentaje(BigDecimal descManualPorcentaje) {
+        this.descManualPorcentaje = descManualPorcentaje;
+    }
+
+    public String getDescManualRazon() {
+        return descManualRazon;
+    }
+
+    public void setDescManualRazon(String descManualRazon) {
+        this.descManualRazon = descManualRazon;
+    }
+
+    public UUID getDescManualUsuarioId() {
+        return descManualUsuarioId;
+    }
+
+    public void setDescManualUsuarioId(UUID descManualUsuarioId) {
+        this.descManualUsuarioId = descManualUsuarioId;
+    }
+
+    public LocalDateTime getDescManualFecha() {
+        return descManualFecha;
+    }
+
+    public void setDescManualFecha(LocalDateTime descManualFecha) {
+        this.descManualFecha = descManualFecha;
     }
 }

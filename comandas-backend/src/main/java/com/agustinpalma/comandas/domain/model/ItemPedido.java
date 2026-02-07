@@ -31,12 +31,16 @@ public class ItemPedido {
     private final BigDecimal montoDescuento;      // Valor monetario descontado (ej: $250)
     private final String nombrePromocion;          // Para mostrar al cliente (ej: "Promo Merienda")
     private final UUID promocionId;                // Referencia para auditoría
+    
+    // HU-14: Descuento manual dinámico (opcional)
+    private DescuentoManual descuentoManual;       // null si no tiene descuento manual
 
     /**
      * Constructor completo para reconstrucción desde persistencia.
      * Usado por la capa de infraestructura (JPA).
      * 
      * HU-10: Incluye campos de promoción para snapshot completo.
+     * HU-14: Incluye descuento manual dinámico (opcional).
      */
     public ItemPedido(
             ItemPedidoId id, 
@@ -48,7 +52,8 @@ public class ItemPedido {
             String observacion,
             BigDecimal montoDescuento,
             String nombrePromocion,
-            UUID promocionId
+            UUID promocionId,
+            DescuentoManual descuentoManual
     ) {
         this.id = Objects.requireNonNull(id, "El id del item no puede ser null");
         this.pedidoId = Objects.requireNonNull(pedidoId, "El pedidoId no puede ser null");
@@ -62,6 +67,9 @@ public class ItemPedido {
         this.montoDescuento = montoDescuento != null ? montoDescuento : BigDecimal.ZERO;
         this.nombrePromocion = nombrePromocion;
         this.promocionId = promocionId;
+        
+        // HU-14: Descuento manual (puede ser null)
+        this.descuentoManual = descuentoManual;
     }
 
     /**
@@ -78,7 +86,7 @@ public class ItemPedido {
             String observacion
     ) {
         this(id, pedidoId, productoId, nombreProducto, cantidad, precioUnitario, 
-             observacion, BigDecimal.ZERO, null, null);
+             observacion, BigDecimal.ZERO, null, null, null);
     }
 
     /**
@@ -116,7 +124,8 @@ public class ItemPedido {
             observacion,
             BigDecimal.ZERO,  // Sin descuento
             null,              // Sin nombre de promoción
-            null               // Sin ID de promoción
+            null,              // Sin ID de promoción
+            null               // Sin descuento manual
         );
     }
 
@@ -162,7 +171,8 @@ public class ItemPedido {
             observacion,
             montoDescuento,
             nombrePromocion,
-            promocionId
+            promocionId,
+            null               // Sin descuento manual por defecto
         );
     }
 
@@ -254,6 +264,57 @@ public class ItemPedido {
         return montoDescuento.compareTo(BigDecimal.ZERO) > 0;
     }
 
+    // ============================================
+    // HU-14: Getters y setters de descuento manual
+    // ============================================
+
+    /**
+     * Retorna el descuento manual aplicado a este ítem.
+     * 
+     * @return DescuentoManual o null si no tiene descuento manual
+     */
+    public DescuentoManual getDescuentoManual() {
+        return descuentoManual;
+    }
+
+    /**
+     * Aplica un descuento manual a este ítem.
+     * Sobrescribe cualquier descuento manual previo.
+     * 
+     * HU-14: El descuento manual es dinámico. Se recalcula en cada invocación de calcularPrecioFinal().
+     * 
+     * @param descuentoManual el descuento a aplicar, o null para remover el descuento
+     */
+    public void aplicarDescuentoManual(DescuentoManual descuentoManual) {
+        this.descuentoManual = descuentoManual;
+    }
+
+    /**
+     * Indica si este ítem tiene un descuento manual aplicado.
+     * 
+     * @return true si tiene descuento manual
+     */
+    public boolean tieneDescuentoManual() {
+        return descuentoManual != null;
+    }
+
+    /**
+     * Calcula el monto del descuento manual aplicado a este ítem.
+     * 
+     * HU-14: Este cálculo es dinámico. Depende del remanente después de promociones.
+     * 
+     * @return monto del descuento manual, o BigDecimal.ZERO si no tiene
+     */
+    public BigDecimal calcularMontoDescuentoManual() {
+        if (descuentoManual == null) {
+            return BigDecimal.ZERO;
+        }
+        
+        // Base gravable = remanente después de promociones automáticas
+        BigDecimal remanenteDespuesPromo = calcularSubtotal().subtract(montoDescuento);
+        return descuentoManual.calcularMonto(remanenteDespuesPromo);
+    }
+
     /**
      * Calcula el subtotal de este ítem (precio base * cantidad).
      * Este es el precio SIN descuento.
@@ -265,14 +326,34 @@ public class ItemPedido {
     }
 
     /**
-     * Calcula el precio final de este ítem aplicando el descuento.
+     * Calcula el precio final de este ítem aplicando descuentos.
      * 
-     * HU-10: precioFinal = (precioBase * cantidad) - montoDescuento
+     * HU-10: Primero aplica descuento de promoción (snapshot fijo)
+     * HU-14: Luego aplica descuento manual (dinámico) sobre el remanente
      * 
-     * @return el monto neto del ítem después de descuentos
+     * Fórmula:
+     * 1. subtotalBruto = precioUnitario * cantidad
+     * 2. remanenteDespuesPromo = subtotalBruto - montoDescuentoAuto
+     * 3. montoDescuentoManual = descuentoManual.calcularMonto(remanenteDespuesPromo)
+     * 4. precioFinal = remanenteDespuesPromo - montoDescuentoManual
+     * 
+     * @return el monto neto del ítem después de todos los descuentos
      */
     public BigDecimal calcularPrecioFinal() {
-        return calcularSubtotal().subtract(montoDescuento);
+        // 1. Subtotal bruto (precio base * cantidad)
+        BigDecimal subtotalBruto = calcularSubtotal();
+        
+        // 2. Remanente después de promoción automática (HU-10)
+        BigDecimal remanenteDespuesPromo = subtotalBruto.subtract(montoDescuento);
+        
+        // 3. Aplicar descuento manual sobre el remanente (HU-14)
+        if (descuentoManual != null) {
+            BigDecimal montoDescuentoManual = descuentoManual.calcularMonto(remanenteDespuesPromo);
+            return remanenteDespuesPromo.subtract(montoDescuentoManual);
+        }
+        
+        // Sin descuento manual
+        return remanenteDespuesPromo;
     }
 
     @Override

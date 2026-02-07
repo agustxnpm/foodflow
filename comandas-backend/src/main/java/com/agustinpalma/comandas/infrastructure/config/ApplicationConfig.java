@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.infrastructure.config;
 
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCase;
 import com.agustinpalma.comandas.application.usecase.AsociarProductoAPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
@@ -255,5 +256,20 @@ public class ApplicationConfig {
     ) {
         return new AsociarProductoAPromocionUseCase(promocionRepository, productoRepository);
     }
-}
 
+    /**
+     * Bean del caso de uso para aplicar descuento manual (HU-14).
+     * Soporta descuentos globales y por ítem.
+     * 
+     * @param pedidoRepository implementación del repositorio de pedidos
+     * @param clock reloj del sistema para timestamp de auditoría
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase(
+            PedidoRepository pedidoRepository,
+            Clock clock
+    ) {
+        return new AplicarDescuentoManualUseCase(pedidoRepository, clock);
+    }
+}

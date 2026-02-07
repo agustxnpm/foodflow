@@ -4,6 +4,7 @@ import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
 import com.agustinpalma.comandas.domain.model.DomainEnums.MedioPago;
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,38 @@ public class PedidoEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "medio_pago", length = 20)
     private MedioPago medioPago;
+
+    // ============================================
+    // HU-14: Campos de descuento global dinámico
+    // ============================================
+
+    /**
+     * Porcentaje del descuento global aplicado al pedido.
+     * Null si no tiene descuento global.
+     */
+    @Column(name = "desc_global_porcentaje", precision = 5, scale = 2)
+    private BigDecimal descGlobalPorcentaje;
+
+    /**
+     * Razón del descuento global.
+     * Null si no tiene descuento global.
+     */
+    @Column(name = "desc_global_razon", length = 255)
+    private String descGlobalRazon;
+
+    /**
+     * ID del usuario que aplicó el descuento global.
+     * Null si no tiene descuento global.
+     */
+    @Column(name = "desc_global_usuario_id")
+    private UUID descGlobalUsuarioId;
+
+    /**
+     * Fecha de aplicación del descuento global.
+     * Null si no tiene descuento global.
+     */
+    @Column(name = "desc_global_fecha")
+    private LocalDateTime descGlobalFecha;
 
     /**
      * HU-07: Relación bidireccional con ítems del pedido.
@@ -143,6 +176,42 @@ public class PedidoEntity {
 
     public void setMedioPago(MedioPago medioPago) {
         this.medioPago = medioPago;
+    }
+
+    // ============================================
+    // HU-14: Getters y Setters de descuento global
+    // ============================================
+
+    public BigDecimal getDescGlobalPorcentaje() {
+        return descGlobalPorcentaje;
+    }
+
+    public void setDescGlobalPorcentaje(BigDecimal descGlobalPorcentaje) {
+        this.descGlobalPorcentaje = descGlobalPorcentaje;
+    }
+
+    public String getDescGlobalRazon() {
+        return descGlobalRazon;
+    }
+
+    public void setDescGlobalRazon(String descGlobalRazon) {
+        this.descGlobalRazon = descGlobalRazon;
+    }
+
+    public UUID getDescGlobalUsuarioId() {
+        return descGlobalUsuarioId;
+    }
+
+    public void setDescGlobalUsuarioId(UUID descGlobalUsuarioId) {
+        this.descGlobalUsuarioId = descGlobalUsuarioId;
+    }
+
+    public LocalDateTime getDescGlobalFecha() {
+        return descGlobalFecha;
+    }
+
+    public void setDescGlobalFecha(LocalDateTime descGlobalFecha) {
+        this.descGlobalFecha = descGlobalFecha;
     }
 
     public List<ItemPedidoEntity> getItems() {

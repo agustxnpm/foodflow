@@ -25,6 +25,9 @@ public class Pedido {
     private MedioPago medioPago;
     private final List<ItemPedido> items;
     private final List<DescuentoAplicado> descuentos;
+    
+    // HU-14: Descuento global dinámico (opcional)
+    private DescuentoManual descuentoGlobal;  // null si no tiene descuento global
 
     public Pedido(PedidoId id, LocalId localId, MesaId mesaId, int numero, EstadoPedido estado, LocalDateTime fechaApertura) {
         this.id = Objects.requireNonNull(id, "El id del pedido no puede ser null");
@@ -206,28 +209,95 @@ public class Pedido {
     }
 
     /**
-     * Calcula el total final del pedido aplicando descuentos sobre el subtotal.
+     * Calcula el total final del pedido aplicando todos los descuentos.
      * 
      * Regla de Oro del Dominio:
      * "El total del pedido se calcula a partir de los ítems base + descuentos acumulables"
      * 
-     * Actualmente (sin implementación de descuentos), este método retorna
-     * el mismo valor que calcularSubtotalItems(). Cuando se implementen descuentos,
-     * este método restará los descuentos acumulados al subtotal.
+     * HU-14: Implementación de descuento global dinámico.
      * 
-     * @return el total final del pedido (subtotal - descuentos)
+     * Fórmula:
+     * 1. baseGravable = Sumatoria(item.calcularPrecioFinal())
+     *    -> Cada item ya incluye sus promociones automáticas (HU-10) y descuentos manuales por ítem
+     * 2. montoDescuentoGlobal = descuentoGlobal.calcularMonto(baseGravable)
+     * 3. totalFinal = baseGravable - montoDescuentoGlobal
+     * 
+     * IMPORTANTE: La base gravable usa calcularPrecioFinal() de cada ítem, que ya incluye
+     * promociones automáticas y descuentos manuales por ítem. Así se respeta la jerarquía:
+     * 1° Promociones automáticas (HU-10)
+     * 2° Descuentos manuales por ítem
+     * 3° Descuento global (sobre el total final de los ítems)
+     * 
+     * @return el total final del pedido (subtotal de ítems - descuento global)
      */
     public BigDecimal calcularTotal() {
-        BigDecimal subtotal = calcularSubtotalItems();
+        // 1. Base gravable: suma de todos los ítems con sus descuentos aplicados
+        BigDecimal baseGravable = items.stream()
+            .map(ItemPedido::calcularPrecioFinal)  // Usa precioFinal (ya con promos y desc. manuales)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
         
-        // MVP: Sin descuentos implementados aún
-        // Cuando se agreguen descuentos, aquí se aplicarían:
-        // BigDecimal totalDescuentos = descuentos.stream()
-        //     .map(DescuentoAplicado::getMonto)
-        //     .reduce(BigDecimal.ZERO, BigDecimal::add);
-        // return subtotal.subtract(totalDescuentos);
+        // 2. Aplicar descuento global sobre la base gravable (HU-14)
+        if (descuentoGlobal != null) {
+            BigDecimal montoDescuentoGlobal = descuentoGlobal.calcularMonto(baseGravable);
+            return baseGravable.subtract(montoDescuentoGlobal);
+        }
         
-        return subtotal;
+        // Sin descuento global
+        return baseGravable;
+    }
+
+    // ============================================
+    // HU-14: Getters y setters de descuento global
+    // ============================================
+
+    /**
+     * Retorna el descuento global aplicado a todo el pedido.
+     * 
+     * @return DescuentoManual o null si no tiene descuento global
+     */
+    public DescuentoManual getDescuentoGlobal() {
+        return descuentoGlobal;
+    }
+
+    /**
+     * Aplica un descuento global a todo el pedido.
+     * Sobrescribe cualquier descuento global previo.
+     * 
+     * HU-14: El descuento global es dinámico. Se recalcula en cada invocación de calcularTotal().
+     * 
+     * @param descuentoGlobal el descuento a aplicar, o null para remover el descuento
+     */
+    public void aplicarDescuentoGlobal(DescuentoManual descuentoGlobal) {
+        this.descuentoGlobal = descuentoGlobal;
+    }
+
+    /**
+     * Indica si este pedido tiene un descuento global aplicado.
+     * 
+     * @return true si tiene descuento global
+     */
+    public boolean tieneDescuentoGlobal() {
+        return descuentoGlobal != null;
+    }
+
+    /**
+     * Calcula el monto del descuento global aplicado a este pedido.
+     * 
+     * HU-14: Este cálculo es dinámico. Depende del total de los ítems con sus descuentos.
+     * 
+     * @return monto del descuento global, o BigDecimal.ZERO si no tiene
+     */
+    public BigDecimal calcularMontoDescuentoGlobal() {
+        if (descuentoGlobal == null) {
+            return BigDecimal.ZERO;
+        }
+        
+        // Base gravable = suma de ítems con sus descuentos aplicados
+        BigDecimal baseGravable = items.stream()
+            .map(ItemPedido::calcularPrecioFinal)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            
+        return descuentoGlobal.calcularMonto(baseGravable);
     }
 
 

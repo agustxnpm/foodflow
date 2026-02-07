@@ -1,10 +1,13 @@
 package com.agustinpalma.comandas.presentation.rest;
 
-import com.agustinpalma.comandas.application.dto.AgregarProductoRequest;
-import com.agustinpalma.comandas.application.dto.AgregarProductoResponse;
+import com.agustinpalma.comandas.application.dto.*;
 import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCase;
+import com.agustinpalma.comandas.domain.model.DomainIds.ItemPedidoId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
+
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,16 +19,26 @@ import java.util.UUID;
  * No contiene lógica de negocio, solo coordina entre HTTP y casos de uso.
  * 
  * HU-05: Agregar productos a un pedido
+ * HU-14: Aplicar descuentos manuales
  */
 @RestController
 @RequestMapping("/api/pedidos")
 public class PedidoController {
 
     private final AgregarProductoUseCase agregarProductoUseCase;
+    private final AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase;
 
-    public PedidoController(AgregarProductoUseCase agregarProductoUseCase) {
+    public PedidoController(
+            AgregarProductoUseCase agregarProductoUseCase,
+            AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase
+    ) {
         this.agregarProductoUseCase = agregarProductoUseCase;
+        this.aplicarDescuentoManualUseCase = aplicarDescuentoManualUseCase;
     }
+
+    // =================================================
+    // ENDPOINTS - HU-05: Agregar Productos
+    // =================================================
 
     /**
      * Agrega un producto a un pedido existente.
@@ -52,11 +65,9 @@ public class PedidoController {
         @PathVariable String pedidoId,
         @RequestBody AgregarProductoRequestBody body
     ) {
-        // Transformar de String HTTP a Value Objects del dominio
         PedidoId pedidoIdVO = new PedidoId(UUID.fromString(pedidoId));
         ProductoId productoIdVO = new ProductoId(UUID.fromString(body.productoId()));
 
-        // Construir DTO de aplicación
         AgregarProductoRequest request = new AgregarProductoRequest(
             pedidoIdVO,
             productoIdVO,
@@ -64,19 +75,83 @@ public class PedidoController {
             body.observaciones()
         );
 
-        // Ejecutar caso de uso
         AgregarProductoResponse response = agregarProductoUseCase.ejecutar(request);
+        return ResponseEntity.ok(response);
+    }
 
+    // =================================================
+    // ENDPOINTS - HU-14: Descuentos Manuales
+    // =================================================
+
+    /**
+     * Aplica descuento manual global al pedido completo.
+     * 
+     * POST /api/pedidos/{pedidoId}/descuento-manual
+     * 
+     * HU-14: El descuento es dinámico. Se recalcula cada vez que cambia el total del pedido.
+     * 
+     * Ejemplo de request:
+     * {
+     *   "porcentaje": 10.5,
+     *   "razon": "Cliente frecuente",
+     *   "usuarioId": "550e8400-e29b-41d4-a716-446655440000"
+     * }
+     * 
+     * @param pedidoId ID del pedido (UUID en path)
+     * @param requestBody DTO con porcentaje, razón y usuarioId
+     * @return Respuesta con desglose completo de descuentos
+     */
+    @PostMapping("/{pedidoId}/descuento-manual")
+    public ResponseEntity<AplicarDescuentoManualResponse> aplicarDescuentoGlobal(
+            @PathVariable UUID pedidoId,
+            @Valid @RequestBody DescuentoManualRequestBody requestBody
+    ) {
+        AplicarDescuentoManualRequest request = new AplicarDescuentoManualRequest(
+            new PedidoId(pedidoId),
+            null,  // null = descuento global
+            requestBody.porcentaje(),
+            requestBody.razon(),
+            requestBody.usuarioId()
+        );
+
+        AplicarDescuentoManualResponse response = aplicarDescuentoManualUseCase.ejecutar(request);
         return ResponseEntity.ok(response);
     }
 
     /**
-     * DTO de entrada HTTP (solo para deserialización JSON).
-     * Contiene tipos primitivos/String que vienen del cliente REST.
+     * Aplica descuento manual a un ítem específico del pedido.
+     * 
+     * POST /api/pedidos/{pedidoId}/items/{itemId}/descuento-manual
+     * 
+     * HU-14: El descuento es dinámico. Se recalcula sobre el remanente después de promociones automáticas.
+     * 
+     * Ejemplo de request:
+     * {
+     *   "porcentaje": 15,
+     *   "razon": "Compensación por demora",
+     *   "usuarioId": "550e8400-e29b-41d4-a716-446655440000"
+     * }
+     * 
+     * @param pedidoId ID del pedido (UUID en path)
+     * @param itemId ID del ítem (UUID en path)
+     * @param requestBody DTO con porcentaje, razón y usuarioId
+     * @return Respuesta con desglose completo de descuentos
      */
-    public record AgregarProductoRequestBody(
-        String productoId,
-        int cantidad,
-        String observaciones
-    ) {}
+    @PostMapping("/{pedidoId}/items/{itemId}/descuento-manual")
+    public ResponseEntity<AplicarDescuentoManualResponse> aplicarDescuentoPorItem(
+            @PathVariable UUID pedidoId,
+            @PathVariable UUID itemId,
+            @Valid @RequestBody DescuentoManualRequestBody requestBody
+    ) {
+        AplicarDescuentoManualRequest request = new AplicarDescuentoManualRequest(
+            new PedidoId(pedidoId),
+            new ItemPedidoId(itemId),  // Descuento por ítem
+            requestBody.porcentaje(),
+            requestBody.razon(),
+            requestBody.usuarioId()
+        );
+
+        AplicarDescuentoManualResponse response = aplicarDescuentoManualUseCase.ejecutar(request);
+        return ResponseEntity.ok(response);
+    }
 }
