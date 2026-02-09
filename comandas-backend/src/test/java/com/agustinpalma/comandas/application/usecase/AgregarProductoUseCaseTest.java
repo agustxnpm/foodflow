@@ -542,6 +542,9 @@ class AgregarProductoUseCaseTest {
     // HELPERS: Métodos para crear promociones de prueba
     // =================================================
 
+    // Fecha de referencia alineada con el clock fijo de test (2026-02-06)
+    private static final LocalDate FECHA_TEST = LocalDate.of(2026, 2, 6);
+
     private Promocion crearPromocionDescuento(
             String nombre,
             BigDecimal porcentaje,
@@ -554,8 +557,8 @@ class AgregarProductoUseCaseTest {
         );
         
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            LocalDate.now().minusDays(1),
-            LocalDate.now().plusDays(30)
+            FECHA_TEST.minusDays(1),
+            FECHA_TEST.plusDays(30)
         );
         
         Promocion promo = new Promocion(
@@ -585,8 +588,8 @@ class AgregarProductoUseCaseTest {
         EstrategiaPromocion estrategia = new CantidadFija(cantidadLlevas, cantidadPagas);
         
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            LocalDate.now().minusDays(1),
-            LocalDate.now().plusDays(30)
+            FECHA_TEST.minusDays(1),
+            FECHA_TEST.plusDays(30)
         );
         
         Promocion promo = new Promocion(
