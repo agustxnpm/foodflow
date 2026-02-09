@@ -184,6 +184,7 @@ public class MotorReglasService {
      * - DESCUENTO_DIRECTO: % o monto fijo sobre el subtotal
      * - CANTIDAD_FIJA: NxM (ej: 2x1) calculando unidades gratis
      * - COMBO_CONDICIONAL: % sobre el producto target
+     * - PRECIO_FIJO_CANTIDAD: Pack con precio especial (ej: 2×$22.000)
      */
     private BigDecimal calcularDescuento(Promocion promocion, Producto producto, int cantidad) {
         BigDecimal precioBase = producto.getPrecio();
@@ -194,6 +195,7 @@ public class MotorReglasService {
             case DescuentoDirecto descuento -> calcularDescuentoDirecto(descuento, subtotal, precioBase, cantidad);
             case CantidadFija cantidadFija -> calcularDescuentoCantidadFija(cantidadFija, precioBase, cantidad);
             case ComboCondicional combo -> calcularDescuentoCombo(combo, subtotal);
+            case PrecioFijoPorCantidad precioFijo -> calcularDescuentoPrecioFijoCantidad(precioFijo, precioBase, cantidad);
         };
     }
 
@@ -250,6 +252,54 @@ public class MotorReglasService {
     private BigDecimal calcularDescuentoCombo(ComboCondicional combo, BigDecimal subtotal) {
         return subtotal.multiply(combo.porcentajeBeneficio())
                 .divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Calcula descuento para estrategia PRECIO_FIJO_CANTIDAD.
+     * 
+     * Fórmula:
+     * - ciclos = cantidad / cantidadActivacion
+     * - costoSinPromo = ciclos × cantidadActivacion × precioUnitario
+     * - costoConPromo = ciclos × precioPaquete
+     * - descuento = costoSinPromo - costoConPromo
+     * 
+     * Las unidades restantes (cantidad % cantidadActivacion) se cobran a precio completo.
+     * 
+     * Ejemplo: "2 hamburguesas por $22.000", precio base $13.000
+     * - cantidad=1: ciclos=0 → descuento=$0
+     * - cantidad=2: ciclos=1 → descuento = ($13.000×2) - $22.000 = $4.000
+     * - cantidad=3: ciclos=1 → descuento = ($13.000×2) - $22.000 = $4.000
+     * - cantidad=4: ciclos=2 → descuento = ($13.000×4) - $44.000 = $8.000
+     */
+    private BigDecimal calcularDescuentoPrecioFijoCantidad(
+            PrecioFijoPorCantidad estrategia,
+            BigDecimal precioBase,
+            int cantidad
+    ) {
+        int cantidadActivacion = estrategia.cantidadActivacion();
+        BigDecimal precioPaquete = estrategia.precioPaquete();
+        
+        // Calcular cuántos ciclos completos aplican
+        int ciclos = cantidad / cantidadActivacion;
+        
+        // Si no hay ciclos completos, no hay descuento
+        if (ciclos == 0) {
+            return BigDecimal.ZERO;
+        }
+        
+        // Calcular costos
+        BigDecimal costoSinPromo = precioBase
+                .multiply(BigDecimal.valueOf(cantidadActivacion))
+                .multiply(BigDecimal.valueOf(ciclos));
+        
+        BigDecimal costoConPromo = precioPaquete
+                .multiply(BigDecimal.valueOf(ciclos));
+        
+        // El descuento es la diferencia
+        BigDecimal descuento = costoSinPromo.subtract(costoConPromo);
+        
+        // Validar que el descuento sea positivo (debería serlo si la promo está bien configurada)
+        return descuento.max(BigDecimal.ZERO);
     }
 
     /**
@@ -417,6 +467,7 @@ public class MotorReglasService {
             case DescuentoDirecto descuento -> calcularDescuentoDirecto(descuento, subtotal, precioBase, cantidad);
             case CantidadFija cantidadFija -> calcularDescuentoCantidadFija(cantidadFija, precioBase, cantidad);
             case ComboCondicional combo -> calcularDescuentoCombo(combo, subtotal);
+            case PrecioFijoPorCantidad precioFijo -> calcularDescuentoPrecioFijoCantidad(precioFijo, precioBase, cantidad);
         };
     }
 }

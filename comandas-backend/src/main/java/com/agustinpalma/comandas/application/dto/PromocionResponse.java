@@ -97,7 +97,9 @@ public record PromocionResponse(
             Integer cantidadLlevas,
             Integer cantidadPagas,
             Integer cantidadMinimaTrigger,
-            BigDecimal porcentajeBeneficio
+            BigDecimal porcentajeBeneficio,
+            Integer cantidadActivacion,
+            BigDecimal precioPaquete
     ) {
 
         public static EstrategiaResponse fromDomain(EstrategiaPromocion estrategia) {
@@ -106,20 +108,27 @@ public record PromocionResponse(
                         dd.getTipo().name(),
                         dd.modo().name(),
                         dd.valor(),
-                        null, null, null, null
+                        null, null, null, null, null, null
                 );
                 case CantidadFija cf -> new EstrategiaResponse(
                         cf.getTipo().name(),
                         null, null,
                         cf.cantidadLlevas(),
                         cf.cantidadPagas(),
-                        null, null
+                        null, null, null, null
                 );
                 case ComboCondicional cc -> new EstrategiaResponse(
                         cc.getTipo().name(),
                         null, null, null, null,
                         cc.cantidadMinimaTrigger(),
-                        cc.porcentajeBeneficio()
+                        cc.porcentajeBeneficio(),
+                        null, null
+                );
+                case PrecioFijoPorCantidad pfc -> new EstrategiaResponse(
+                        pfc.getTipo().name(),
+                        null, null, null, null, null, null,
+                        pfc.cantidadActivacion(),
+                        pfc.precioPaquete()
                 );
             };
         }

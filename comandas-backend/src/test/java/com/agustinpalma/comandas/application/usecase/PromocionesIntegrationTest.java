@@ -315,6 +315,169 @@ class PromocionesIntegrationTest {
     }
 
     // =================================================
+    // GRUPO 2A: PRECIO FIJO POR CANTIDAD (PACKS)
+    // =================================================
+
+    @Nested
+    @DisplayName("Grupo 2A: Precio Fijo por Cantidad (Packs)")
+    class PrecioFijoPorCantidadTests {
+
+        @Test
+        @DisplayName("Escenario 6A: Pack 2×$22.000 - 1 unidad → Sin descuento")
+        void pack_precio_fijo_una_unidad_sin_descuento() {
+            // Given: Hamburguesa Premium $13.000, pack "2×$22.000"
+            Producto hamburguesaPremium = crearYGuardarProducto("Hamburguesa Premium", "13000.00");
+            
+            Promocion packPareja = crearPromocionPrecioFijo(
+                "Pack Pareja",
+                hamburguesaPremium.getId().getValue(),
+                2,                              // cantidadActivacion
+                new BigDecimal("22000.00"),     // precioPaquete
+                10
+            );
+            promocionRepository.guardar(packPareja);
+
+            // When: Agregar 1 hamburguesa
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedido.getId(), hamburguesaPremium.getId(), 1, null
+            );
+            AgregarProductoResponse response = agregarProductoUseCase.ejecutar(request);
+
+            // Then: Sin ciclos completos → Sin descuento
+            var item = response.items().get(0);
+            assertThat(item.cantidad()).isEqualTo(1);
+            assertThat(item.precioUnitarioBase()).isEqualByComparingTo("13000.00");
+            assertThat(item.descuentoTotal()).isEqualByComparingTo("0.00");
+            assertThat(item.precioFinal()).isEqualByComparingTo("13000.00");
+            assertThat(item.tienePromocion()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Escenario 6B: Pack 2×$22.000 - 2 unidades → Descuento $4.000")
+        void pack_precio_fijo_dos_unidades_aplica_descuento() {
+            // Given: Hamburguesa Premium $13.000, pack "2×$22.000"
+            Producto hamburguesaPremium = crearYGuardarProducto("Hamburguesa Premium", "13000.00");
+            
+            Promocion packPareja = crearPromocionPrecioFijo(
+                "Pack Pareja",
+                hamburguesaPremium.getId().getValue(),
+                2,
+                new BigDecimal("22000.00"),
+                10
+            );
+            promocionRepository.guardar(packPareja);
+
+            // When: Agregar 2 hamburguesas
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedido.getId(), hamburguesaPremium.getId(), 2, null
+            );
+            AgregarProductoResponse response = agregarProductoUseCase.ejecutar(request);
+
+            // Then: 1 ciclo completo → Descuento = (2×$13.000) - $22.000 = $4.000
+            var item = response.items().get(0);
+            assertThat(item.cantidad()).isEqualTo(2);
+            assertThat(item.precioUnitarioBase()).isEqualByComparingTo("13000.00");
+            assertThat(item.descuentoTotal()).isEqualByComparingTo("4000.00");
+            assertThat(item.precioFinal()).isEqualByComparingTo("22000.00");
+            assertThat(item.nombrePromocion()).isEqualTo("Pack Pareja");
+            assertThat(item.tienePromocion()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Escenario 6C: Pack 2×$22.000 - 3 unidades → Descuento $4.000 + 1 a precio completo")
+        void pack_precio_fijo_tres_unidades_un_ciclo_mas_una_suelta() {
+            // Given: Hamburguesa Premium $13.000, pack "2×$22.000"
+            Producto hamburguesaPremium = crearYGuardarProducto("Hamburguesa Premium", "13000.00");
+            
+            Promocion packPareja = crearPromocionPrecioFijo(
+                "Pack Pareja",
+                hamburguesaPremium.getId().getValue(),
+                2,
+                new BigDecimal("22000.00"),
+                10
+            );
+            promocionRepository.guardar(packPareja);
+
+            // When: Agregar 3 hamburguesas
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedido.getId(), hamburguesaPremium.getId(), 3, null
+            );
+            AgregarProductoResponse response = agregarProductoUseCase.ejecutar(request);
+
+            // Then: 1 ciclo ($4.000 descuento) + 1 unidad suelta a $13.000
+            // Precio final = $22.000 + $13.000 = $35.000
+            var item = response.items().get(0);
+            assertThat(item.cantidad()).isEqualTo(3);
+            assertThat(item.precioUnitarioBase()).isEqualByComparingTo("13000.00");
+            assertThat(item.descuentoTotal()).isEqualByComparingTo("4000.00");
+            assertThat(item.precioFinal()).isEqualByComparingTo("35000.00");
+            assertThat(item.nombrePromocion()).isEqualTo("Pack Pareja");
+        }
+
+        @Test
+        @DisplayName("Escenario 6D: Pack 2×$22.000 - 4 unidades → 2 ciclos, Descuento $8.000")
+        void pack_precio_fijo_cuatro_unidades_dos_ciclos() {
+            // Given: Hamburguesa Premium $13.000, pack "2×$22.000"
+            Producto hamburguesaPremium = crearYGuardarProducto("Hamburguesa Premium", "13000.00");
+            
+            Promocion packPareja = crearPromocionPrecioFijo(
+                "Pack Pareja",
+                hamburguesaPremium.getId().getValue(),
+                2,
+                new BigDecimal("22000.00"),
+                10
+            );
+            promocionRepository.guardar(packPareja);
+
+            // When: Agregar 4 hamburguesas
+            AgregarProductoRequest request = new AgregarProductoRequest(
+                pedido.getId(), hamburguesaPremium.getId(), 4, null
+            );
+            AgregarProductoResponse response = agregarProductoUseCase.ejecutar(request);
+
+            // Then: 2 ciclos → Descuento = (4×$13.000) - (2×$22.000) = $52.000 - $44.000 = $8.000
+            var item = response.items().get(0);
+            assertThat(item.cantidad()).isEqualTo(4);
+            assertThat(item.precioUnitarioBase()).isEqualByComparingTo("13000.00");
+            assertThat(item.descuentoTotal()).isEqualByComparingTo("8000.00");
+            assertThat(item.precioFinal()).isEqualByComparingTo("44000.00");
+            assertThat(item.nombrePromocion()).isEqualTo("Pack Pareja");
+        }
+
+        @Test
+        @DisplayName("Escenario 6E: HU-21 - Cambio dinámico de cantidad debe recalcular descuento")
+        void pack_cambio_dinamico_cantidad_recalcula_descuento() {
+            // Given: Hamburguesa Premium $13.000, pack "2×$22.000"
+            Producto hamburguesaPremium = crearYGuardarProducto("Hamburguesa Premium", "13000.00");
+            
+            Promocion packPareja = crearPromocionPrecioFijo(
+                "Pack Pareja",
+                hamburguesaPremium.getId().getValue(),
+                2,
+                new BigDecimal("22000.00"),
+                10
+            );
+            promocionRepository.guardar(packPareja);
+
+            // When: Agregar 1 hamburguesa (sin promo)
+            AgregarProductoRequest request1 = new AgregarProductoRequest(
+                pedido.getId(), hamburguesaPremium.getId(), 1, null
+            );
+            AgregarProductoResponse response1 = agregarProductoUseCase.ejecutar(request1);
+
+            // Then: Sin descuento
+            var item1 = response1.items().get(0);
+            assertThat(item1.descuentoTotal()).isEqualByComparingTo("0.00");
+            assertThat(item1.precioFinal()).isEqualByComparingTo("13000.00");
+
+            // NOTE: El recálculo automático al cambiar cantidad (PATCH /items/{id})
+            // requiere el use case GestionarItemsPedidoUseCase que ya está implementado.
+            // Este test valida el comportamiento en agregar producto.
+            // Para validar HU-21 completo, ver GestionarItemsPedidoIntegrationTest.
+        }
+    }
+
+    // =================================================
     // GRUPO 3: TRIGGERS CONTEXTUALES (TIEMPO Y MONTO)
     // =================================================
 
@@ -1005,6 +1168,35 @@ class PromocionesIntegrationTest {
             localId,
             nombre,
             "Descripción trigger compuesto",
+            prioridad,
+            EstadoPromocion.ACTIVA,
+            estrategia,
+            List.of(trigger)
+        );
+
+        ItemPromocion itemTarget = ItemPromocion.productoTarget(productoId);
+        promo.definirAlcance(new AlcancePromocion(List.of(itemTarget)));
+        return promo;
+    }
+
+    private Promocion crearPromocionPrecioFijo(
+            String nombre,
+            UUID productoId,
+            int cantidadActivacion,
+            BigDecimal precioPaquete,
+            int prioridad
+    ) {
+        EstrategiaPromocion estrategia = new PrecioFijoPorCantidad(cantidadActivacion, precioPaquete);
+        CriterioActivacion trigger = CriterioTemporal.soloFechas(
+            FECHA_TEST.minusDays(1),
+            FECHA_TEST.plusDays(30)
+        );
+
+        Promocion promo = new Promocion(
+            PromocionId.generate(),
+            localId,
+            nombre,
+            "Descripción pack precio fijo",
             prioridad,
             EstadoPromocion.ACTIVA,
             estrategia,

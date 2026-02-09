@@ -250,6 +250,55 @@ class GestionarItemsPedidoIntegrationTest {
             assertThat(item2.tienePromocion()).isTrue();
             assertThat(item2.nombrePromocion()).isEqualTo("2x1 Cervezas");
         }
+
+        @Test
+        @DisplayName("HU-21: Pedido con 1 hamburguesa premium (sin promo) → modificar a 2 → aplica Pack 2×$22.000")
+        void deberia_aplicar_precio_fijo_al_modificar_cantidad_de_uno_a_dos() {
+            // Given: Producto Hamburguesa Premium ($13.000) con promoción "Pack Pareja" (2×$22.000)
+            Producto hamburguesaPremium = crearYGuardarProducto("Hamburguesa Premium", "13000.00");
+            
+            Promocion packPareja = crearPromocionPrecioFijo(
+                "Pack Pareja",
+                hamburguesaPremium.getId().getValue(),
+                2,                              // cantidadActivacion
+                new BigDecimal("22000.00"),     // precioPaquete
+                10                              // prioridad
+            );
+            promocionRepository.guardar(packPareja);
+
+            // When: Agregar 1 hamburguesa (no alcanza para el pack)
+            AgregarProductoResponse response1 = agregarProductoUseCase.ejecutar(
+                new AgregarProductoRequest(pedido.getId(), hamburguesaPremium.getId(), 1, null)
+            );
+
+            // Then: Sin descuento porque no hay ciclo completo
+            var item1 = response1.items().get(0);
+            assertThat(item1.cantidad()).isEqualTo(1);
+            assertThat(item1.tienePromocion()).isFalse();
+            assertThat(item1.precioFinal()).isEqualByComparingTo("13000.00");
+            assertThat(item1.descuentoTotal()).isEqualByComparingTo("0.00");
+
+            // Capturar itemId para modificar
+            ItemPedidoId itemId = new ItemPedidoId(UUID.fromString(item1.itemId()));
+
+            // When: Modificar cantidad a 2 → ahora califica para pack
+            AgregarProductoResponse response2 = gestionarItemsPedidoUseCase.modificarCantidad(
+                new ModificarCantidadItemRequest(pedido.getId(), itemId, 2)
+            );
+
+            // Then: Descuento aplicado = (2×$13.000) - $22.000 = $4.000
+            var item2 = response2.items().get(0);
+            assertThat(item2.cantidad()).isEqualTo(2);
+            assertThat(item2.precioUnitarioBase()).isEqualByComparingTo("13000.00");
+            assertThat(item2.subtotalItem()).isEqualByComparingTo("26000.00");
+            assertThat(item2.descuentoTotal()).isEqualByComparingTo("4000.00");
+            assertThat(item2.precioFinal()).isEqualByComparingTo("22000.00");
+            assertThat(item2.tienePromocion()).isTrue();
+            assertThat(item2.nombrePromocion()).isEqualTo("Pack Pareja");
+
+            // Validar total del pedido
+            assertThat(response2.total()).isEqualByComparingTo("22000.00");
+        }
     }
 
     // =================================================
@@ -727,6 +776,29 @@ class GestionarItemsPedidoIntegrationTest {
         ItemPromocion itemTrigger = ItemPromocion.productoTrigger(productoTriggerId);
         ItemPromocion itemTarget = ItemPromocion.productoTarget(productoTargetId);
         promo.definirAlcance(new AlcancePromocion(List.of(itemTrigger, itemTarget)));
+        return promo;
+    }
+
+    private Promocion crearPromocionPrecioFijo(
+            String nombre,
+            UUID productoId,
+            int cantidadActivacion,
+            BigDecimal precioPaquete,
+            int prioridad
+    ) {
+        EstrategiaPromocion estrategia = new PrecioFijoPorCantidad(cantidadActivacion, precioPaquete);
+        CriterioActivacion trigger = CriterioTemporal.soloFechas(
+            FECHA_TEST.minusDays(1),
+            FECHA_TEST.plusDays(30)
+        );
+
+        Promocion promo = new Promocion(
+            PromocionId.generate(), localId, nombre, "Descripción pack precio fijo",
+            prioridad, EstadoPromocion.ACTIVA, estrategia, List.of(trigger)
+        );
+
+        ItemPromocion itemTarget = ItemPromocion.productoTarget(productoId);
+        promo.definirAlcance(new AlcancePromocion(List.of(itemTarget)));
         return promo;
     }
 }

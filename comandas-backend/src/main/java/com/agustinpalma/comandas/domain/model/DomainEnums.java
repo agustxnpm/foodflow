@@ -29,7 +29,8 @@ public final class DomainEnums {
     public enum TipoEstrategia {
         DESCUENTO_DIRECTO,
         CANTIDAD_FIJA,
-        COMBO_CONDICIONAL
+        COMBO_CONDICIONAL,
+        PRECIO_FIJO_CANTIDAD
     }
 
     public enum ModoDescuento {

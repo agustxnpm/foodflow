@@ -163,6 +163,12 @@ public class PromocionMapper {
                 entity.setCantidadMinimaTrigger(cc.cantidadMinimaTrigger());
                 entity.setPorcentajeBeneficio(cc.porcentajeBeneficio());
             }
+            case PrecioFijoPorCantidad pfc -> {
+                // Mapeo: cantidadActivacion → cantidad_llevas
+                //        precioPaquete → valor_descuento
+                entity.setCantidadLlevas(pfc.cantidadActivacion());
+                entity.setValorDescuento(pfc.precioPaquete());
+            }
         }
     }
 
@@ -185,6 +191,10 @@ public class PromocionMapper {
             case COMBO_CONDICIONAL -> new ComboCondicional(
                     entity.getCantidadMinimaTrigger(),
                     entity.getPorcentajeBeneficio()
+            );
+            case PRECIO_FIJO_CANTIDAD -> new PrecioFijoPorCantidad(
+                    entity.getCantidadLlevas(),    // cantidadActivacion
+                    entity.getValorDescuento()      // precioPaquete
             );
         };
     }

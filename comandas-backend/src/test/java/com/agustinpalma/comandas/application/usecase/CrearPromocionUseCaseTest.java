@@ -76,7 +76,7 @@ class CrearPromocionUseCaseTest {
                 1,
                 "DESCUENTO_DIRECTO",
                 new DescuentoDirectoParams("PORCENTAJE", new BigDecimal("20")),
-                null, null,
+                null, null, null,
                 List.of(triggerTemporal)
         );
 
@@ -121,7 +121,7 @@ class CrearPromocionUseCaseTest {
                 3,
                 "DESCUENTO_DIRECTO",
                 new DescuentoDirectoParams("MONTO_FIJO", new BigDecimal("500")),
-                null, null,
+                null, null, null,
                 List.of(triggerTemporal)
         );
 
@@ -160,7 +160,7 @@ class CrearPromocionUseCaseTest {
                 "CANTIDAD_FIJA",
                 null,
                 new CantidadFijaParams(2, 1),
-                null,
+                null, null,
                 List.of(triggerTemporal)
         );
 
@@ -206,6 +206,7 @@ class CrearPromocionUseCaseTest {
                 "COMBO_CONDICIONAL",
                 null, null,
                 new ComboCondicionalParams(1, new BigDecimal("50")),
+                null,
                 List.of(triggerTemporal)
         );
 
@@ -256,7 +257,7 @@ class CrearPromocionUseCaseTest {
                 1,
                 "DESCUENTO_DIRECTO",
                 new DescuentoDirectoParams("PORCENTAJE", new BigDecimal("15")),
-                null, null,
+                null, null, null,
                 List.of(triggerTemporal, triggerContenido)
         );
 
@@ -294,7 +295,7 @@ class CrearPromocionUseCaseTest {
         var command = new CrearPromocionCommand(
                 "2x1 en cervezas", null, 1,
                 "CANTIDAD_FIJA",
-                null, new CantidadFijaParams(2, 1), null,
+                null, new CantidadFijaParams(2, 1), null, null,
                 List.of(triggerTemporal)
         );
 
@@ -326,7 +327,7 @@ class CrearPromocionUseCaseTest {
         var command = new CrearPromocionCommand(
                 "Promo rara", null, 1,
                 "ESTRATEGIA_INEXISTENTE",
-                null, null, null,
+                null, null, null, null,
                 List.of(triggerTemporal)
         );
 
@@ -356,7 +357,7 @@ class CrearPromocionUseCaseTest {
         var command = new CrearPromocionCommand(
                 "Promo incompleta", null, 1,
                 "DESCUENTO_DIRECTO",
-                null, null, null,
+                null, null, null, null,
                 List.of(triggerTemporal)
         );
 
@@ -387,7 +388,7 @@ class CrearPromocionUseCaseTest {
                 "Promo con prioridad inválida", null, -5,
                 "DESCUENTO_DIRECTO",
                 new DescuentoDirectoParams("PORCENTAJE", new BigDecimal("10")),
-                null, null,
+                null, null, null,
                 List.of(triggerTemporal)
         );
 
@@ -419,7 +420,7 @@ class CrearPromocionUseCaseTest {
                 "Promo con trigger inválido", null, 1,
                 "DESCUENTO_DIRECTO",
                 new DescuentoDirectoParams("PORCENTAJE", new BigDecimal("10")),
-                null, null,
+                null, null, null,
                 List.of(triggerInvalido)
         );
 
@@ -448,7 +449,7 @@ class CrearPromocionUseCaseTest {
         var command = new CrearPromocionCommand(
                 "Promo sin productos", null, 1,
                 "CANTIDAD_FIJA",
-                null, new CantidadFijaParams(2, 1), null,
+                null, new CantidadFijaParams(2, 1), null, null,
                 List.of(triggerInvalido)
         );
 

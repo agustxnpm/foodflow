@@ -83,7 +83,7 @@ public class CrearPromocionUseCase {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException(
                     "Tipo de estrategia no válido: '" + command.tipoEstrategia() +
-                            "'. Valores permitidos: DESCUENTO_DIRECTO, CANTIDAD_FIJA, COMBO_CONDICIONAL"
+                            "'. Valores permitidos: DESCUENTO_DIRECTO, CANTIDAD_FIJA, COMBO_CONDICIONAL, PRECIO_FIJO_CANTIDAD"
             );
         }
 
@@ -123,6 +123,15 @@ public class CrearPromocionUseCase {
                     );
                 }
                 yield new ComboCondicional(params.cantidadMinimaTrigger(), params.porcentajeBeneficio());
+            }
+            case PRECIO_FIJO_CANTIDAD -> {
+                var params = command.precioFijoPorCantidad();
+                if (params == null) {
+                    throw new IllegalArgumentException(
+                            "Los parámetros de precio fijo por cantidad son obligatorios para tipo PRECIO_FIJO_CANTIDAD"
+                    );
+                }
+                yield new PrecioFijoPorCantidad(params.cantidadActivacion(), params.precioPaquete());
             }
         };
     }

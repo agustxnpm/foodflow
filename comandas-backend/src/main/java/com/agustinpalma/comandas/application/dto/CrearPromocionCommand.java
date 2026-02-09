@@ -49,6 +49,9 @@ public record CrearPromocionCommand(
         @Valid
         ComboCondicionalParams comboCondicional,
 
+        @Valid
+        PrecioFijoPorCantidadParams precioFijoPorCantidad,
+
         @NotNull(message = "Los triggers son obligatorios")
         @Size(min = 1, message = "Debe especificar al menos un trigger")
         @Valid
@@ -91,6 +94,19 @@ public record CrearPromocionCommand(
 
             @NotNull(message = "El porcentaje de beneficio es obligatorio")
             BigDecimal porcentajeBeneficio
+    ) {
+    }
+
+    /**
+     * Parámetros para estrategia PRECIO_FIJO_CANTIDAD (Pack con precio especial).
+     */
+    public record PrecioFijoPorCantidadParams(
+            @NotNull(message = "La cantidad de activación es obligatoria")
+            @Min(value = 2, message = "La cantidad de activación debe ser al menos 2")
+            Integer cantidadActivacion,
+
+            @NotNull(message = "El precio del paquete es obligatorio")
+            BigDecimal precioPaquete
     ) {
     }
 

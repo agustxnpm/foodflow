@@ -15,6 +15,7 @@ import java.util.Objects;
  * - DESCUENTO_DIRECTO: Porcentaje o monto fijo sobre un producto
  * - CANTIDAD_FIJA: NxM (ej: 2x1, 3x2, 4x3)
  * - COMBO_CONDICIONAL: Si comprás X (trigger), obtenés Y con Z% de descuento (benefit)
+ * - PRECIO_FIJO_CANTIDAD: Precio fijo por cantidad (ej: 2 hamburguesas por $22.000)
  * 
  * Inmutables, validados en construcción, comparados por valor.
  * 
@@ -24,7 +25,8 @@ import java.util.Objects;
 public sealed interface EstrategiaPromocion permits
         EstrategiaPromocion.DescuentoDirecto,
         EstrategiaPromocion.CantidadFija,
-        EstrategiaPromocion.ComboCondicional {
+        EstrategiaPromocion.ComboCondicional,
+        EstrategiaPromocion.PrecioFijoPorCantidad {
 
     /**
      * Retorna el tipo de estrategia para serialización/persistencia.
@@ -153,6 +155,59 @@ public sealed interface EstrategiaPromocion permits
         @Override
         public TipoEstrategia getTipo() {
             return TipoEstrategia.COMBO_CONDICIONAL;
+        }
+    }
+
+    // ============================================
+    // PRECIO FIJO POR CANTIDAD: Pack con precio especial
+    // ============================================
+
+    /**
+     * Estrategia de precio fijo por cantidad: N unidades por $X.
+     * 
+     * Ejemplos:
+     * - "2 hamburguesas por $22.000" (precio base: $13.000 c/u)
+     * - "3 empanadas por $5.000" (precio base: $2.000 c/u)
+     * 
+     * Cálculo del descuento:
+     * - ciclos = cantidadTotal / cantidadActivacion
+     * - costoSinPromo = ciclos × cantidadActivacion × precioUnitario
+     * - costoConPromo = ciclos × precioPaquete
+     * - descuento = costoSinPromo - costoConPromo
+     * 
+     * Unidades restantes (cantidadTotal % cantidadActivacion) se cobran a precio completo.
+     * 
+     * Ejemplo: 2×$22.000, precio base $13.000
+     * - 1 unidad: descuento = $0 (sin ciclo completo)
+     * - 2 unidades: descuento = $4.000 (1 ciclo: $26.000 - $22.000)
+     * - 3 unidades: descuento = $4.000 (1 ciclo + 1 unidad suelta)
+     * - 4 unidades: descuento = $8.000 (2 ciclos: $52.000 - $44.000)
+     * 
+     * Reglas de negocio:
+     * - cantidadActivacion >= 2 (mínimo para que sea un "pack")
+     * - precioPaquete > 0
+     * - precioPaquete debe ser menor que (cantidadActivacion × precio base) para que haya beneficio
+     */
+    record PrecioFijoPorCantidad(
+            int cantidadActivacion,
+            BigDecimal precioPaquete
+    ) implements EstrategiaPromocion {
+
+        public PrecioFijoPorCantidad {
+            if (cantidadActivacion < 2) {
+                throw new IllegalArgumentException(
+                        "La cantidad de activación debe ser al menos 2 para un pack"
+                );
+            }
+            Objects.requireNonNull(precioPaquete, "El precio del paquete es obligatorio");
+            if (precioPaquete.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("El precio del paquete debe ser mayor a cero");
+            }
+        }
+
+        @Override
+        public TipoEstrategia getTipo() {
+            return TipoEstrategia.PRECIO_FIJO_CANTIDAD;
         }
     }
 }
