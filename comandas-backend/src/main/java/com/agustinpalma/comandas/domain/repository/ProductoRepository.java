@@ -84,4 +84,31 @@ public interface ProductoRepository {
      * @param id identificador del producto a eliminar
      */
     void eliminar(ProductoId id);
+    
+    /**
+     * HU-05.1 + HU-22: Busca todas las variantes hermanas de un grupo.
+     * 
+     * Las variantes hermanas son productos que comparten el mismo grupoVarianteId.
+     * Ejemplo: Hamburguesa Simple, Doble, Triple → todas tienen el mismo grupoVarianteId.
+     * 
+     * @param localId identificador del local
+     * @param grupoVarianteId identificador del grupo de variantes
+     * @return lista de productos del mismo grupo (puede estar vacía)
+     */
+    List<Producto> buscarPorGrupoVariante(LocalId localId, ProductoId grupoVarianteId);
+    
+    /**
+     * HU-22: Busca el producto extra catalogado como "disco de carne" en el local.
+     * 
+     * Este es un extra especial que requiere validación controlada.
+     * El producto debe estar marcado como esExtra = true y tener un nombre específico
+     * o una marca especial que lo identifique como "disco de carne".
+     * 
+     * NOTA: La implementación puede buscar por nombre ("Disco de Carne") o por
+     * algún atributo especial según la estrategia de catálogo del local.
+     * 
+     * @param localId identificador del local
+     * @return Optional con el producto disco de carne si existe
+     */
+    Optional<Producto> buscarExtraDiscoDeCarne(LocalId localId);
 }

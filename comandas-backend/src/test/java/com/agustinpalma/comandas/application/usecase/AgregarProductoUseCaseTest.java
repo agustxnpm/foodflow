@@ -11,6 +11,7 @@ import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import com.agustinpalma.comandas.domain.repository.PromocionRepository;
 import com.agustinpalma.comandas.domain.service.MotorReglasService;
+import com.agustinpalma.comandas.domain.service.NormalizadorVariantesService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,6 +54,7 @@ class AgregarProductoUseCaseTest {
     private PromocionRepository promocionRepository;
 
     private MotorReglasService motorReglasService;
+    private NormalizadorVariantesService normalizadorVariantesService;
 
     private AgregarProductoUseCase useCase;
 
@@ -71,7 +73,8 @@ class AgregarProductoUseCaseTest {
         );
         
         motorReglasService = new MotorReglasService();
-        useCase = new AgregarProductoUseCase(pedidoRepository, productoRepository, promocionRepository, motorReglasService, clock);
+        normalizadorVariantesService = new NormalizadorVariantesService();
+        useCase = new AgregarProductoUseCase(pedidoRepository, productoRepository, promocionRepository, motorReglasService, normalizadorVariantesService, clock);
         
         // Datos de prueba comunes
         localId = new LocalId(UUID.randomUUID());

@@ -2,6 +2,9 @@ package com.agustinpalma.comandas.domain.model;
 
 import com.agustinpalma.comandas.domain.model.DomainIds.*;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -16,6 +19,11 @@ import java.util.UUID;
  * HU-10: También captura información de promoción aplicada (si corresponde).
  * El descuento se calcula y fija al momento de agregar el ítem.
  * Cambios futuros en la promoción NO afectan ítems ya creados.
+ * 
+ * HU-05.1 + HU-22: Soporte para extras dinámicos y controlados.
+ * Los extras se agregan como Value Objects (ExtraPedido) con su propio snapshot de precio.
+ * Fórmula de subtotal: cantidad × (precioUnitarioBase + sum(precioExtras))
+ * Las promociones SOLO aplican a precioUnitarioBase, NUNCA a extras.
  */
 public class ItemPedido {
 
@@ -24,7 +32,7 @@ public class ItemPedido {
     private final ProductoId productoId;
     private final String nombreProducto;  // Snapshot del nombre
     private int cantidad;
-    private final BigDecimal precioUnitario;  // Snapshot del precio
+    private final BigDecimal precioUnitario;  // Snapshot del precio BASE del producto
     private String observacion;
     
     // HU-10: Campos de snapshot de promoción
@@ -35,6 +43,9 @@ public class ItemPedido {
     
     // HU-14: Descuento manual dinámico (opcional)
     private DescuentoManual descuentoManual;       // null si no tiene descuento manual
+    
+    // HU-05.1 + HU-22: Extras dinámicos con snapshot de precio
+    private final List<ExtraPedido> extras;        // Lista mutable pero encapsulada
 
     /**
      * Constructor completo para reconstrucción desde persistencia.
@@ -42,6 +53,7 @@ public class ItemPedido {
      * 
      * HU-10: Incluye campos de promoción para snapshot completo.
      * HU-14: Incluye descuento manual dinámico (opcional).
+     * HU-05.1 + HU-22: Incluye lista de extras con snapshot.
      */
     public ItemPedido(
             ItemPedidoId id, 
@@ -54,7 +66,8 @@ public class ItemPedido {
             BigDecimal montoDescuento,
             String nombrePromocion,
             UUID promocionId,
-            DescuentoManual descuentoManual
+            DescuentoManual descuentoManual,
+            List<ExtraPedido> extras
     ) {
         this.id = Objects.requireNonNull(id, "El id del item no puede ser null");
         this.pedidoId = Objects.requireNonNull(pedidoId, "El pedidoId no puede ser null");
@@ -71,10 +84,13 @@ public class ItemPedido {
         
         // HU-14: Descuento manual (puede ser null)
         this.descuentoManual = descuentoManual;
+        
+        // HU-05.1 + HU-22: Extras (copia defensiva)
+        this.extras = extras != null ? new ArrayList<>(extras) : new ArrayList<>();
     }
 
     /**
-     * Constructor de compatibilidad para reconstrucción sin promoción.
+     * Constructor de compatibilidad para reconstrucción sin promoción ni extras.
      * Mantiene retrocompatibilidad con código existente.
      */
     public ItemPedido(
@@ -87,11 +103,11 @@ public class ItemPedido {
             String observacion
     ) {
         this(id, pedidoId, productoId, nombreProducto, cantidad, precioUnitario, 
-             observacion, BigDecimal.ZERO, null, null, null);
+             observacion, BigDecimal.ZERO, null, null, null, Collections.emptyList());
     }
 
     /**
-     * Factory method con PATRÓN SNAPSHOT (sin promoción).
+     * Factory method con PATRÓN SNAPSHOT (sin promoción ni extras).
      * Captura el precio y nombre del producto en el momento de la creación del ítem.
      * 
      * AC3 - Inmutabilidad de Precios:
@@ -114,7 +130,7 @@ public class ItemPedido {
     ) {
         Objects.requireNonNull(producto, "El producto no puede ser null");
         
-        // SNAPSHOT: Copiamos los valores del producto en este momento (sin promoción)
+        // SNAPSHOT: Copiamos los valores del producto en este momento (sin promoción ni extras)
         return new ItemPedido(
             id,
             pedidoId,
@@ -126,7 +142,49 @@ public class ItemPedido {
             BigDecimal.ZERO,  // Sin descuento
             null,              // Sin nombre de promoción
             null,              // Sin ID de promoción
-            null               // Sin descuento manual
+            null,              // Sin descuento manual
+            Collections.emptyList()  // Sin extras
+        );
+    }
+
+    /**
+     * Factory method con PATRÓN SNAPSHOT incluyendo extras (HU-05.1 + HU-22).
+     * 
+     * Captura el precio del producto Y los extras al momento de creación.
+     * Todos los valores quedan congelados (snapshot) para garantizar inmutabilidad histórica.
+     * 
+     * @param id identificador único del ítem
+     * @param pedidoId identificador del pedido al que pertenece
+     * @param producto entidad Producto desde la cual se capturan los valores
+     * @param cantidad cantidad del producto (debe ser > 0)
+     * @param observacion notas adicionales del cliente (ej: "sin cebolla")
+     * @param extras lista de extras aplicados (ya con snapshot de precio)
+     * @throws IllegalArgumentException si producto es null o cantidad <= 0
+     */
+    public static ItemPedido crearConExtras(
+            ItemPedidoId id, 
+            PedidoId pedidoId, 
+            Producto producto, 
+            int cantidad, 
+            String observacion,
+            List<ExtraPedido> extras
+    ) {
+        Objects.requireNonNull(producto, "El producto no puede ser null");
+        
+        // SNAPSHOT: Copiamos precio del producto Y extras (sin promoción por ahora)
+        return new ItemPedido(
+            id,
+            pedidoId,
+            producto.getId(),
+            producto.getNombre(),
+            cantidad,
+            producto.getPrecio(),
+            observacion,
+            BigDecimal.ZERO,  // Sin descuento
+            null,              // Sin nombre de promoción
+            null,              // Sin ID de promoción
+            null,              // Sin descuento manual
+            extras != null ? new ArrayList<>(extras) : Collections.emptyList()
         );
     }
 
@@ -161,7 +219,7 @@ public class ItemPedido {
         Objects.requireNonNull(producto, "El producto no puede ser null");
         Objects.requireNonNull(montoDescuento, "El monto del descuento no puede ser null");
         
-        // SNAPSHOT: Copiamos precio del producto Y descuento de la promoción
+        // SNAPSHOT: Copiamos precio del producto Y descuento de la promoción (sin extras)
         return new ItemPedido(
             id,
             pedidoId,
@@ -173,7 +231,60 @@ public class ItemPedido {
             montoDescuento,
             nombrePromocion,
             promocionId,
-            null               // Sin descuento manual por defecto
+            null,              // Sin descuento manual por defecto
+            Collections.emptyList()  // Sin extras
+        );
+    }
+
+    /**
+     * Factory method completo con PROMOCIÓN y EXTRAS (HU-10 + HU-05.1 + HU-22).
+     * 
+     * Captura:
+     * - Precio base del producto
+     * - Descuento de promoción (SOLO sobre precio base)
+     * - Extras con sus precios (NUNCA descontados)
+     * 
+     * Regla crítica: Las promociones NO descuentan extras.
+     * 
+     * @param id identificador único del ítem
+     * @param pedidoId identificador del pedido al que pertenece
+     * @param producto entidad Producto desde la cual se capturan los valores
+     * @param cantidad cantidad del producto (debe ser > 0)
+     * @param observacion notas adicionales del cliente
+     * @param montoDescuento valor monetario del descuento calculado
+     * @param nombrePromocion nombre de la promoción
+     * @param promocionId UUID de la promoción
+     * @param extras lista de extras aplicados (con snapshot de precio)
+     * @throws IllegalArgumentException si producto es null o cantidad <= 0
+     */
+    public static ItemPedido crearCompleto(
+            ItemPedidoId id, 
+            PedidoId pedidoId, 
+            Producto producto, 
+            int cantidad, 
+            String observacion,
+            BigDecimal montoDescuento,
+            String nombrePromocion,
+            UUID promocionId,
+            List<ExtraPedido> extras
+    ) {
+        Objects.requireNonNull(producto, "El producto no puede ser null");
+        Objects.requireNonNull(montoDescuento, "El monto del descuento no puede ser null");
+        
+        // SNAPSHOT: Copiamos precio del producto, descuento Y extras
+        return new ItemPedido(
+            id,
+            pedidoId,
+            producto.getId(),
+            producto.getNombre(),
+            cantidad,
+            producto.getPrecio(),
+            observacion,
+            montoDescuento,
+            nombrePromocion,
+            promocionId,
+            null,              // Sin descuento manual por defecto
+            extras != null ? new ArrayList<>(extras) : Collections.emptyList()
         );
     }
 
@@ -220,6 +331,58 @@ public class ItemPedido {
 
     public String getObservacion() {
         return observacion;
+    }
+    
+    // ============================================
+    // HU-05.1 + HU-22: Getters y manejo de extras
+    // ============================================
+    
+    /**
+     * Retorna la lista de extras aplicados a este ítem.
+     * 
+     * @return lista inmutable de ExtraPedido
+     */
+    public List<ExtraPedido> getExtras() {
+        return Collections.unmodifiableList(extras);
+    }
+    
+    /**
+     * Indica si este ítem tiene extras aplicados.
+     * 
+     * @return true si tiene al menos un extra
+     */
+    public boolean tieneExtras() {
+        return extras != null && !extras.isEmpty();
+    }
+    
+    /**
+     * Calcula el precio total de los extras.
+     * 
+     * HU-05.1 + HU-22: Los extras se suman al precio base.
+     * Fórmula: sum(precioSnapshot de cada extra)
+     * 
+     * @return precio total de extras (BigDecimal.ZERO si no hay extras)
+     */
+    public BigDecimal calcularPrecioExtrasTotal() {
+        if (extras == null || extras.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        
+        return extras.stream()
+            .map(ExtraPedido::getPrecioSnapshot)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+    
+    /**
+     * Calcula el precio base total (sin extras).
+     * 
+     * HU-05.1 + HU-22: Este es el precio sobre el cual aplican las promociones.
+     * Fórmula: cantidad × precioUnitario
+     * 
+     * @return precio base total del producto (sin extras)
+     */
+    public BigDecimal calcularPrecioBaseTotal() {
+        return precioUnitario.multiply(BigDecimal.valueOf(cantidad));
     }
 
     // ============================================
@@ -372,42 +535,72 @@ public class ItemPedido {
     /**
      * Calcula el subtotal de este ítem (precio base * cantidad).
      * Este es el precio SIN descuento.
+     * 
+     * HU-05.1 + HU-22: Mantiene retrocompatibilidad. Solo precio base.
+     * Para incluir extras, usar calcularSubtotalLinea().
      *
-     * @return el monto bruto del ítem
+     * @return el monto bruto del ítem (solo producto base)
      */
     public BigDecimal calcularSubtotal() {
         return precioUnitario.multiply(BigDecimal.valueOf(cantidad));
+    }
+    
+    /**
+     * Calcula el subtotal de línea completo (base + extras).
+     * 
+     * HU-05.1 + HU-22: Incluye el costo de todos los extras.
+     * Fórmula: cantidad × (precioUnitarioBase + sum(precioExtras))
+     * 
+     * Este es el monto BRUTO antes de aplicar descuentos.
+     * Las promociones SOLO descuentan sobre precioBase, NO sobre extras.
+     * 
+     * @return monto bruto total de la línea (producto + extras)
+     */
+    public BigDecimal calcularSubtotalLinea() {
+        BigDecimal precioBaseTotal = calcularPrecioBaseTotal();
+        BigDecimal precioExtrasUnitario = calcularPrecioExtrasTotal();
+        BigDecimal precioExtrasTotal = precioExtrasUnitario.multiply(BigDecimal.valueOf(cantidad));
+        
+        return precioBaseTotal.add(precioExtrasTotal);
     }
 
     /**
      * Calcula el precio final de este ítem aplicando descuentos.
      * 
-     * HU-10: Primero aplica descuento de promoción (snapshot fijo)
+     * HU-10: Primero aplica descuento de promoción (snapshot fijo SOLO sobre base)
      * HU-14: Luego aplica descuento manual (dinámico) sobre el remanente
+     * HU-05.1 + HU-22: Los extras NUNCA se descuentan (aislamiento)
      * 
      * Fórmula:
-     * 1. subtotalBruto = precioUnitario * cantidad
-     * 2. remanenteDespuesPromo = subtotalBruto - montoDescuentoAuto
-     * 3. montoDescuentoManual = descuentoManual.calcularMonto(remanenteDespuesPromo)
-     * 4. precioFinal = remanenteDespuesPromo - montoDescuentoManual
+     * 1. precioBaseTotal = precioUnitario * cantidad
+     * 2. precioExtrasTotal = sum(extras) * cantidad
+     * 3. remanenteDespuesPromo = precioBaseTotal - montoDescuentoAuto
+     * 4. montoDescuentoManual = descuentoManual.calcularMonto(remanenteDespuesPromo)
+     * 5. precioFinal = (remanenteDespuesPromo - montoDescuentoManual) + precioExtrasTotal
      * 
      * @return el monto neto del ítem después de todos los descuentos
      */
     public BigDecimal calcularPrecioFinal() {
-        // 1. Subtotal bruto (precio base * cantidad)
-        BigDecimal subtotalBruto = calcularSubtotal();
+        // 1. Precio base total (cantidad × precioUnitario)
+        BigDecimal precioBaseTotal = calcularPrecioBaseTotal();
         
-        // 2. Remanente después de promoción automática (HU-10)
-        BigDecimal remanenteDespuesPromo = subtotalBruto.subtract(montoDescuento);
+        // 2. Precio extras total (se suma al final SIN descuento)
+        BigDecimal precioExtrasUnitario = calcularPrecioExtrasTotal();
+        BigDecimal precioExtrasTotal = precioExtrasUnitario.multiply(BigDecimal.valueOf(cantidad));
         
-        // 3. Aplicar descuento manual sobre el remanente (HU-14)
+        // 3. Remanente después de promoción automática (HU-10)
+        // CRÍTICO: Las promociones SOLO descuentan sobre precio base
+        BigDecimal remanenteDespuesPromo = precioBaseTotal.subtract(montoDescuento);
+        
+        // 4. Aplicar descuento manual sobre el remanente (HU-14)
+        BigDecimal remanenteFinal = remanenteDespuesPromo;
         if (descuentoManual != null) {
             BigDecimal montoDescuentoManual = descuentoManual.calcularMonto(remanenteDespuesPromo);
-            return remanenteDespuesPromo.subtract(montoDescuentoManual);
+            remanenteFinal = remanenteDespuesPromo.subtract(montoDescuentoManual);
         }
         
-        // Sin descuento manual
-        return remanenteDespuesPromo;
+        // 5. Sumar extras (NUNCA descontados)
+        return remanenteFinal.add(precioExtrasTotal);
     }
 
     @Override

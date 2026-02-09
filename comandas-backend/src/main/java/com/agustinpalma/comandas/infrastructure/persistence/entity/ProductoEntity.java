@@ -31,17 +31,30 @@ public class ProductoEntity {
     @Column(name = "color_hex", length = 7)
     private String colorHex;
 
+    @Column(name = "grupo_variante_id")
+    private UUID grupoVarianteId;
+
+    @Column(name = "es_extra", nullable = false)
+    private boolean esExtra = false;
+
+    @Column(name = "cantidad_discos_carne")
+    private Integer cantidadDiscosCarne;
+
     // Constructor vacío para JPA
     public ProductoEntity() {}
 
     // Constructor con parámetros
-    public ProductoEntity(UUID id, UUID localId, String nombre, BigDecimal precio, boolean activo, String colorHex) {
+    public ProductoEntity(UUID id, UUID localId, String nombre, BigDecimal precio, boolean activo, String colorHex,
+                         UUID grupoVarianteId, boolean esExtra, Integer cantidadDiscosCarne) {
         this.id = id;
         this.localId = localId;
         this.nombre = nombre;
         this.precio = precio;
         this.activo = activo;
         this.colorHex = colorHex;
+        this.grupoVarianteId = grupoVarianteId;
+        this.esExtra = esExtra;
+        this.cantidadDiscosCarne = cantidadDiscosCarne;
     }
 
     // Getters y setters
@@ -91,5 +104,29 @@ public class ProductoEntity {
 
     public void setColorHex(String colorHex) {
         this.colorHex = colorHex;
+    }
+
+    public UUID getGrupoVarianteId() {
+        return grupoVarianteId;
+    }
+
+    public void setGrupoVarianteId(UUID grupoVarianteId) {
+        this.grupoVarianteId = grupoVarianteId;
+    }
+
+    public boolean isEsExtra() {
+        return esExtra;
+    }
+
+    public void setEsExtra(boolean esExtra) {
+        this.esExtra = esExtra;
+    }
+
+    public Integer getCantidadDiscosCarne() {
+        return cantidadDiscosCarne;
+    }
+
+    public void setCantidadDiscosCarne(Integer cantidadDiscosCarne) {
+        this.cantidadDiscosCarne = cantidadDiscosCarne;
     }
 }

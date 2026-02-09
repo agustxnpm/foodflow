@@ -298,11 +298,14 @@ public class Pedido {
      * Regla de Oro del Dominio:
      * "El total del pedido se calcula a partir de los ítems base + descuentos acumulables"
      * 
-     * @return el subtotal antes de aplicar descuentos
+     * HU-05.1 + HU-22: Incluye el costo de los extras.
+     * Usa calcularSubtotalLinea() que suma base + extras.
+     * 
+     * @return el subtotal antes de aplicar descuentos (incluye extras)
      */
     public BigDecimal calcularSubtotalItems() {
         return items.stream()
-            .map(ItemPedido::calcularSubtotal)
+            .map(ItemPedido::calcularSubtotalLinea)  // HU-05.1: Incluye extras
             .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 

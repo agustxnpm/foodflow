@@ -24,6 +24,8 @@ import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import com.agustinpalma.comandas.domain.repository.PromocionRepository;
 import com.agustinpalma.comandas.domain.service.MotorReglasService;
+import com.agustinpalma.comandas.domain.service.NormalizadorVariantesService;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -117,6 +119,7 @@ public class ApplicationConfig {
             ProductoRepository productoRepository,
             PromocionRepository promocionRepository,
             MotorReglasService motorReglasService,
+            NormalizadorVariantesService normalizadorVariantesService,
             Clock clock
     ) {
         return new AgregarProductoUseCase(
@@ -124,6 +127,7 @@ public class ApplicationConfig {
             productoRepository, 
             promocionRepository, 
             motorReglasService,
+            normalizadorVariantesService,
             clock
         );
     }
@@ -137,6 +141,17 @@ public class ApplicationConfig {
     @Bean
     public MotorReglasService motorReglasService() {
         return new MotorReglasService();
+    }
+
+    /**
+     * HU-22: Bean del servicio de dominio para normalización de variantes.
+     * Es un servicio de dominio puro (sin dependencias de infraestructura).
+     *
+     * @return instancia del servicio de dominio
+     */
+    @Bean
+    public NormalizadorVariantesService normalizadorVariantesService() {
+        return new NormalizadorVariantesService();
     }
 
     /**

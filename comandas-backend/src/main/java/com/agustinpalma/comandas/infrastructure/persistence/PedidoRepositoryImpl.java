@@ -146,6 +146,16 @@ public class PedidoRepositoryImpl implements PedidoRepository {
                     existingItem.setDescManualUsuarioId(null);
                     existingItem.setDescManualFecha(null);
                 }
+
+                // HU-05.1 + HU-22: Sincronizar extras
+                existingItem.getExtras().clear();
+                for (var extra : domainItem.getExtras()) {
+                    existingItem.getExtras().add(new com.agustinpalma.comandas.infrastructure.persistence.entity.ExtraPedidoEmbeddable(
+                        extra.getProductoId().getValue(),
+                        extra.getNombre(),
+                        extra.getPrecioSnapshot()
+                    ));
+                }
             } else {
                 log.debug("Creando nuevo item: id={}, producto={}", 
                           domainItem.getId().getValue(), domainItem.getNombreProducto());

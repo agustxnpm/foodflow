@@ -15,6 +15,16 @@ import java.util.regex.Pattern;
  * - El colorHex debe seguir formato hexadecimal válido (#RGB o #RRGGBB)
  * - El colorHex se normaliza siempre a mayúsculas para consistencia
  * - La edición del precio NO afecta pedidos ya abiertos (garantizado por patrón Snapshot en ItemPedido)
+ * 
+ * HU-05.1 + HU-22: Soporte para variantes y extras controlados
+ * - Los productos pueden pertenecer a un grupo de variantes (ej: Hamburguesa Simple, Doble, Triple)
+ * - grupoVarianteId: Identifica variantes del mismo concepto (ej: todas las hamburguesas "Completa")
+ * - cantidadDiscosCarne: Define la jerarquía de variantes (Simple=1, Doble=2, Triple=3)
+ * - esExtra: Indica si el producto es un extra (ej: huevo, queso, disco de carne)
+ * 
+ * Regla crítica de normalización:
+ * El disco de carne SOLO puede agregarse como extra a la variante máxima de su grupo.
+ * Si se intenta agregar a una variante menor, el sistema convierte automáticamente al siguiente nivel.
  */
 public class Producto {
 
@@ -27,14 +37,43 @@ public class Producto {
     private BigDecimal precio;
     private boolean activo;
     private String colorHex;
+    
+    // HU-05.1 + HU-22: Soporte para variantes y extras
+    private final ProductoId grupoVarianteId;      // Identifica productos hermanos (misma variante)
+    private final boolean esExtra;                  // true si es un extra (huevo, queso, disco, etc.)
+    private final Integer cantidadDiscosCarne;     // Define jerarquía de variantes (null si no aplica)
 
-    public Producto(ProductoId id, LocalId localId, String nombre, BigDecimal precio, boolean activo, String colorHex) {
+    /**
+     * Constructor completo con soporte para variantes y extras (HU-05.1 + HU-22).
+     */
+    public Producto(
+            ProductoId id, 
+            LocalId localId, 
+            String nombre, 
+            BigDecimal precio, 
+            boolean activo, 
+            String colorHex,
+            ProductoId grupoVarianteId,
+            boolean esExtra,
+            Integer cantidadDiscosCarne
+    ) {
         this.id = Objects.requireNonNull(id, "El id del producto no puede ser null");
         this.localId = Objects.requireNonNull(localId, "El localId no puede ser null");
         this.nombre = validarNombre(nombre);
         this.precio = validarPrecio(precio);
         this.activo = activo;
         this.colorHex = normalizarColor(colorHex);
+        this.grupoVarianteId = grupoVarianteId;  // Puede ser null si no tiene variantes
+        this.esExtra = esExtra;
+        this.cantidadDiscosCarne = cantidadDiscosCarne;  // Puede ser null si no aplica
+    }
+    
+    /**
+     * Constructor de retrocompatibilidad (sin variantes ni extras).
+     * Usado por tests y código legacy.
+     */
+    public Producto(ProductoId id, LocalId localId, String nombre, BigDecimal precio, boolean activo, String colorHex) {
+        this(id, localId, nombre, precio, activo, colorHex, null, false, null);
     }
 
     private String validarNombre(String nombre) {
@@ -130,6 +169,34 @@ public class Producto {
 
     public String getColorHex() {
         return colorHex;
+    }
+    
+    // HU-05.1 + HU-22: Getters para variantes y extras
+    
+    public ProductoId getGrupoVarianteId() {
+        return grupoVarianteId;
+    }
+    
+    public boolean isEsExtra() {
+        return esExtra;
+    }
+    
+    public Integer getCantidadDiscosCarne() {
+        return cantidadDiscosCarne;
+    }
+    
+    /**
+     * Indica si este producto pertenece a un grupo de variantes.
+     */
+    public boolean tieneVariantes() {
+        return grupoVarianteId != null;
+    }
+    
+    /**
+     * Indica si este producto es una hamburguesa (tiene discos de carne definidos).
+     */
+    public boolean esHamburguesa() {
+        return cantidadDiscosCarne != null && cantidadDiscosCarne > 0;
     }
 
     @Override

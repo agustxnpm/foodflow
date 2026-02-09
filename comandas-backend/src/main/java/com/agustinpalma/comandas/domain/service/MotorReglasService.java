@@ -80,6 +80,58 @@ public class MotorReglasService {
                 .map(evaluada -> crearItemConDescuento(pedido.getId(), producto, cantidad, observacion, evaluada))
                 .orElseGet(() -> crearItemSinDescuento(pedido.getId(), producto, cantidad, observacion));
     }
+    
+    /**
+     * HU-05.1 + HU-22: Evalúa promociones y genera ItemPedido CON extras.
+     * 
+     * CRÍTICO: Las promociones SOLO aplican sobre el precio base del producto.
+     * Los extras NUNCA participan en el cálculo de descuentos (aislamiento).
+     * 
+     * Algoritmo idéntico a aplicarReglas(), pero:
+     * - Construye el ItemPedido incluyendo la lista de extras
+     * - Las promociones calculan descuento SOLO sobre precioUnitario × cantidad
+     * - Los extras se suman al final SIN descuento
+     * 
+     * @param pedido el pedido actual
+     * @param producto el producto a agregar (posiblemente normalizado)
+     * @param cantidad la cantidad solicitada
+     * @param observacion la observación del cliente
+     * @param extras lista de extras con snapshot de precio
+     * @param promocionesActivas lista de promociones activas del local
+     * @param fechaHora fecha/hora actual para evaluar criterios temporales
+     * @return ItemPedido con descuento aplicado (si corresponde) y extras
+     */
+    public ItemPedido aplicarReglasConExtras(
+            Pedido pedido,
+            Producto producto,
+            int cantidad,
+            String observacion,
+            List<ExtraPedido> extras,
+            List<Promocion> promocionesActivas,
+            LocalDateTime fechaHora
+    ) {
+        Objects.requireNonNull(pedido, "El pedido no puede ser null");
+        Objects.requireNonNull(producto, "El producto no puede ser null");
+        Objects.requireNonNull(extras, "La lista de extras no puede ser null");
+        Objects.requireNonNull(promocionesActivas, "La lista de promociones no puede ser null");
+        Objects.requireNonNull(fechaHora, "La fecha/hora no puede ser null");
+
+        // Construir contexto de validación desde el pedido actual
+        ContextoValidacion contexto = construirContexto(pedido, fechaHora);
+
+        // Buscar la promoción ganadora (si hay alguna que aplique)
+        // CRÍTICO: calcularDescuento() usa SOLO el precio base del producto
+        Optional<PromocionEvaluada> promoGanadora = promocionesActivas.stream()
+                .filter(promo -> evaluarPromocion(promo, producto, pedido, contexto))
+                .map(promo -> new PromocionEvaluada(promo, calcularDescuento(promo, producto, cantidad)))
+                .filter(evaluada -> evaluada.montoDescuento().compareTo(BigDecimal.ZERO) > 0)
+                .max(Comparator.comparingInt(evaluada -> evaluada.promocion().getPrioridad()));
+
+        // Generar el ItemPedido CON extras (con o sin descuento)
+        return promoGanadora
+                .map(evaluada -> crearItemConDescuentoYExtras(pedido.getId(), producto, cantidad, observacion, extras, evaluada))
+                .orElseGet(() -> crearItemConExtras(pedido.getId(), producto, cantidad, observacion, extras));
+    }
 
     /**
      * Construye el contexto de validación desde el pedido y la fecha actual.
@@ -339,6 +391,53 @@ public class MotorReglasService {
                 producto,
                 cantidad,
                 observacion
+        );
+    }
+    
+    /**
+     * HU-05.1 + HU-22: Crea un ItemPedido CON extras y CON descuento de promoción.
+     * 
+     * CRÍTICO: El descuento se calcula SOLO sobre el precio base.
+     * Los extras se agregan SIN descuento.
+     */
+    private ItemPedido crearItemConDescuentoYExtras(
+            PedidoId pedidoId,
+            Producto producto,
+            int cantidad,
+            String observacion,
+            List<ExtraPedido> extras,
+            PromocionEvaluada evaluada
+    ) {
+        return ItemPedido.crearCompleto(
+                ItemPedidoId.generate(),
+                pedidoId,
+                producto,
+                cantidad,
+                observacion,
+                evaluada.montoDescuento(),
+                evaluada.promocion().getNombre(),
+                evaluada.promocion().getId().getValue(),
+                extras
+        );
+    }
+    
+    /**
+     * HU-05.1 + HU-22: Crea un ItemPedido CON extras SIN descuento.
+     */
+    private ItemPedido crearItemConExtras(
+            PedidoId pedidoId,
+            Producto producto,
+            int cantidad,
+            String observacion,
+            List<ExtraPedido> extras
+    ) {
+        return ItemPedido.crearConExtras(
+                ItemPedidoId.generate(),
+                pedidoId,
+                producto,
+                cantidad,
+                observacion,
+                extras
         );
     }
 

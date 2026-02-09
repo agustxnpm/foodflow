@@ -60,4 +60,23 @@ public interface SpringDataProductoRepository extends JpaRepository<ProductoEnti
      * @return lista de productos que coinciden (puede estar vacía)
      */
     List<ProductoEntity> findByLocalIdAndColorHex(UUID localId, String colorHex);
+
+    /**
+     * HU-05.1: Busca variantes hermanas del mismo grupo.
+     *
+     * @param localId UUID del local
+     * @param grupoVarianteId UUID del grupo de variantes
+     * @return lista de productos variantes (puede estar vacía)
+     */
+    List<ProductoEntity> findByLocalIdAndGrupoVarianteId(UUID localId, UUID grupoVarianteId);
+
+    /**
+     * HU-22: Busca producto extra por nombre y marca de extra.
+     *
+     * @param localId UUID del local
+     * @param nombre nombre del producto (case-insensitive)
+     * @param esExtra true para buscar solo extras
+     * @return Optional con el producto si existe
+     */
+    Optional<ProductoEntity> findByLocalIdAndNombreIgnoreCaseAndEsExtra(UUID localId, String nombre, boolean esExtra);
 }

@@ -104,6 +104,21 @@ public class ItemPedidoEntity {
     @Column(name = "desc_manual_fecha")
     private LocalDateTime descManualFecha;
 
+    // ============================================
+    // HU-05.1 + HU-22: Extras del item
+    // ============================================
+
+    /**
+     * Colección de extras asociados al item.
+     * Almacena snapshots de los extras en el momento de agregar el ítem.
+     */
+    @ElementCollection
+    @CollectionTable(
+        name = "items_pedido_extras",
+        joinColumns = @JoinColumn(name = "item_pedido_id")
+    )
+    private java.util.List<ExtraPedidoEmbeddable> extras = new java.util.ArrayList<>();
+
     // Constructor vacío para JPA
     protected ItemPedidoEntity() {}
 
@@ -272,5 +287,13 @@ public class ItemPedidoEntity {
 
     public void setDescManualFecha(LocalDateTime descManualFecha) {
         this.descManualFecha = descManualFecha;
+    }
+
+    public java.util.List<ExtraPedidoEmbeddable> getExtras() {
+        return extras;
+    }
+
+    public void setExtras(java.util.List<ExtraPedidoEmbeddable> extras) {
+        this.extras = extras;
     }
 }

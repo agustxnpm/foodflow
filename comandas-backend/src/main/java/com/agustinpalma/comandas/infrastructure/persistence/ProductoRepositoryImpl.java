@@ -87,4 +87,29 @@ public class ProductoRepositoryImpl implements ProductoRepository {
     public void eliminar(ProductoId id) {
         springDataRepository.deleteById(id.getValue());
     }
+    
+    /**
+     * HU-05.1 + HU-22: Busca variantes hermanas del mismo grupo.
+     */
+    @Override
+    public List<Producto> buscarPorGrupoVariante(LocalId localId, ProductoId grupoVarianteId) {
+        return springDataRepository.findByLocalIdAndGrupoVarianteId(
+            localId.getValue(), 
+            grupoVarianteId.getValue()
+        ).stream()
+        .map(mapper::toDomain)
+        .toList();
+    }
+    
+    /**
+     * HU-22: Busca el producto extra "disco de carne".
+     */
+    @Override
+    public Optional<Producto> buscarExtraDiscoDeCarne(LocalId localId) {
+        return springDataRepository.findByLocalIdAndNombreIgnoreCaseAndEsExtra(
+            localId.getValue(),
+            "Disco de Carne",
+            true
+        ).map(mapper::toDomain);
+    }
 }

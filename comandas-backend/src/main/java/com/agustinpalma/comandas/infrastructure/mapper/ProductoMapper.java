@@ -26,7 +26,10 @@ public class ProductoMapper {
             entity.getNombre(),
             entity.getPrecio(),
             entity.isActivo(),
-            entity.getColorHex()
+            entity.getColorHex(),
+            entity.getGrupoVarianteId() != null ? new ProductoId(entity.getGrupoVarianteId()) : null,
+            entity.isEsExtra(),
+            entity.getCantidadDiscosCarne()
         );
     }
 
@@ -43,7 +46,10 @@ public class ProductoMapper {
             domain.getNombre(),
             domain.getPrecio(),
             domain.isActivo(),
-            domain.getColorHex()
+            domain.getColorHex(),
+            domain.getGrupoVarianteId() != null ? domain.getGrupoVarianteId().getValue() : null,
+            domain.isEsExtra(),
+            domain.getCantidadDiscosCarne()
         );
     }
 }
