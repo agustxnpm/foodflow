@@ -251,6 +251,10 @@ public class PromocionMapper {
      * Deserializa el JSON de triggers a la lista de criterios de dominio.
      */
     private List<CriterioActivacion> deserializarTriggers(String triggersJson) {
+        if (triggersJson == null || triggersJson.trim().isEmpty()) {
+            return List.of();
+        }
+        
         try {
             List<Map<String, Object>> triggersMaps =
                     objectMapper.readValue(triggersJson, new TypeReference<>() {});
@@ -278,16 +282,21 @@ public class PromocionMapper {
                 Set<DayOfWeek> dias = null;
                 if (map.containsKey("diasSemana")) {
                     List<String> diasStr = (List<String>) map.get("diasSemana");
-                    dias = diasStr.stream()
-                            .map(DayOfWeek::valueOf)
-                            .collect(Collectors.toCollection(() -> EnumSet.noneOf(DayOfWeek.class)));
+                    if (diasStr != null) {
+                        dias = diasStr.stream()
+                                .map(DayOfWeek::valueOf)
+                                .collect(Collectors.toCollection(() -> EnumSet.noneOf(DayOfWeek.class)));
+                    }
                 }
 
-                LocalTime horaDesde = map.containsKey("horaDesde")
-                        ? LocalTime.parse((String) map.get("horaDesde"))
+                String horaDesdeStr = (String) map.get("horaDesde");
+                LocalTime horaDesde = (map.containsKey("horaDesde") && horaDesdeStr != null)
+                        ? LocalTime.parse(horaDesdeStr)
                         : null;
-                LocalTime horaHasta = map.containsKey("horaHasta")
-                        ? LocalTime.parse((String) map.get("horaHasta"))
+                
+                String horaHastaStr = (String) map.get("horaHasta");
+                LocalTime horaHasta = (map.containsKey("horaHasta") && horaHastaStr != null)
+                        ? LocalTime.parse(horaHastaStr)
                         : null;
 
                 yield new CriterioTemporal(fechaDesde, fechaHasta, dias, horaDesde, horaHasta);

@@ -3,6 +3,7 @@ package com.agustinpalma.comandas.presentation.rest;
 import com.agustinpalma.comandas.application.dto.*;
 import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCase;
+import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
 import com.agustinpalma.comandas.domain.model.DomainIds.ItemPedidoId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
@@ -20,6 +21,8 @@ import java.util.UUID;
  * 
  * HU-05: Agregar productos a un pedido
  * HU-14: Aplicar descuentos manuales
+ * HU-20: Eliminar producto de un pedido abierto
+ * HU-21: Modificar cantidad de un producto en pedido abierto
  */
 @RestController
 @RequestMapping("/api/pedidos")
@@ -27,13 +30,16 @@ public class PedidoController {
 
     private final AgregarProductoUseCase agregarProductoUseCase;
     private final AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase;
+    private final GestionarItemsPedidoUseCase gestionarItemsPedidoUseCase;
 
     public PedidoController(
             AgregarProductoUseCase agregarProductoUseCase,
-            AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase
+            AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase,
+            GestionarItemsPedidoUseCase gestionarItemsPedidoUseCase
     ) {
         this.agregarProductoUseCase = agregarProductoUseCase;
         this.aplicarDescuentoManualUseCase = aplicarDescuentoManualUseCase;
+        this.gestionarItemsPedidoUseCase = gestionarItemsPedidoUseCase;
     }
 
     // =================================================
@@ -152,6 +158,72 @@ public class PedidoController {
         );
 
         AplicarDescuentoManualResponse response = aplicarDescuentoManualUseCase.ejecutar(request);
+        return ResponseEntity.ok(response);
+    }
+
+    // =================================================
+    // ENDPOINTS - HU-20: Eliminar producto de pedido
+    //           - HU-21: Modificar cantidad de producto
+    // =================================================
+
+    /**
+     * Modifica la cantidad de un ítem en un pedido abierto.
+     * 
+     * PATCH /api/pedidos/{pedidoId}/items/{itemId}
+     * Body: { "cantidad": 4 }
+     * 
+     * HU-21: La cantidad define la operación:
+     * - cantidad > 0: actualiza la cantidad
+     * - cantidad == 0: elimina el ítem
+     * - cantidad == actual: operación idempotente
+     * 
+     * Cualquier cambio dispara recálculo completo de promociones (HU-10)
+     * y el descuento global se ajusta dinámicamente (HU-14).
+     * 
+     * @param pedidoId ID del pedido (UUID en path)
+     * @param itemId ID del ítem (UUID en path)
+     * @param body JSON con la nueva cantidad
+     * @return 200 OK con el pedido actualizado (mismo DTO que AgregarProducto)
+     */
+    @PatchMapping("/{pedidoId}/items/{itemId}")
+    public ResponseEntity<AgregarProductoResponse> modificarCantidadItem(
+            @PathVariable UUID pedidoId,
+            @PathVariable UUID itemId,
+            @Valid @RequestBody ModificarCantidadItemRequestBody body
+    ) {
+        ModificarCantidadItemRequest request = new ModificarCantidadItemRequest(
+            new PedidoId(pedidoId),
+            new ItemPedidoId(itemId),
+            body.cantidad()
+        );
+
+        AgregarProductoResponse response = gestionarItemsPedidoUseCase.modificarCantidad(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Elimina un ítem de un pedido abierto.
+     * 
+     * DELETE /api/pedidos/{pedidoId}/items/{itemId}
+     * 
+     * HU-20: Tras eliminar, se recalculan todas las promociones del pedido.
+     * Si el ítem eliminado era trigger de un combo, el target pierde su descuento.
+     * 
+     * @param pedidoId ID del pedido (UUID en path)
+     * @param itemId ID del ítem (UUID en path)
+     * @return 200 OK con el pedido actualizado (mismo DTO que AgregarProducto)
+     */
+    @DeleteMapping("/{pedidoId}/items/{itemId}")
+    public ResponseEntity<AgregarProductoResponse> eliminarItemPedido(
+            @PathVariable UUID pedidoId,
+            @PathVariable UUID itemId
+    ) {
+        EliminarItemPedidoRequest request = new EliminarItemPedidoRequest(
+            new PedidoId(pedidoId),
+            new ItemPedidoId(itemId)
+        );
+
+        AgregarProductoResponse response = gestionarItemsPedidoUseCase.eliminarItem(request);
         return ResponseEntity.ok(response);
     }
 }

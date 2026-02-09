@@ -25,6 +25,13 @@ public class PedidoMapper {
     public PedidoMapper(ItemPedidoMapper itemPedidoMapper) {
         this.itemPedidoMapper = itemPedidoMapper;
     }
+    
+    /**
+     * Expone el ItemPedidoMapper para uso en el repositorio al sincronizar entidades.
+     */
+    public ItemPedidoMapper getItemPedidoMapper() {
+        return itemPedidoMapper;
+    }
 
     /**
      * Convierte de entidad JPA a entidad de dominio.
@@ -107,6 +114,12 @@ public class PedidoMapper {
             entity.setDescGlobalRazon(dg.getRazon());
             entity.setDescGlobalUsuarioId(dg.getUsuarioId());
             entity.setDescGlobalFecha(dg.getFechaAplicacion());
+        } else {
+            // Limpiar descuento global si fue removido
+            entity.setDescGlobalPorcentaje(null);
+            entity.setDescGlobalRazon(null);
+            entity.setDescGlobalUsuarioId(null);
+            entity.setDescGlobalFecha(null);
         }
 
         // Convertir y agregar ítems usando la relación bidireccional

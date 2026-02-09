@@ -296,4 +296,127 @@ public class MotorReglasService {
      * Record auxiliar para transportar promoción evaluada con su descuento calculado.
      */
     private record PromocionEvaluada(Promocion promocion, BigDecimal montoDescuento) {}
+
+    // ============================================
+    // HU-20/HU-21: Recálculo completo de promociones
+    // ============================================
+
+    /**
+     * Re-evalúa y aplica promociones a TODOS los ítems existentes en el pedido.
+     * 
+     * HU-20/HU-21: Tras eliminar o modificar un ítem, las promociones de todo el pedido
+     * deben recalcularse porque:
+     * - Un combo puede romperse al eliminar su trigger
+     * - Los ciclos NxM cambian al modificar cantidades
+     * - La prioridad de promociones puede resolverse diferente con el nuevo estado
+     * 
+     * PRECONDICIÓN: Todos los ítems deben tener sus promociones limpiadas previamente
+     * mediante Pedido.limpiarPromocionesItems().
+     * 
+     * Algoritmo:
+     * 1. Construir contexto de validación desde el pedido actual
+     * 2. Para cada ítem del pedido:
+     *    a. Evaluar qué promoción aplica (si alguna)
+     *    b. Calcular el descuento usando el precioUnitario snapshot del ítem
+     *    c. Aplicar la promoción ganadora directamente sobre el ítem
+     * 
+     * @param pedido el pedido con los ítems ya modificados y promociones limpiadas
+     * @param promocionesActivas lista de promociones activas del local
+     * @param fechaHora fecha/hora actual para evaluar criterios temporales
+     */
+    public void aplicarPromociones(
+            Pedido pedido,
+            List<Promocion> promocionesActivas,
+            LocalDateTime fechaHora
+    ) {
+        Objects.requireNonNull(pedido, "El pedido no puede ser null");
+        Objects.requireNonNull(promocionesActivas, "La lista de promociones no puede ser null");
+        Objects.requireNonNull(fechaHora, "La fecha/hora no puede ser null");
+
+        // Construir contexto de validación
+        ContextoValidacion contexto = construirContexto(pedido, fechaHora);
+
+        // Re-evaluar cada ítem
+        for (ItemPedido item : pedido.getItems()) {
+            evaluarYAplicarPromocionAItem(item, pedido, promocionesActivas, contexto);
+        }
+    }
+
+    /**
+     * Evalúa y aplica la mejor promoción posible a un ítem existente.
+     * 
+     * Usa el productoId y precioUnitario snapshot del ítem para la evaluación,
+     * sin necesidad de recuperar el Producto del catálogo.
+     */
+    private void evaluarYAplicarPromocionAItem(
+            ItemPedido item,
+            Pedido pedido,
+            List<Promocion> promocionesActivas,
+            ContextoValidacion contexto
+    ) {
+        UUID productoUUID = item.getProductoId().getValue();
+        BigDecimal precioBase = item.getPrecioUnitario();
+        int cantidad = item.getCantidad();
+
+        Optional<PromocionEvaluada> promoGanadora = promocionesActivas.stream()
+                .filter(promo -> evaluarPromocionParaItem(promo, productoUUID, pedido, contexto))
+                .map(promo -> new PromocionEvaluada(promo, calcularDescuentoParaItem(promo, precioBase, cantidad)))
+                .filter(evaluada -> evaluada.montoDescuento().compareTo(BigDecimal.ZERO) > 0)
+                .max(Comparator.comparingInt(evaluada -> evaluada.promocion().getPrioridad()));
+
+        promoGanadora.ifPresent(evaluada -> item.aplicarPromocion(
+                evaluada.montoDescuento(),
+                evaluada.promocion().getNombre(),
+                evaluada.promocion().getId().getValue()
+        ));
+    }
+
+    /**
+     * Evalúa si una promoción aplica a un productoId en el contexto actual.
+     * Variante que no requiere la entidad Producto completa.
+     */
+    private boolean evaluarPromocionParaItem(
+            Promocion promocion,
+            UUID productoUUID,
+            Pedido pedido,
+            ContextoValidacion contexto
+    ) {
+        if (promocion.getEstado() != EstadoPromocion.ACTIVA) {
+            return false;
+        }
+
+        AlcancePromocion alcance = promocion.getAlcance();
+        if (alcance == null || !alcance.tieneTargets()) {
+            return false;
+        }
+
+        if (!alcance.esProductoTarget(productoUUID)) {
+            return false;
+        }
+
+        if (!promocion.puedeActivarse(contexto)) {
+            return false;
+        }
+
+        if (promocion.getEstrategia() instanceof ComboCondicional combo) {
+            return verificarTriggersComboPresentesEnPedido(promocion, pedido, combo);
+        }
+
+        return true;
+    }
+
+    /**
+     * Calcula el descuento para un ítem usando su precio snapshot.
+     * Variante que no requiere la entidad Producto completa.
+     */
+    private BigDecimal calcularDescuentoParaItem(Promocion promocion, BigDecimal precioBase, int cantidad) {
+        BigDecimal subtotal = precioBase.multiply(BigDecimal.valueOf(cantidad));
+        EstrategiaPromocion estrategia = promocion.getEstrategia();
+
+        return switch (estrategia) {
+            case DescuentoDirecto descuento -> calcularDescuentoDirecto(descuento, subtotal, precioBase, cantidad);
+            case CantidadFija cantidadFija -> calcularDescuentoCantidadFija(cantidadFija, precioBase, cantidad);
+            case ComboCondicional combo -> calcularDescuentoCombo(combo, subtotal);
+        };
+    }
 }

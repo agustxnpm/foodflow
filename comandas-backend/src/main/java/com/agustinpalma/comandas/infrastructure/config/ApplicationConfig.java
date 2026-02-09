@@ -13,6 +13,7 @@ import com.agustinpalma.comandas.application.usecase.CrearProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionesUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearPromocionUseCase;
@@ -271,5 +272,30 @@ public class ApplicationConfig {
             Clock clock
     ) {
         return new AplicarDescuentoManualUseCase(pedidoRepository, clock);
+    }
+
+    /**
+     * Bean del caso de uso para gestionar ítems del pedido (HU-20, HU-21).
+     * Soporta eliminar ítems y modificar cantidades con recálculo de promociones.
+     * 
+     * @param pedidoRepository implementación del repositorio de pedidos
+     * @param promocionRepository implementación del repositorio de promociones
+     * @param motorReglasService servicio de dominio para evaluar promociones
+     * @param clock reloj del sistema para evaluación de criterios temporales
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public GestionarItemsPedidoUseCase gestionarItemsPedidoUseCase(
+            PedidoRepository pedidoRepository,
+            PromocionRepository promocionRepository,
+            MotorReglasService motorReglasService,
+            Clock clock
+    ) {
+        return new GestionarItemsPedidoUseCase(
+            pedidoRepository,
+            promocionRepository,
+            motorReglasService,
+            clock
+        );
     }
 }

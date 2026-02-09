@@ -193,6 +193,104 @@ public class Pedido {
         this.items.add(item);
     }
 
+    // ============================================
+    // HU-20/HU-21: Gestión dinámica de ítems
+    // ============================================
+
+    /**
+     * HU-21: Actualiza la cantidad de un ítem existente en el pedido.
+     * 
+     * Este método es un comando de intención del usuario con interpretación semántica:
+     * - cantidad == actual → Operación idempotente (no hacer nada)
+     * - cantidad == 0     → El usuario no desea más el producto → eliminar ítem
+     * - cantidad < 0      → Input inválido → IllegalArgumentException
+     * - cantidad > 0      → Actualizar cantidad y limpiar promoción para re-evaluación
+     * 
+     * IMPORTANTE: Después de actualizar, las promociones del ítem se limpian.
+     * El MotorReglasService debe re-evaluar las promociones de todo el pedido.
+     * 
+     * @param itemId identificador del ítem a modificar
+     * @param nuevaCantidad la nueva cantidad deseada
+     * @throws IllegalStateException si el pedido NO está en estado ABIERTO
+     * @throws IllegalArgumentException si nuevaCantidad es negativa
+     * @throws IllegalArgumentException si el ítem no se encuentra en el pedido
+     */
+    public void actualizarCantidadItem(ItemPedidoId itemId, int nuevaCantidad) {
+        Objects.requireNonNull(itemId, "El itemId no puede ser null");
+        validarPermiteModificacion();
+
+        if (nuevaCantidad < 0) {
+            throw new IllegalArgumentException(
+                String.format("La cantidad no puede ser negativa. Recibido: %d", nuevaCantidad)
+            );
+        }
+
+        // Buscar el ítem dentro del aggregate
+        ItemPedido item = buscarItemPorId(itemId);
+
+        // Idempotencia: si la cantidad es igual, no hacer nada
+        if (item.getCantidad() == nuevaCantidad) {
+            return;
+        }
+
+        // Cantidad 0: el usuario quiere eliminar el ítem
+        if (nuevaCantidad == 0) {
+            eliminarItem(itemId);
+            return;
+        }
+
+        // Cantidad > 0: actualizar y limpiar promoción para re-evaluación
+        item.actualizarCantidad(nuevaCantidad);
+        item.limpiarPromocion();
+    }
+
+    /**
+     * HU-20: Elimina un ítem del pedido.
+     * 
+     * Gracias a orphanRemoval = true en la capa JPA, esto provocará
+     * un DELETE físico en la tabla items_pedido al persistir el Pedido.
+     * 
+     * @param itemId identificador del ítem a eliminar
+     * @throws IllegalStateException si el pedido NO está en estado ABIERTO
+     * @throws IllegalArgumentException si el ítem no se encuentra en el pedido
+     */
+    public void eliminarItem(ItemPedidoId itemId) {
+        Objects.requireNonNull(itemId, "El itemId no puede ser null");
+        validarPermiteModificacion();
+
+        ItemPedido item = buscarItemPorId(itemId);
+        this.items.remove(item);
+    }
+
+    /**
+     * HU-20/HU-21: Limpia las promociones de TODOS los ítems del pedido.
+     * 
+     * Esto es necesario antes de re-evaluar promociones con el MotorReglasService,
+     * ya que cambios en un ítem pueden afectar combos y promociones de otros ítems.
+     * 
+     * Ejemplo: eliminar el trigger de un combo debe hacer que el target pierda su descuento.
+     */
+    public void limpiarPromocionesItems() {
+        this.items.forEach(ItemPedido::limpiarPromocion);
+    }
+
+    /**
+     * Busca un ítem dentro del pedido por su ID.
+     * 
+     * @param itemId identificador del ítem
+     * @return el ítem encontrado
+     * @throws IllegalArgumentException si el ítem no existe en este pedido
+     */
+    private ItemPedido buscarItemPorId(ItemPedidoId itemId) {
+        return this.items.stream()
+            .filter(item -> item.getId().equals(itemId))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException(
+                String.format("No se encontró el ítem con ID %s en el pedido %s",
+                    itemId.getValue(), this.id.getValue())
+            ));
+    }
+
     /**
      * Calcula el subtotal del pedido sumando los subtotales de todos los ítems.
      * Este cálculo NO incluye descuentos.

@@ -28,9 +28,10 @@ public class ItemPedido {
     private String observacion;
     
     // HU-10: Campos de snapshot de promoción
-    private final BigDecimal montoDescuento;      // Valor monetario descontado (ej: $250)
-    private final String nombrePromocion;          // Para mostrar al cliente (ej: "Promo Merienda")
-    private final UUID promocionId;                // Referencia para auditoría
+    // HU-20/HU-21: Ya no son final — se resetean al recalcular promociones tras cambios en ítems
+    private BigDecimal montoDescuento;             // Valor monetario descontado (ej: $250)
+    private String nombrePromocion;                // Para mostrar al cliente (ej: "Promo Merienda")
+    private UUID promocionId;                      // Referencia para auditoría
     
     // HU-14: Descuento manual dinámico (opcional)
     private DescuentoManual descuentoManual;       // null si no tiene descuento manual
@@ -219,6 +220,59 @@ public class ItemPedido {
 
     public String getObservacion() {
         return observacion;
+    }
+
+    // ============================================
+    // HU-20/HU-21: Métodos de mutación controlada
+    // ============================================
+
+    /**
+     * HU-21: Actualiza la cantidad del ítem.
+     * Solo debe invocarse desde el Aggregate Root (Pedido).
+     * 
+     * El precioUnitario se mantiene (snapshot histórico).
+     * 
+     * @param nuevaCantidad la nueva cantidad (debe ser > 0)
+     * @throws IllegalArgumentException si la cantidad es <= 0
+     */
+    void actualizarCantidad(int nuevaCantidad) {
+        this.cantidad = validarCantidad(nuevaCantidad);
+    }
+
+    /**
+     * HU-20/HU-21: Limpia el estado de promoción del ítem.
+     * 
+     * Esto es obligatorio antes de re-evaluar promociones con el MotorReglasService,
+     * ya que el ítem debe volver a ser evaluado desde cero.
+     * 
+     * Resetea:
+     * - montoDescuento → BigDecimal.ZERO
+     * - nombrePromocion → null
+     * - promocionId → null
+     */
+    void limpiarPromocion() {
+        this.montoDescuento = BigDecimal.ZERO;
+        this.nombrePromocion = null;
+        this.promocionId = null;
+    }
+
+    /**
+     * HU-20/HU-21: Aplica una promoción calculada al ítem.
+     * 
+     * Público porque es invocado por el MotorReglasService (domain.service),
+     * que al estar en un paquete diferente necesita acceso directo.
+     * 
+     * ⚠️ Uso restringido: solo debe invocarse desde Domain Services
+     * durante el recálculo de promociones.
+     * 
+     * @param montoDescuento el monto de descuento calculado
+     * @param nombrePromocion el nombre de la promoción
+     * @param promocionId el ID de la promoción para auditoría
+     */
+    public void aplicarPromocion(BigDecimal montoDescuento, String nombrePromocion, UUID promocionId) {
+        this.montoDescuento = montoDescuento != null ? montoDescuento : BigDecimal.ZERO;
+        this.nombrePromocion = nombrePromocion;
+        this.promocionId = promocionId;
     }
 
     // ============================================
