@@ -8,6 +8,10 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
 
+# Archivos de control
+BACKEND_PID_FILE="$PROJECT_ROOT/.backend.pid"
+BACKEND_LOG_FILE="$PROJECT_ROOT/logs/backend.log"
+
 # Colores para output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -26,10 +30,44 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Mata cualquier proceso Java corriendo en el puerto 8080
+kill_backend() {
+    log_info "Verificando procesos del backend..."
+    
+    # Matar por PID file si existe
+    if [ -f "$BACKEND_PID_FILE" ]; then
+        local pid=$(cat "$BACKEND_PID_FILE")
+        if kill -0 "$pid" 2>/dev/null; then
+            log_warn "Matando proceso backend existente (PID: $pid)"
+            kill -9 "$pid" 2>/dev/null || true
+            sleep 1
+        fi
+        rm -f "$BACKEND_PID_FILE"
+    fi
+    
+    # Matar cualquier proceso en el puerto 8080
+    local port_pid=$(lsof -ti:8080 2>/dev/null || true)
+    if [ -n "$port_pid" ]; then
+        log_warn "Puerto 8080 ocupado por PID $port_pid, matando proceso..."
+        kill -9 $port_pid 2>/dev/null || true
+        sleep 1
+    fi
+    
+    # Matar cualquier proceso Maven/Spring Boot corriendo
+    pkill -9 -f "spring-boot:run" 2>/dev/null || true
+    pkill -9 -f "FoodFlowApplication" 2>/dev/null || true
+    
+    sleep 1
+    log_info "Procesos limpiados"
+}
+
 # Comando: up
 # Levanta la base de datos y el backend
 cmd_up() {
     log_info "Levantando servicios de FoodFlow..."
+    
+    # Matar cualquier proceso previo
+    kill_backend
     
     # Levantar PostgreSQL en Docker
     log_info "Iniciando PostgreSQL en Docker..."
@@ -39,9 +77,23 @@ cmd_up() {
     log_info "Esperando a que PostgreSQL esté listo..."
     sleep 3
     
-    # Levantar backend
-    log_info "Iniciando backend Spring Boot..."
-    ./mvnw spring-boot:run
+    # Crear directorio de logs si no existe
+    mkdir -p "$PROJECT_ROOT/logs"
+    
+    # Levantar backend en background
+    log_info "Iniciando backend Spring Boot en segundo plano..."
+    nohup ./mvnw spring-boot:run > "$BACKEND_LOG_FILE" 2>&1 &
+    local backend_pid=$!
+    echo $backend_pid > "$BACKEND_PID_FILE"
+    
+    log_info "Backend iniciado (PID: $backend_pid)"
+    log_info "Ver logs con: ./ff logs backend"
+    log_info ""
+    log_info "✓ Servicios levantados exitosamente"
+    log_info "  - PostgreSQL: localhost:5433"
+    log_info "  - Backend API: http://localhost:8080"
+    log_info ""
+    log_info "Usa './ff logs backend' para ver los logs en tiempo real"
 }
 
 # Comando: down
@@ -49,10 +101,13 @@ cmd_up() {
 cmd_down() {
     log_info "Bajando servicios de FoodFlow..."
     
+    # Matar backend
+    kill_backend
+    
     # Bajar Docker Compose
     docker compose down
     
-    log_info "Servicios detenidos"
+    log_info "✓ Todos los servicios detenidos"
 }
 
 # Comando: restart
@@ -113,7 +168,15 @@ cmd_staging() {
 cmd_logs() {
     local service="$1"
     
-    if [ -z "$service" ]; then
+    if [ "$service" = "backend" ]; then
+        if [ ! -f "$BACKEND_LOG_FILE" ]; then
+            log_error "No se encontró el archivo de logs del backend"
+            log_info "¿El backend está corriendo? Usa './ff up' para iniciarlo"
+            exit 1
+        fi
+        log_info "Mostrando logs del backend (Ctrl+C para salir)..."
+        tail -f "$BACKEND_LOG_FILE"
+    elif [ -z "$service" ]; then
         docker compose logs -f
     else
         docker compose logs -f "$service"
@@ -144,25 +207,34 @@ Uso: ./ff <comando> [argumentos]
 
 Comandos disponibles:
 
-  up                          Levanta PostgreSQL (Docker) y backend
-  down                        Baja todos los servicios
+  up                          Levanta PostgreSQL (Docker) y backend en segundo plano
+  down                        Baja TODOS los servicios (incluyendo backend)
   restart [servicio]          Reinicia todos los servicios o uno específico
   test [nombre]               Ejecuta todos los tests o uno específico
   staging <script.sql>        Ejecuta un script SQL de staging
   logs [servicio]             Muestra logs de los servicios
+                              - logs backend: logs del backend Spring Boot
+                              - logs db: logs de PostgreSQL
+                              - logs: todos los logs de Docker
   db                          Abre una consola psql en el contenedor
   clean                       Limpia build artifacts de Maven
 
 Ejemplos:
 
-  ./ff up
-  ./ff test
+  ./ff up                     # Levanta todo en background
+  ./ff logs backend           # Ver logs del backend en tiempo real
+  ./ff logs db                # Ver logs de PostgreSQL
+  ./ff down                   # Baja TODO (limpia procesos colgados)
+  ./ff test                   # Ejecuta todos los tests
   ./ff test ConsultarMesasUseCaseTest
   ./ff staging scripts/seed-data.sql
   ./ff restart
-  ./ff restart db
-  ./ff logs db
-  ./ff down
+  ./ff db
+
+Notas:
+  - El backend corre en segundo plano después de './ff up'
+  - Los logs del backend están en: logs/backend.log
+  - './ff down' mata TODOS los procesos, incluso si quedaron colgados con Ctrl+Z
 
 EOF
 }
