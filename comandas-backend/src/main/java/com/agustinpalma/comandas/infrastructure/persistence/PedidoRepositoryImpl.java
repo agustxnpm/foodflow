@@ -8,6 +8,7 @@ import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.infrastructure.mapper.PedidoMapper;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.ItemPedidoEntity;
+import com.agustinpalma.comandas.infrastructure.persistence.entity.PagoEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PedidoEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.jpa.SpringDataPedidoRepository;
 import org.slf4j.Logger;
@@ -74,6 +75,11 @@ public class PedidoRepositoryImpl implements PedidoRepository {
         entity.setEstado(pedido.getEstado());
         entity.setFechaCierre(pedido.getFechaCierre());
         entity.setMedioPago(pedido.getMedioPago());
+        
+        // Sincronizar snapshot contable
+        entity.setMontoSubtotalFinal(pedido.getMontoSubtotalFinal());
+        entity.setMontoDescuentosFinal(pedido.getMontoDescuentosFinal());
+        entity.setMontoTotalFinal(pedido.getMontoTotalFinal());
         
         // Sincronizar descuento global
         if (pedido.getDescuentoGlobal() != null) {
@@ -166,6 +172,19 @@ public class PedidoRepositoryImpl implements PedidoRepository {
         }
         
         log.debug("Sincronización completada. Items finales en entity: {}", entity.getItems().size());
+        
+        // Sincronizar pagos (se agregan al cerrar, no se editan)
+        if (!pedido.getPagos().isEmpty() && entity.getPagos().isEmpty()) {
+            for (var pagoDominio : pedido.getPagos()) {
+                var pagoEntity = new PagoEntity(
+                    pagoDominio.getMedio(),
+                    pagoDominio.getMonto(),
+                    pagoDominio.getFecha()
+                );
+                entity.agregarPago(pagoEntity);
+            }
+            log.debug("Pagos sincronizados: {}", entity.getPagos().size());
+        }
     }
 
     @Override

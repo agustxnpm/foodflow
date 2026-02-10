@@ -23,7 +23,8 @@ public final class DomainEnums {
     public enum MedioPago {
         EFECTIVO,
         TARJETA,
-        TRANSFERENCIA
+        TRANSFERENCIA,
+        QR
     }
 
     public enum TipoEstrategia {

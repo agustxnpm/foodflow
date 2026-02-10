@@ -5,8 +5,10 @@ import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
 import com.agustinpalma.comandas.domain.model.ItemPedido;
+import com.agustinpalma.comandas.domain.model.Pago;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.ItemPedidoEntity;
+import com.agustinpalma.comandas.infrastructure.persistence.entity.PagoEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PedidoEntity;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Component;
  * 
  * HU-07: Utiliza la relación @OneToMany para persistencia atómica de pedido + ítems.
  * HU-14: Mapea descuento global dinámico (DescuentoManual VO <-> campos DB).
+ * Cierre: Mapea pagos y campos de snapshot contable.
  */
 @Component
 public class PedidoMapper {
@@ -38,7 +41,7 @@ public class PedidoMapper {
      * 
      * HU-07: Reconstruye el pedido completo con todos sus ítems desde la relación @OneToMany.
      * HU-14: Reconstruye descuento global dinámico desde campos de la BD.
-     * No es necesario consultar la BD por separado - JPA ya carga los ítems.
+     * Cierre: Reconstruye pagos y snapshot contable.
      *
      * @param entity entidad JPA
      * @return entidad de dominio reconstruida
@@ -59,10 +62,8 @@ public class PedidoMapper {
         );
 
         // HU-07: Cargar ítems desde la relación @OneToMany
-        // Los ítems ya están cargados por JPA, no necesitamos consultar por separado
         for (ItemPedidoEntity itemEntity : entity.getItems()) {
             ItemPedido item = itemPedidoMapper.toDomain(itemEntity);
-            // Usar método package-private para reconstrucción desde persistencia
             pedido.agregarItemDesdePersistencia(item);
         }
 
@@ -77,6 +78,21 @@ public class PedidoMapper {
             pedido.aplicarDescuentoGlobal(descuentoGlobal);
         }
 
+        // Reconstruir pagos desde la relación @OneToMany
+        for (PagoEntity pagoEntity : entity.getPagos()) {
+            Pago pago = new Pago(
+                pagoEntity.getMedioPago(),
+                pagoEntity.getMonto(),
+                pagoEntity.getFecha()
+            );
+            pedido.agregarPagoDesdePersistencia(pago);
+        }
+
+        // Reconstruir snapshot contable
+        pedido.setMontoSubtotalFinalDesdePersistencia(entity.getMontoSubtotalFinal());
+        pedido.setMontoDescuentosFinalDesdePersistencia(entity.getMontoDescuentosFinal());
+        pedido.setMontoTotalFinalDesdePersistencia(entity.getMontoTotalFinal());
+
         return pedido;
     }
 
@@ -84,8 +100,6 @@ public class PedidoMapper {
      * Convierte de entidad de dominio a entidad JPA.
      * 
      * Utiliza la relación bidireccional para garantizar persistencia atómica.
-     * Al guardar el PedidoEntity, JPA automáticamente persiste todos los ítems
-     * gracias a cascade = CascadeType.ALL.
      *
      * @param pedido entidad de dominio
      * @return entidad JPA para persistencia
@@ -115,19 +129,31 @@ public class PedidoMapper {
             entity.setDescGlobalUsuarioId(dg.getUsuarioId());
             entity.setDescGlobalFecha(dg.getFechaAplicacion());
         } else {
-            // Limpiar descuento global si fue removido
             entity.setDescGlobalPorcentaje(null);
             entity.setDescGlobalRazon(null);
             entity.setDescGlobalUsuarioId(null);
             entity.setDescGlobalFecha(null);
         }
 
-        // Convertir y agregar ítems usando la relación bidireccional
-        // El método agregarItem() mantiene la sincronización pedido ↔ item
-        // Gracias a cascade = CascadeType.ALL, al guardar el pedido se guardan automáticamente los ítems
+        // Snapshot contable
+        entity.setMontoSubtotalFinal(pedido.getMontoSubtotalFinal());
+        entity.setMontoDescuentosFinal(pedido.getMontoDescuentosFinal());
+        entity.setMontoTotalFinal(pedido.getMontoTotalFinal());
+
+        // Convertir y agregar ítems
         for (ItemPedido item : pedido.getItems()) {
             ItemPedidoEntity itemEntity = itemPedidoMapper.toEntity(item);
             entity.agregarItem(itemEntity);
+        }
+
+        // Convertir y agregar pagos
+        for (Pago pago : pedido.getPagos()) {
+            PagoEntity pagoEntity = new PagoEntity(
+                pago.getMedio(),
+                pago.getMonto(),
+                pago.getFecha()
+            );
+            entity.agregarPago(pagoEntity);
         }
 
         return entity;

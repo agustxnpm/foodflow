@@ -2,10 +2,13 @@ package com.agustinpalma.comandas.presentation.rest;
 
 import com.agustinpalma.comandas.application.dto.AbrirMesaRequest;
 import com.agustinpalma.comandas.application.dto.AbrirMesaResponse;
+import com.agustinpalma.comandas.application.dto.CerrarMesaRequest;
+import com.agustinpalma.comandas.application.dto.CerrarMesaResponse;
 import com.agustinpalma.comandas.application.dto.CrearMesaRequest;
 import com.agustinpalma.comandas.application.dto.DetallePedidoResponse;
 import com.agustinpalma.comandas.application.dto.MesaResponse;
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearMesaUseCase;
@@ -30,6 +33,7 @@ public class MesaController {
 
     private final ConsultarMesasUseCase consultarMesasUseCase;
     private final AbrirMesaUseCase abrirMesaUseCase;
+    private final CerrarMesaUseCase cerrarMesaUseCase;
     private final CrearMesaUseCase crearMesaUseCase;
     private final EliminarMesaUseCase eliminarMesaUseCase;
     private final ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase;
@@ -37,12 +41,14 @@ public class MesaController {
     public MesaController(
         ConsultarMesasUseCase consultarMesasUseCase,
         AbrirMesaUseCase abrirMesaUseCase,
+        CerrarMesaUseCase cerrarMesaUseCase,
         CrearMesaUseCase crearMesaUseCase,
         EliminarMesaUseCase eliminarMesaUseCase,
         ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase
     ) {
         this.consultarMesasUseCase = consultarMesasUseCase;
         this.abrirMesaUseCase = abrirMesaUseCase;
+        this.cerrarMesaUseCase = cerrarMesaUseCase;
         this.crearMesaUseCase = crearMesaUseCase;
         this.eliminarMesaUseCase = eliminarMesaUseCase;
         this.consultarDetallePedidoUseCase = consultarDetallePedidoUseCase;
@@ -170,5 +176,42 @@ public class MesaController {
 
         return ResponseEntity.ok(detalle);
     }
-}
 
+    /**
+     * Cierra una mesa y finaliza su pedido activo.
+     *
+     * POST /api/mesas/{mesaId}/cierre
+     *
+     * Evento de negocio crítico que consolida:
+     * - Cierre del pedido (inmutabilidad financiera)
+     * - Registro de pagos (soporte pagos parciales)
+     * - Liberación de la mesa (recurso físico)
+     *
+     * Request body:
+     * {
+     *   "pagos": [
+     *     {"medio": "EFECTIVO", "monto": 5000},
+     *     {"medio": "TARJETA", "monto": 2500}
+     *   ]
+     * }
+     *
+     * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
+     *
+     * @param mesaId ID de la mesa a cerrar
+     * @param request DTO con la lista de pagos
+     * @return información de la mesa liberada y el pedido cerrado con snapshot contable
+     */
+    @PostMapping("/{mesaId}/cierre")
+    public ResponseEntity<CerrarMesaResponse> cerrarMesa(
+            @PathVariable String mesaId,
+            @RequestBody CerrarMesaRequest request
+    ) {
+        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
+        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+
+        MesaId id = MesaId.from(mesaId);
+        CerrarMesaResponse response = cerrarMesaUseCase.ejecutar(localIdSimulado, id, request.pagos());
+
+        return ResponseEntity.ok(response);
+    }
+}

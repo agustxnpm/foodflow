@@ -1,15 +1,16 @@
 package com.agustinpalma.comandas.application.dto;
 
-import com.agustinpalma.comandas.domain.model.DomainEnums.MedioPago;
+import java.util.List;
 
 /**
  * DTO de entrada para el caso de uso de cerrar mesa.
+ * Soporta pagos parciales (split) mediante una lista de PagoRequest.
  * 
  * @param mesaId identificador de la mesa a cerrar
- * @param medioPago medio de pago utilizado para el cierre
+ * @param pagos lista de pagos para cubrir el total del pedido
  */
 public record CerrarMesaRequest(
     String mesaId,
-    MedioPago medioPago
+    List<PagoRequest> pagos
 ) {
 }

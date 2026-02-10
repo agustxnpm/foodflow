@@ -12,6 +12,9 @@ import java.util.Objects;
 /**
  * Aggregate Root del contexto de Pedidos.
  * Representa una comanda/pedido asociado a una mesa.
+ * 
+ * Después del cierre, el pedido se vuelve inmutable gracias al snapshot contable
+ * que congela montoSubtotalFinal, montoDescuentosFinal y montoTotalFinal.
  */
 public class Pedido {
 
@@ -29,6 +32,14 @@ public class Pedido {
     // HU-14: Descuento global dinámico (opcional)
     private DescuentoManual descuentoGlobal;  // null si no tiene descuento global
 
+    // Pagos parciales/split del pedido
+    private final List<Pago> pagos;
+
+    // Snapshot contable: se congela al cerrar para inmutabilidad financiera
+    private BigDecimal montoSubtotalFinal;
+    private BigDecimal montoDescuentosFinal;
+    private BigDecimal montoTotalFinal;
+
     public Pedido(PedidoId id, LocalId localId, MesaId mesaId, int numero, EstadoPedido estado, LocalDateTime fechaApertura) {
         this.id = Objects.requireNonNull(id, "El id del pedido no puede ser null");
         this.localId = Objects.requireNonNull(localId, "El localId no puede ser null");
@@ -38,6 +49,7 @@ public class Pedido {
         this.fechaApertura = Objects.requireNonNull(fechaApertura, "La fecha de apertura no puede ser null");
         this.items = new ArrayList<>();
         this.descuentos = new ArrayList<>();
+        this.pagos = new ArrayList<>();
     }
 
     private int validarNumero(int numero) {
@@ -403,22 +415,28 @@ public class Pedido {
 
 
     /**
-     * Finaliza el pedido registrando el medio de pago y la fecha de cierre.
-     * Transiciona el estado de ABIERTO a CERRADO.
-     *
+     * Cierra el pedido registrando los pagos y capturando el snapshot contable.
+     * 
+     * Este es un evento de negocio crítico que consolida:
+     * - La inmutabilidad financiera (snapshot de montos)
+     * - El registro de pagos (soporte multi-pago / split)
+     * - El cambio de estado a CERRADO
+     * 
      * Reglas de negocio:
      * - Solo se pueden cerrar pedidos en estado ABIERTO
      * - El pedido debe tener al menos un ítem cargado
-     * - El medio de pago es obligatorio
-     * - La fecha de cierre queda registrada para auditoría
-     *
-     * @param medio el medio de pago utilizado (obligatorio)
-     * @param fechaCierre la fecha y hora del cierre (obligatorio)
+     * - La suma de los pagos debe coincidir exactamente con el total calculado
+     * - Los montos se congelan al cerrar: ya no se recalculan
+     * - Después del cierre, el pedido se vuelve inmutable
+     * 
+     * @param pagosRecibidos lista de pagos (puede ser un solo pago o split)
+     * @param fechaCierre la fecha y hora del cierre
      * @throws IllegalStateException si el pedido no está ABIERTO
-     * @throws IllegalArgumentException si el pedido no tiene ítems o el medio de pago es nulo
+     * @throws IllegalArgumentException si el pedido no tiene ítems
+     * @throws IllegalArgumentException si la suma de pagos no coincide con el total
      */
-    public void finalizar(MedioPago medio, LocalDateTime fechaCierre) {
-        Objects.requireNonNull(medio, "El medio de pago es obligatorio para cerrar el pedido");
+    public void cerrar(List<Pago> pagosRecibidos, LocalDateTime fechaCierre) {
+        Objects.requireNonNull(pagosRecibidos, "Los pagos no pueden ser null");
         Objects.requireNonNull(fechaCierre, "La fecha de cierre es obligatoria");
 
         if (this.estado != EstadoPedido.ABIERTO) {
@@ -429,9 +447,129 @@ public class Pedido {
             throw new IllegalArgumentException("No se puede cerrar un pedido sin ítems");
         }
 
-        this.medioPago = medio;
+        if (pagosRecibidos.isEmpty()) {
+            throw new IllegalArgumentException("Debe registrarse al menos un pago para cerrar el pedido");
+        }
+
+        // Calcular el total actual antes de congelar
+        BigDecimal totalCalculado = calcularTotal();
+        BigDecimal subtotalCalculado = calcularSubtotalItems();
+        BigDecimal descuentosCalculados = subtotalCalculado.subtract(totalCalculado);
+
+        // Validar que la suma de pagos coincide exactamente con el total
+        BigDecimal sumaPagos = pagosRecibidos.stream()
+            .map(Pago::getMonto)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (sumaPagos.compareTo(totalCalculado) != 0) {
+            throw new IllegalArgumentException(
+                String.format("La suma de pagos (%s) no coincide con el total del pedido (%s)",
+                    sumaPagos.toPlainString(), totalCalculado.toPlainString())
+            );
+        }
+
+        // Congelar snapshot contable (inmutabilidad financiera)
+        this.montoSubtotalFinal = subtotalCalculado;
+        this.montoDescuentosFinal = descuentosCalculados;
+        this.montoTotalFinal = totalCalculado;
+
+        // Registrar pagos
+        this.pagos.clear();
+        this.pagos.addAll(pagosRecibidos);
+
+        // Transicionar estado
         this.fechaCierre = fechaCierre;
         this.estado = EstadoPedido.CERRADO;
+    }
+
+    /**
+     * Método de retrocompatibilidad para cierre con pago único.
+     * Delega al nuevo método cerrar() con pagos.
+     * 
+     * @deprecated Usar {@link #cerrar(List, LocalDateTime)} en su lugar
+     */
+    public void finalizar(MedioPago medio, LocalDateTime fechaCierre) {
+        Objects.requireNonNull(medio, "El medio de pago es obligatorio para cerrar el pedido");
+        Objects.requireNonNull(fechaCierre, "La fecha de cierre es obligatoria");
+
+        Pago pagoUnico = new Pago(medio, calcularTotal(), fechaCierre);
+        cerrar(List.of(pagoUnico), fechaCierre);
+    }
+
+    // ============================================
+    // Getters de pagos y snapshot contable
+    // ============================================
+
+    /**
+     * Retorna los pagos registrados al cierre del pedido.
+     * 
+     * @return lista inmutable de pagos (vacía si el pedido está abierto)
+     */
+    public List<Pago> getPagos() {
+        return Collections.unmodifiableList(pagos);
+    }
+
+    /**
+     * Método público SOLO para reconstrucción desde persistencia.
+     * 
+     * ADVERTENCIA: Este método NO ejecuta validaciones de negocio.
+     * Solo debe ser usado por la capa de infraestructura (mappers).
+     * 
+     * @param pago el pago a agregar directamente
+     */
+    public void agregarPagoDesdePersistencia(Pago pago) {
+        this.pagos.add(pago);
+    }
+
+    /**
+     * Retorna el subtotal final congelado al cierre.
+     * 
+     * @return montoSubtotalFinal o null si el pedido está abierto
+     */
+    public BigDecimal getMontoSubtotalFinal() {
+        return montoSubtotalFinal;
+    }
+
+    /**
+     * Asigna el subtotal final desde persistencia.
+     * Solo para reconstrucción por la capa de infraestructura.
+     */
+    public void setMontoSubtotalFinalDesdePersistencia(BigDecimal monto) {
+        this.montoSubtotalFinal = monto;
+    }
+
+    /**
+     * Retorna el monto de descuentos congelado al cierre.
+     * 
+     * @return montoDescuentosFinal o null si el pedido está abierto
+     */
+    public BigDecimal getMontoDescuentosFinal() {
+        return montoDescuentosFinal;
+    }
+
+    /**
+     * Asigna el monto de descuentos desde persistencia.
+     * Solo para reconstrucción por la capa de infraestructura.
+     */
+    public void setMontoDescuentosFinalDesdePersistencia(BigDecimal monto) {
+        this.montoDescuentosFinal = monto;
+    }
+
+    /**
+     * Retorna el total final congelado al cierre.
+     * 
+     * @return montoTotalFinal o null si el pedido está abierto
+     */
+    public BigDecimal getMontoTotalFinal() {
+        return montoTotalFinal;
+    }
+
+    /**
+     * Asigna el total final desde persistencia.
+     * Solo para reconstrucción por la capa de infraestructura.
+     */
+    public void setMontoTotalFinalDesdePersistencia(BigDecimal monto) {
+        this.montoTotalFinal = monto;
     }
 
     @Override

@@ -66,15 +66,24 @@ public class ApplicationConfig {
 
     /**
      * Bean del caso de uso para cerrar mesa.
-     * Spring inyectará automáticamente las implementaciones JPA de los repositorios.
+     * Incluye MotorReglasService para re-evaluar promociones antes del cierre.
      *
      * @param mesaRepository implementación del repositorio de mesas
      * @param pedidoRepository implementación del repositorio de pedidos
+     * @param promocionRepository implementación del repositorio de promociones
+     * @param motorReglasService servicio de dominio para evaluar promociones
+     * @param clock reloj del sistema
      * @return instancia del caso de uso lista para usar
      */
     @Bean
-    public CerrarMesaUseCase cerrarMesaUseCase(MesaRepository mesaRepository, PedidoRepository pedidoRepository) {
-        return new CerrarMesaUseCase(mesaRepository, pedidoRepository);
+    public CerrarMesaUseCase cerrarMesaUseCase(
+            MesaRepository mesaRepository,
+            PedidoRepository pedidoRepository,
+            PromocionRepository promocionRepository,
+            MotorReglasService motorReglasService,
+            Clock clock
+    ) {
+        return new CerrarMesaUseCase(mesaRepository, pedidoRepository, promocionRepository, motorReglasService, clock);
     }
 
     /**

@@ -35,11 +35,19 @@ public class Mesa {
      * Transiciona la mesa de ABIERTA a LIBRE.
      * Ocurre cuando el pedido asociado se cierra o se libera la mesa.
      */
-    public void cerrar() {
+    public void liberar() {
         if (this.estado == EstadoMesa.LIBRE) {
             throw new IllegalArgumentException("La mesa " + numero + " ya está libre.");
         }
         this.estado = EstadoMesa.LIBRE;
+    }
+
+    /**
+     * Alias de retrocompatibilidad para {@link #liberar()}.
+     * @deprecated Usar {@link #liberar()} en su lugar
+     */
+    public void cerrar() {
+        liberar();
     }
 
     private int validarNumero(int numero) {

@@ -100,6 +100,31 @@ public class PedidoEntity {
     )
     private List<ItemPedidoEntity> items = new ArrayList<>();
 
+    // ============================================
+    // Pagos del pedido (soporte split / pagos parciales)
+    // ============================================
+
+    @OneToMany(
+        mappedBy = "pedido",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true,
+        fetch = FetchType.LAZY
+    )
+    private List<PagoEntity> pagos = new ArrayList<>();
+
+    // ============================================
+    // Snapshot contable: se congela al cerrar el pedido
+    // ============================================
+
+    @Column(name = "monto_subtotal_final", precision = 10, scale = 2)
+    private BigDecimal montoSubtotalFinal;
+
+    @Column(name = "monto_descuentos_final", precision = 10, scale = 2)
+    private BigDecimal montoDescuentosFinal;
+
+    @Column(name = "monto_total_final", precision = 10, scale = 2)
+    private BigDecimal montoTotalFinal;
+
     // Constructor vacío requerido por JPA
     protected PedidoEntity() {
     }
@@ -216,6 +241,52 @@ public class PedidoEntity {
 
     public List<ItemPedidoEntity> getItems() {
         return items;
+    }
+
+    // ============================================
+    // Getters y Setters de pagos
+    // ============================================
+
+    public List<PagoEntity> getPagos() {
+        return pagos;
+    }
+
+    /**
+     * Método helper para agregar un pago manteniendo la sincronización bidireccional.
+     * 
+     * @param pago el pago a agregar
+     */
+    public void agregarPago(PagoEntity pago) {
+        pagos.add(pago);
+        pago.setPedido(this);
+    }
+
+    // ============================================
+    // Getters y Setters de snapshot contable
+    // ============================================
+
+    public BigDecimal getMontoSubtotalFinal() {
+        return montoSubtotalFinal;
+    }
+
+    public void setMontoSubtotalFinal(BigDecimal montoSubtotalFinal) {
+        this.montoSubtotalFinal = montoSubtotalFinal;
+    }
+
+    public BigDecimal getMontoDescuentosFinal() {
+        return montoDescuentosFinal;
+    }
+
+    public void setMontoDescuentosFinal(BigDecimal montoDescuentosFinal) {
+        this.montoDescuentosFinal = montoDescuentosFinal;
+    }
+
+    public BigDecimal getMontoTotalFinal() {
+        return montoTotalFinal;
+    }
+
+    public void setMontoTotalFinal(BigDecimal montoTotalFinal) {
+        this.montoTotalFinal = montoTotalFinal;
     }
 
     /**

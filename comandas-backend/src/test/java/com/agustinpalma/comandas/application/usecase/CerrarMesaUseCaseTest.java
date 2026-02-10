@@ -1,26 +1,36 @@
 package com.agustinpalma.comandas.application.usecase;
 
-import com.agustinpalma.comandas.application.dto.CerrarMesaRequest;
 import com.agustinpalma.comandas.application.dto.CerrarMesaResponse;
+import com.agustinpalma.comandas.application.dto.PagoRequest;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoMesa;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
 import com.agustinpalma.comandas.domain.model.DomainEnums.MedioPago;
+import com.agustinpalma.comandas.domain.model.DomainIds.ItemPedidoId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
+import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
+import com.agustinpalma.comandas.domain.model.ItemPedido;
 import com.agustinpalma.comandas.domain.model.Mesa;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
+import com.agustinpalma.comandas.domain.repository.PromocionRepository;
+import com.agustinpalma.comandas.domain.service.MotorReglasService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,6 +42,9 @@ import static org.mockito.Mockito.*;
 /**
  * Tests unitarios para CerrarMesaUseCase.
  * Verifican las reglas de negocio del proceso de cierre de mesa.
+ * 
+ * Actualizados para la nueva API con soporte de pagos múltiples (split)
+ * y snapshot contable.
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CerrarMesaUseCase - Tests de comportamiento")
@@ -43,6 +56,14 @@ class CerrarMesaUseCaseTest {
     @Mock
     private PedidoRepository pedidoRepository;
 
+    @Mock
+    private PromocionRepository promocionRepository;
+
+    @Mock
+    private MotorReglasService motorReglasService;
+
+    private Clock clock;
+
     private CerrarMesaUseCase useCase;
 
     private LocalId localIdValido;
@@ -51,7 +72,12 @@ class CerrarMesaUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new CerrarMesaUseCase(mesaRepository, pedidoRepository);
+        // Clock fijo: 2026-02-06 19:00 Argentina
+        clock = Clock.fixed(
+            Instant.parse("2026-02-06T22:00:00Z"),
+            ZoneId.of("America/Argentina/Buenos_Aires")
+        );
+        useCase = new CerrarMesaUseCase(mesaRepository, pedidoRepository, promocionRepository, motorReglasService, clock);
         
         localIdValido = new LocalId(UUID.randomUUID());
         mesaIdValida = new MesaId(UUID.randomUUID());
@@ -66,25 +92,27 @@ class CerrarMesaUseCaseTest {
         mesa.abrir();
 
         Pedido pedido = crearPedidoConItems(pedidoIdValido, localIdValido, mesaIdValida);
+        BigDecimal totalPedido = pedido.calcularTotal();
         
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            MedioPago.EFECTIVO
+        List<PagoRequest> pagos = List.of(
+            new PagoRequest(MedioPago.EFECTIVO, totalPedido)
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
         when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
+        when(promocionRepository.buscarActivasPorLocal(localIdValido)).thenReturn(Collections.emptyList());
         when(pedidoRepository.guardar(any(Pedido.class))).thenReturn(pedido);
         when(mesaRepository.guardar(any(Mesa.class))).thenReturn(mesa);
 
         // When: Se ejecuta el caso de uso
-        CerrarMesaResponse response = useCase.ejecutar(localIdValido, request);
+        CerrarMesaResponse response = useCase.ejecutar(localIdValido, mesaIdValida, pagos);
 
         // Then: La mesa y el pedido se cierran correctamente
         assertThat(response).isNotNull();
         assertThat(response.mesaEstado()).isEqualTo(EstadoMesa.LIBRE);
         assertThat(response.pedidoEstado()).isEqualTo(EstadoPedido.CERRADO);
-        assertThat(response.medioPago()).isEqualTo(MedioPago.EFECTIVO);
+        assertThat(response.pagos()).hasSize(1);
+        assertThat(response.pagos().get(0).medio()).isEqualTo(MedioPago.EFECTIVO);
         assertThat(response.fechaCierre()).isNotNull();
 
         // Verificar que se llamaron los métodos de guardado
@@ -96,15 +124,14 @@ class CerrarMesaUseCaseTest {
     @DisplayName("Debe rechazar el cierre si la mesa no existe")
     void deberia_rechazar_cierre_si_mesa_no_existe() {
         // Given: La mesa no existe en el repositorio
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            MedioPago.TARJETA
+        List<PagoRequest> pagos = List.of(
+            new PagoRequest(MedioPago.TARJETA, new BigDecimal("1000"))
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.empty());
 
         // When/Then: Debe lanzar excepción
-        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
+        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, mesaIdValida, pagos))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("La mesa no existe");
 
@@ -121,15 +148,14 @@ class CerrarMesaUseCaseTest {
         Mesa mesa = new Mesa(mesaIdValida, otroLocalId, 5);
         mesa.abrir();
 
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            MedioPago.EFECTIVO
+        List<PagoRequest> pagos = List.of(
+            new PagoRequest(MedioPago.EFECTIVO, new BigDecimal("1000"))
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
 
         // When/Then: Debe lanzar excepción de validación de tenant
-        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
+        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, mesaIdValida, pagos))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("La mesa no pertenece a este local");
 
@@ -144,16 +170,15 @@ class CerrarMesaUseCaseTest {
         Mesa mesa = new Mesa(mesaIdValida, localIdValido, 5);
         mesa.abrir();
 
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            MedioPago.EFECTIVO
+        List<PagoRequest> pagos = List.of(
+            new PagoRequest(MedioPago.EFECTIVO, new BigDecimal("1000"))
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
         when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.empty());
 
         // When/Then: Debe lanzar excepción
-        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
+        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, mesaIdValida, pagos))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("La mesa no tiene un pedido abierto");
 
@@ -177,16 +202,16 @@ class CerrarMesaUseCaseTest {
             LocalDateTime.now()
         );
 
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            MedioPago.EFECTIVO
+        List<PagoRequest> pagos = List.of(
+            new PagoRequest(MedioPago.EFECTIVO, new BigDecimal("1000"))
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
         when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedidoSinItems));
+        when(promocionRepository.buscarActivasPorLocal(localIdValido)).thenReturn(Collections.emptyList());
 
         // When/Then: El dominio debe rechazar la finalización del pedido
-        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
+        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, mesaIdValida, pagos))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("No se puede cerrar un pedido sin ítems");
 
@@ -202,17 +227,18 @@ class CerrarMesaUseCaseTest {
         // No llamamos a mesa.abrir(), queda en estado LIBRE
 
         Pedido pedido = crearPedidoConItems(pedidoIdValido, localIdValido, mesaIdValida);
+        BigDecimal totalPedido = pedido.calcularTotal();
 
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            MedioPago.EFECTIVO
+        List<PagoRequest> pagos = List.of(
+            new PagoRequest(MedioPago.EFECTIVO, totalPedido)
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
         when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
+        when(promocionRepository.buscarActivasPorLocal(localIdValido)).thenReturn(Collections.emptyList());
 
         // When/Then: La entidad Mesa debe rechazar el cierre
-        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
+        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, mesaIdValida, pagos))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("ya está libre");
 
@@ -221,111 +247,85 @@ class CerrarMesaUseCaseTest {
     }
 
     @Test
-    @DisplayName("Debe rechazar el cierre si no se proporciona medio de pago")
-    void deberia_rechazar_cierre_sin_medio_pago() {
-        // Given: Request sin medio de pago
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            null  // Sin medio de pago
-        );
+    @DisplayName("Debe rechazar el cierre si la lista de pagos es vacía")
+    void deberia_rechazar_cierre_con_pagos_vacios() {
+        // Given: Mesa y pedido válidos, pero lista de pagos vacía
+        Mesa mesa = new Mesa(mesaIdValida, localIdValido, 5);
+        mesa.abrir();
 
-        // When/Then: Debe lanzar excepción de validación
-        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, request))
-            .isInstanceOf(NullPointerException.class)
-            .hasMessageContaining("El medio de pago es obligatorio");
+        Pedido pedido = crearPedidoConItems(pedidoIdValido, localIdValido, mesaIdValida);
 
-        verify(mesaRepository, never()).buscarPorId(any());
+        List<PagoRequest> pagos = List.of();
+
+        when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
+        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
+        when(promocionRepository.buscarActivasPorLocal(localIdValido)).thenReturn(Collections.emptyList());
+
+        // When/Then: El dominio rechaza pagos vacíos
+        assertThatThrownBy(() -> useCase.ejecutar(localIdValido, mesaIdValida, pagos))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("al menos un pago");
+
         verify(pedidoRepository, never()).guardar(any());
     }
 
     @Test
-    @DisplayName("Debe registrar correctamente el medio de pago en el pedido")
-    void deberia_registrar_medio_pago_en_pedido() {
+    @DisplayName("Debe registrar el timestamp de cierre con el clock inyectado")
+    void deberia_registrar_timestamp_cierre_con_clock() {
         // Given: Mesa y pedido válidos
         Mesa mesa = new Mesa(mesaIdValida, localIdValido, 5);
         mesa.abrir();
 
         Pedido pedido = crearPedidoConItems(pedidoIdValido, localIdValido, mesaIdValida);
+        BigDecimal totalPedido = pedido.calcularTotal();
 
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            MedioPago.TRANSFERENCIA
+        List<PagoRequest> pagos = List.of(
+            new PagoRequest(MedioPago.TRANSFERENCIA, totalPedido)
         );
 
         when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
         when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
+        when(promocionRepository.buscarActivasPorLocal(localIdValido)).thenReturn(Collections.emptyList());
         when(pedidoRepository.guardar(any(Pedido.class))).thenReturn(pedido);
         when(mesaRepository.guardar(any(Mesa.class))).thenReturn(mesa);
 
         // When: Se cierra la mesa
-        CerrarMesaResponse response = useCase.ejecutar(localIdValido, request);
+        CerrarMesaResponse response = useCase.ejecutar(localIdValido, mesaIdValida, pagos);
 
-        // Then: El medio de pago debe ser el especificado
-        assertThat(response.medioPago()).isEqualTo(MedioPago.TRANSFERENCIA);
-        
-        ArgumentCaptor<Pedido> pedidoCaptor = ArgumentCaptor.forClass(Pedido.class);
-        verify(pedidoRepository).guardar(pedidoCaptor.capture());
-        
-        Pedido pedidoGuardado = pedidoCaptor.getValue();
-        assertThat(pedidoGuardado.getMedioPago()).isEqualTo(MedioPago.TRANSFERENCIA);
-        assertThat(pedidoGuardado.getFechaCierre()).isNotNull();
-    }
-
-    @Test
-    @DisplayName("Debe registrar el timestamp de cierre automáticamente")
-    void deberia_registrar_timestamp_cierre() {
-        // Given: Mesa y pedido válidos
-        Mesa mesa = new Mesa(mesaIdValida, localIdValido, 5);
-        mesa.abrir();
-
-        Pedido pedido = crearPedidoConItems(pedidoIdValido, localIdValido, mesaIdValida);
-
-        CerrarMesaRequest request = new CerrarMesaRequest(
-            mesaIdValida.getValue().toString(),
-            MedioPago.EFECTIVO
-        );
-
-        when(mesaRepository.buscarPorId(mesaIdValida)).thenReturn(Optional.of(mesa));
-        when(pedidoRepository.buscarAbiertoPorMesa(mesaIdValida, localIdValido)).thenReturn(Optional.of(pedido));
-        when(pedidoRepository.guardar(any(Pedido.class))).thenReturn(pedido);
-        when(mesaRepository.guardar(any(Mesa.class))).thenReturn(mesa);
-
-        LocalDateTime antes = LocalDateTime.now();
-
-        // When: Se cierra la mesa
-        CerrarMesaResponse response = useCase.ejecutar(localIdValido, request);
-
-        LocalDateTime despues = LocalDateTime.now();
-
-        // Then: La fecha de cierre debe estar entre antes y después
-        assertThat(response.fechaCierre())
-            .isNotNull()
-            .isAfterOrEqualTo(antes)
-            .isBeforeOrEqualTo(despues);
+        // Then: La fecha de cierre usa el clock fijo
+        assertThat(response.fechaCierre()).isNotNull();
+        // El clock está fijo en 2026-02-06 19:00 Argentina
+        assertThat(response.fechaCierre().toLocalDate())
+            .isEqualTo(java.time.LocalDate.of(2026, 2, 6));
     }
 
     // --- Helpers ---
 
     /**
      * Crea un pedido válido con ítems para testing.
-     * Usamos reflexión para agregar items a la lista privada del pedido,
-     * ya que no existe un método público agregarItem() aún.
+     * Usa reflexión para agregar un ItemPedido real a la lista privada del pedido.
+     * El ítem tiene precio unitario $1000 x cantidad 1 = total $1000.
      */
     private Pedido crearPedidoConItems(PedidoId id, LocalId localId, MesaId mesaId) {
         Pedido pedido = new Pedido(id, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
         
-
-        // TODO: Agregar ítems reales cuando exista el método agregarItem() en Pedido
-
-        // Simulamos que el pedido tiene ítems usando reflexión
-        // En un escenario real, usarías el método agregarItem() del dominio
+        // Crear un ItemPedido real con precio $1000
+        ItemPedido item = new ItemPedido(
+            ItemPedidoId.generate(),
+            id,
+            ProductoId.generate(),
+            "Producto de prueba",
+            1,
+            new BigDecimal("1000"),
+            null
+        );
+        
         try {
             var itemsField = Pedido.class.getDeclaredField("items");
             itemsField.setAccessible(true);
             @SuppressWarnings("unchecked")
-            var items = (java.util.List<Object>) itemsField.get(pedido);
-            // Agregamos un objeto mock para simular que hay ítems
-            items.add(new Object()); // Placeholder - en producción sería ItemPedido real
+            var items = (java.util.List<ItemPedido>) itemsField.get(pedido);
+            items.add(item);
         } catch (Exception e) {
             throw new RuntimeException("Error preparando pedido de prueba", e);
         }
