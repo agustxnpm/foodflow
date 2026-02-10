@@ -174,8 +174,8 @@ cmd_logs() {
             log_info "¿El backend está corriendo? Usa './ff up' para iniciarlo"
             exit 1
         fi
-        log_info "Mostrando logs del backend (Ctrl+C para salir)..."
-        tail -f "$BACKEND_LOG_FILE"
+        log_info "Mostrando TODOS los logs del backend desde el inicio (Ctrl+C para salir)..."
+        tail -f -n +1 "$BACKEND_LOG_FILE"
     elif [ -z "$service" ]; then
         docker compose logs -f
     else
