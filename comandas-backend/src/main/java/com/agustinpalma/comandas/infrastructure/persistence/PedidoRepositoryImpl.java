@@ -173,18 +173,18 @@ public class PedidoRepositoryImpl implements PedidoRepository {
         
         log.debug("Sincronización completada. Items finales en entity: {}", entity.getItems().size());
         
-        // Sincronizar pagos (se agregan al cerrar, no se editan)
-        if (!pedido.getPagos().isEmpty() && entity.getPagos().isEmpty()) {
-            for (var pagoDominio : pedido.getPagos()) {
-                var pagoEntity = new PagoEntity(
-                    pagoDominio.getMedio(),
-                    pagoDominio.getMonto(),
-                    pagoDominio.getFecha()
-                );
-                entity.agregarPago(pagoEntity);
-            }
-            log.debug("Pagos sincronizados: {}", entity.getPagos().size());
+        // HU-14: Sincronizar pagos (agregar al cerrar, eliminar al reabrir con orphanRemoval)
+        // La reapertura limpia pedido.getPagos(), por lo que entity.getPagos().clear() activará orphanRemoval
+        entity.getPagos().clear(); // Limpia todos los pagos del entity (orphanRemoval los eliminará físicamente)
+        for (var pagoDominio : pedido.getPagos()) {
+            var pagoEntity = new PagoEntity(
+                pagoDominio.getMedio(),
+                pagoDominio.getMonto(),
+                pagoDominio.getFecha()
+            );
+            entity.agregarPago(pagoEntity);
         }
+        log.debug("Pagos sincronizados. Pagos en entity: {}", entity.getPagos().size());
     }
 
     @Override

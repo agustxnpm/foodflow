@@ -496,6 +496,55 @@ public class Pedido {
         cerrar(List.of(pagoUnico), fechaCierre);
     }
 
+    /**
+     * HU-14: Reabre un pedido previamente cerrado.
+     * 
+     * Esta es una "válvula de escape" operativa para corregir errores humanos
+     * antes del cierre de caja definitivo. Permite revertir un pedido CERRADO
+     * a ABIERTO, eliminando el snapshot contable y los pagos registrados.
+     * 
+     * Reglas de negocio (Invariantes):
+     * - AC1: Solo se pueden reabrir pedidos en estado CERRADO
+     * - AC2: Revierte estado a ABIERTO
+     * - AC3: Limpia snapshot contable (montos finales vuelven a null)
+     * - AC4: Elimina todos los pagos registrados (orphanRemoval en JPA)
+     * - AC5: Registra auditoría de quién realizó la reapertura
+     * 
+     * ADVERTENCIA: Esta operación es destructiva. Los pagos previos se eliminan físicamente.
+     * Solo debe usarse en casos excepcionales de corrección operativa.
+     * 
+     * @param fechaReapertura la fecha y hora de la reapertura
+     * @throws IllegalStateException si el pedido no está en estado CERRADO
+     */
+    public void reabrir(LocalDateTime fechaReapertura) {
+        Objects.requireNonNull(fechaReapertura, "La fecha de reapertura es obligatoria");
+
+        // AC1: Validar que el pedido esté CERRADO
+        if (this.estado != EstadoPedido.CERRADO) {
+            throw new IllegalStateException(
+                String.format("Solo se pueden reabrir pedidos en estado CERRADO. Estado actual: %s", 
+                    this.estado)
+            );
+        }
+
+        // AC2: Revertir estado a ABIERTO
+        this.estado = EstadoPedido.ABIERTO;
+
+        // AC3: Limpiar snapshot contable (los montos vuelven a ser calculados dinámicamente)
+        this.montoSubtotalFinal = null;
+        this.montoDescuentosFinal = null;
+        this.montoTotalFinal = null;
+
+        // AC4: Eliminar pagos (orphanRemoval=true en JPA provocará DELETE físico)
+        this.pagos.clear();
+
+        // Limpiar fecha de cierre
+        this.fechaCierre = null;
+        
+        // AC5: La auditoría se maneja en la capa de aplicación
+        // El UseCase registrará quién y cuándo realizó la reapertura
+    }
+
     // ============================================
     // Getters de pagos y snapshot contable
     // ============================================

@@ -43,6 +43,28 @@ public class Mesa {
     }
 
     /**
+     * HU-14: Transiciona la mesa de LIBRE a ABIERTA.
+     * 
+     * Esta operación acompaña la reapertura de un pedido cerrado,
+     * permitiendo corregir errores operativos (ej: cerrar la mesa equivocada).
+     * 
+     * Reglas de negocio (Invariantes):
+     * - AC4: Solo se pueden reocupar mesas en estado LIBRE
+     * - La mesa vuelve a estado ABIERTA
+     * 
+     * @throws IllegalStateException si la mesa no está en estado LIBRE
+     */
+    public void reocupar() {
+        if (this.estado != EstadoMesa.LIBRE) {
+            throw new IllegalStateException(
+                String.format("Solo se pueden reocupar mesas en estado LIBRE. Estado actual de mesa %d: %s",
+                    numero, estado)
+            );
+        }
+        this.estado = EstadoMesa.ABIERTA;
+    }
+
+    /**
      * Alias de retrocompatibilidad para {@link #liberar()}.
      * @deprecated Usar {@link #liberar()} en su lugar
      */

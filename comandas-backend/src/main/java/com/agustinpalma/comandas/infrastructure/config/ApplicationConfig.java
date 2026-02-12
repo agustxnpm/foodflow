@@ -14,6 +14,7 @@ import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
+import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionesUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearPromocionUseCase;
@@ -321,5 +322,23 @@ public class ApplicationConfig {
             motorReglasService,
             clock
         );
+    }
+
+    /**
+     * HU-14: Bean del caso de uso para reabrir un pedido cerrado.
+     * Válvula de escape operativa para corregir errores antes del cierre de caja.
+     * 
+     * @param pedidoRepository implementación del repositorio de pedidos
+     * @param mesaRepository implementación del repositorio de mesas
+     * @param clock reloj del sistema para timestamp de reapertura
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public ReabrirPedidoUseCase reabrirPedidoUseCase(
+            PedidoRepository pedidoRepository,
+            MesaRepository mesaRepository,
+            Clock clock
+    ) {
+        return new ReabrirPedidoUseCase(pedidoRepository, mesaRepository, clock);
     }
 }

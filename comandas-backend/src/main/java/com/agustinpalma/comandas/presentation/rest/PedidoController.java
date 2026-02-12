@@ -4,7 +4,9 @@ import com.agustinpalma.comandas.application.dto.*;
 import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCase;
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
+import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
 import com.agustinpalma.comandas.domain.model.DomainIds.ItemPedidoId;
+import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
 
@@ -20,7 +22,7 @@ import java.util.UUID;
  * No contiene lógica de negocio, solo coordina entre HTTP y casos de uso.
  * 
  * HU-05: Agregar productos a un pedido
- * HU-14: Aplicar descuentos manuales
+ * HU-14: Aplicar descuentos manuales y reapertura de pedidos cerrados
  * HU-20: Eliminar producto de un pedido abierto
  * HU-21: Modificar cantidad de un producto en pedido abierto
  */
@@ -31,15 +33,18 @@ public class PedidoController {
     private final AgregarProductoUseCase agregarProductoUseCase;
     private final AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase;
     private final GestionarItemsPedidoUseCase gestionarItemsPedidoUseCase;
+    private final ReabrirPedidoUseCase reabrirPedidoUseCase;
 
     public PedidoController(
             AgregarProductoUseCase agregarProductoUseCase,
             AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase,
-            GestionarItemsPedidoUseCase gestionarItemsPedidoUseCase
+            GestionarItemsPedidoUseCase gestionarItemsPedidoUseCase,
+            ReabrirPedidoUseCase reabrirPedidoUseCase
     ) {
         this.agregarProductoUseCase = agregarProductoUseCase;
         this.aplicarDescuentoManualUseCase = aplicarDescuentoManualUseCase;
         this.gestionarItemsPedidoUseCase = gestionarItemsPedidoUseCase;
+        this.reabrirPedidoUseCase = reabrirPedidoUseCase;
     }
 
     // =================================================
@@ -224,6 +229,54 @@ public class PedidoController {
         );
 
         AgregarProductoResponse response = gestionarItemsPedidoUseCase.eliminarItem(request);
+        return ResponseEntity.ok(response);
+    }
+
+    // =================================================
+    // ENDPOINTS - HU-14: Reapertura de Pedido
+    // =================================================
+
+    /**
+     * Reabre un pedido previamente cerrado.
+     * 
+     * POST /api/pedidos/{pedidoId}/reapertura
+     * 
+     * HU-14: Válvula de escape para corregir errores operativos antes del cierre de caja.
+     * 
+     * Ejemplos de uso:
+     * - Se cobró en efectivo cuando era tarjeta
+     * - Se cerró la mesa equivocada
+     * - Se olvidó agregar un ítem antes del cierre
+     * 
+     * ADVERTENCIA: Esta operación es destructiva.
+     * - Elimina el snapshot contable
+     * - Elimina todos los pagos registrados
+     * - Revierte pedido a ABIERTO y mesa a ABIERTA
+     * 
+     * Validaciones:
+     * - El pedido debe estar en estado CERRADO
+     * - La mesa debe estar en estado LIBRE
+     * - El pedido debe pertenecer al local (multi-tenancy)
+     * 
+     * Query Parameter:
+     * - localId: UUID del local (obligatorio para validación multi-tenant)
+     * 
+     * @param pedidoId ID del pedido a reabrir (UUID en path)
+     * @param localId ID del local para validación multi-tenant (query param)
+     * @return 200 OK con información del pedido reabierto y mesa reocupada
+     * @throws IllegalStateException si el pedido no está CERRADO o la mesa no está LIBRE (409 Conflict)
+     * @throws IllegalArgumentException si el pedido no pertenece al local (403 Forbidden)
+     */
+    @PostMapping("/{pedidoId}/reapertura")
+    public ResponseEntity<ReabrirPedidoResponse> reabrirPedido(
+            @PathVariable UUID pedidoId,
+            @RequestParam UUID localId
+    ) {
+        ReabrirPedidoResponse response = reabrirPedidoUseCase.ejecutar(
+            new LocalId(localId),
+            new PedidoId(pedidoId)
+        );
+
         return ResponseEntity.ok(response);
     }
 }
