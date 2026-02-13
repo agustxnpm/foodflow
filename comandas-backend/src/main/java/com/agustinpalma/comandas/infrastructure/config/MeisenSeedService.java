@@ -45,6 +45,8 @@ public class MeisenSeedService implements CommandLineRunner {
 
         if (localRepository.existsById(localUuid)) {
             log.info("Sistema ya inicializado para Local ID: {}", localUuid);
+            log.info("NOTA: Productos creados manualmente sin control de stock inicial (controlaStock=false). " +
+                    "El control se activará automáticamente al realizar el primer ajuste manual de inventario (INGRESO_MERCADERIA o AJUSTE_MANUAL).");
             return;
         }
 
@@ -63,5 +65,7 @@ public class MeisenSeedService implements CommandLineRunner {
         mesaRepository.save(mesa);
 
         log.info("Sistema inicializado para Local ID: {}", localUuid);
+        log.info("IMPORTANTE: Los productos se crean sin control de stock por defecto (controlaStock=false, stockActual=0). " +
+                "Para activar el control de inventario, realice un ajuste manual con INGRESO_MERCADERIA o AJUSTE_MANUAL.");
     }
 }

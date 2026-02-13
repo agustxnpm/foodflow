@@ -1,7 +1,11 @@
 package com.agustinpalma.comandas.presentation.rest;
 
+import com.agustinpalma.comandas.application.dto.AjustarStockRequest;
+import com.agustinpalma.comandas.application.dto.AjustarStockResponse;
 import com.agustinpalma.comandas.application.dto.ProductoRequest;
 import com.agustinpalma.comandas.application.dto.ProductoResponse;
+import com.agustinpalma.comandas.application.dto.StockAjusteRequestBody;
+import com.agustinpalma.comandas.application.usecase.AjustarStockUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarProductosUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
@@ -9,6 +13,8 @@ import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
+import com.agustinpalma.comandas.domain.model.Producto;
+import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,23 +39,29 @@ import java.util.UUID;
 public class ProductoController {
 
     private final LocalContextProvider localContextProvider;
+    private final ProductoRepository productoRepository;
     private final ConsultarProductosUseCase consultarProductosUseCase;
     private final CrearProductoUseCase crearProductoUseCase;
     private final EditarProductoUseCase editarProductoUseCase;
     private final EliminarProductoUseCase eliminarProductoUseCase;
+    private final AjustarStockUseCase ajustarStockUseCase;
 
     public ProductoController(
         LocalContextProvider localContextProvider,
+        ProductoRepository productoRepository,
         ConsultarProductosUseCase consultarProductosUseCase,
         CrearProductoUseCase crearProductoUseCase,
         EditarProductoUseCase editarProductoUseCase,
-        EliminarProductoUseCase eliminarProductoUseCase
+        EliminarProductoUseCase eliminarProductoUseCase,
+        AjustarStockUseCase ajustarStockUseCase
     ) {
         this.localContextProvider = localContextProvider;
+        this.productoRepository = productoRepository;
         this.consultarProductosUseCase = consultarProductosUseCase;
         this.crearProductoUseCase = crearProductoUseCase;
         this.editarProductoUseCase = editarProductoUseCase;
         this.eliminarProductoUseCase = eliminarProductoUseCase;
+        this.ajustarStockUseCase = ajustarStockUseCase;
     }
 
     /**
@@ -74,6 +86,28 @@ public class ProductoController {
         List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localId, color);
 
         return ResponseEntity.ok(productos);
+    }
+
+    /**
+     * Consulta un producto específico por ID.
+     *
+     * GET /api/productos/{id}
+     *
+     * @param id UUID del producto a consultar
+     * @return producto encontrado con status 200 OK
+     * @throws IllegalArgumentException si el producto no existe (se traduce a 400 por GlobalExceptionHandler)
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductoResponse> consultarProducto(@PathVariable UUID id) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        ProductoId productoId = new ProductoId(id);
+
+        Producto producto = productoRepository.buscarPorIdYLocal(productoId, localId)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Producto no encontrado con ID: " + id + " en el local actual"
+            ));
+
+        return ResponseEntity.ok(ProductoResponse.fromDomain(producto));
     }
 
     /**
@@ -142,5 +176,40 @@ public class ProductoController {
 
         eliminarProductoUseCase.ejecutar(productoId, localId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Ajusta el stock de un producto (ajuste manual o ingreso de mercadería).
+     *
+     * PATCH /api/productos/{id}/stock
+     * Body: {
+     *   "cantidad": 10,
+     *   "tipo": "AJUSTE_MANUAL" | "INGRESO_MERCADERIA",
+     *   "motivo": "Reposición desde depósito"
+     * }
+     *
+     * HU-22: Stock Management
+     *
+     * @param id UUID del producto
+     * @param body datos del ajuste de stock
+     * @return respuesta con stock actualizado
+     */
+    @PatchMapping("/{id}/stock")
+    public ResponseEntity<AjustarStockResponse> ajustarStock(
+            @PathVariable UUID id,
+            @Valid @RequestBody StockAjusteRequestBody body
+    ) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        ProductoId productoId = new ProductoId(id);
+
+        AjustarStockRequest request = new AjustarStockRequest(
+            productoId,
+            body.cantidad(),
+            body.tipo(),
+            body.motivo()
+        );
+
+        AjustarStockResponse response = ajustarStockUseCase.ejecutar(localId, request);
+        return ResponseEntity.ok(response);
     }
 }

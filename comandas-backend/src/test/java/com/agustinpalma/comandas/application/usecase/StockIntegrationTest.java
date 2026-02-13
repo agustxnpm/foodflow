@@ -380,4 +380,96 @@ class StockIntegrationTest {
             assertThat(actualizado.getStockActual()).isEqualTo(-2); // 1 - 3 = -2
         }
     }
+
+    // ============================================
+    // Escenario 5: Activación automática de stock
+    // ============================================
+
+    @Nested
+    @DisplayName("Escenario 5: Ajuste manual activa control de stock automáticamente")
+    class ActivacionAutomaticaStock {
+
+        @Test
+        @DisplayName("Debe activar controlaStock al realizar primer ajuste manual en producto sin control")
+        void deberia_activar_control_stock_en_primer_ajuste() {
+            // Given: producto SIN control de stock (cervezaSinStock)
+            assertThat(cervezaSinStock.isControlaStock()).isFalse();
+            assertThat(cervezaSinStock.getStockActual()).isEqualTo(0);
+
+            // When: realizo un ajuste manual de ingreso de mercadería
+            AjustarStockRequest request = new AjustarStockRequest(
+                cervezaSinStock.getId(),
+                24, // Cajón de cervezas
+                TipoMovimientoStock.INGRESO_MERCADERIA,
+                "Primer ingreso de mercadería - activación de stock"
+            );
+            AjustarStockResponse response = ajustarStockUseCase.ejecutar(localId, request);
+
+            // Then: el control de stock se activó automáticamente
+            Producto productoActualizado = productoRepository.buscarPorId(cervezaSinStock.getId())
+                .orElseThrow();
+            assertThat(productoActualizado.isControlaStock()).isTrue();
+            assertThat(productoActualizado.getStockActual()).isEqualTo(24);
+
+            // Then: la respuesta refleja el cambio
+            assertThat(response.stockActual()).isEqualTo(24);
+            assertThat(response.cantidadAjustada()).isEqualTo(24);
+            assertThat(response.tipo()).isEqualTo(TipoMovimientoStock.INGRESO_MERCADERIA);
+
+            // Then: se creó movimiento de auditoría
+            List<MovimientoStock> movimientos = movimientoStockRepository
+                .buscarPorProducto(cervezaSinStock.getId(), localId);
+            assertThat(movimientos).hasSize(1);
+            assertThat(movimientos.get(0).getTipo()).isEqualTo(TipoMovimientoStock.INGRESO_MERCADERIA);
+        }
+
+        @Test
+        @DisplayName("Debe activar controlaStock con ajuste manual negativo (merma)")
+        void deberia_activar_control_stock_con_ajuste_negativo() {
+            // Given: producto SIN control de stock
+            assertThat(cervezaSinStock.isControlaStock()).isFalse();
+
+            // When: realizo un ajuste manual negativo
+            AjustarStockRequest request = new AjustarStockRequest(
+                cervezaSinStock.getId(),
+                -5,
+                TipoMovimientoStock.AJUSTE_MANUAL,
+                "Ajuste por rotura - activa control automático"
+            );
+            AjustarStockResponse response = ajustarStockUseCase.ejecutar(localId, request);
+
+            // Then: el control de stock se activó automáticamente
+            Producto productoActualizado = productoRepository.buscarPorId(cervezaSinStock.getId())
+                .orElseThrow();
+            assertThat(productoActualizado.isControlaStock()).isTrue();
+            assertThat(productoActualizado.getStockActual()).isEqualTo(-5); // permite negativo
+
+            // Then: la respuesta refleja el cambio
+            assertThat(response.stockActual()).isEqualTo(-5);
+            assertThat(response.cantidadAjustada()).isEqualTo(-5);
+        }
+
+        @Test
+        @DisplayName("No debe modificar controlaStock si ya estaba activado")
+        void no_deberia_modificar_si_ya_esta_activado() {
+            // Given: producto CON control de stock activado (hamburguesaConStock)
+            assertThat(hamburguesaConStock.isControlaStock()).isTrue();
+            int stockInicial = hamburguesaConStock.getStockActual();
+
+            // When: realizo un ajuste manual
+            AjustarStockRequest request = new AjustarStockRequest(
+                hamburguesaConStock.getId(),
+                10,
+                TipoMovimientoStock.INGRESO_MERCADERIA,
+                "Reposición normal"
+            );
+            ajustarStockUseCase.ejecutar(localId, request);
+
+            // Then: controlaStock sigue en true, stock aumentó correctamente
+            Producto productoActualizado = productoRepository.buscarPorId(hamburguesaConStock.getId())
+                .orElseThrow();
+            assertThat(productoActualizado.isControlaStock()).isTrue();
+            assertThat(productoActualizado.getStockActual()).isEqualTo(stockInicial + 10);
+        }
+    }
 }

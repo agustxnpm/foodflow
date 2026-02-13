@@ -150,6 +150,10 @@ public class GestorStockService {
     /**
      * Ajusta manualmente el stock de un producto.
      * 
+     * REGLA DE NEGOCIO: Los ajustes manuales activan automáticamente el control de stock.
+     * Cuando se realiza un ajuste de tipo INGRESO_MERCADERIA o AJUSTE_MANUAL,
+     * el producto comienza a controlar inventario automáticamente (controlaStock = true).
+     * 
      * @param producto el producto a ajustar
      * @param cantidad cantidad del ajuste (positiva para ingreso, negativa para egreso)
      * @param tipo tipo de movimiento (AJUSTE_MANUAL o INGRESO_MERCADERIA)
@@ -177,6 +181,11 @@ public class GestorStockService {
 
         if (cantidad == 0) {
             throw new IllegalArgumentException("La cantidad del ajuste no puede ser cero");
+        }
+
+        // INVARIANTE DE DOMINIO: Ajustes manuales activan el control de stock automáticamente
+        if (!producto.isControlaStock()) {
+            producto.activarControlStock();
         }
 
         // Aplicar el ajuste al producto
