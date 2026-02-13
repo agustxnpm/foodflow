@@ -10,6 +10,9 @@ import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.ItemPedidoEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PagoEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PedidoEntity;
+
+import java.util.UUID;
+
 import org.springframework.stereotype.Component;
 
 /**
@@ -149,6 +152,7 @@ public class PedidoMapper {
         // Convertir y agregar pagos
         for (Pago pago : pedido.getPagos()) {
             PagoEntity pagoEntity = new PagoEntity(
+                UUID.randomUUID(),  // Generar UUID manualmente para consistencia arquitectónica
                 pago.getMedio(),
                 pago.getMonto(),
                 pago.getFecha()

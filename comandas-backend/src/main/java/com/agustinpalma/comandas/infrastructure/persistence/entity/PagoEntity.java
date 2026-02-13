@@ -21,7 +21,6 @@ import java.util.UUID;
 public class PagoEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
@@ -47,7 +46,8 @@ public class PagoEntity {
     protected PagoEntity() {
     }
 
-    public PagoEntity(MedioPago medioPago, BigDecimal monto, LocalDateTime fecha) {
+    public PagoEntity(UUID id, MedioPago medioPago, BigDecimal monto, LocalDateTime fecha) {
+        this.id = id;
         this.medioPago = medioPago;
         this.monto = monto;
         this.fecha = fecha;

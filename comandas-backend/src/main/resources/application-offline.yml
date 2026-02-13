@@ -1,0 +1,193 @@
+# ============================================================
+# FOODFLOW - PERFIL OFFLINE (DESKTOP / ON-PREMISE)
+# ============================================================
+#
+# Este perfil convierte FoodFlow en una aplicación desktop embebida.
+# - Base de datos SQLite local (archivo comandas.db)
+# - Sin conexión a servidor externo
+# - Sin instalación adicional requerida
+# - Totalmente portable en Windows/Linux/Mac
+#
+# EJECUCIÓN:
+#   java -jar foodflow.jar --spring.profiles.active=offline
+#
+# UBICACIÓN DE DATOS:
+#   ./comandas.db (mismo directorio del JAR)
+# ============================================================
+
+spring:
+  application:
+    name: FoodFlow
+
+  # ============================================================
+  # DATASOURCE - SQLite Embebida
+  # ============================================================
+  datasource:
+    # Archivo local SQLite en el directorio de ejecución
+    url: jdbc:sqlite:comandas.db
+    
+    # Driver JDBC de Xerial SQLite
+    driver-class-name: org.sqlite.JDBC
+    
+    # SQLite no requiere usuario/password
+    username: 
+    password:
+    
+    # ============================================================
+    # HIKARICP - Configuración CRÍTICA para SQLite
+    # ============================================================
+    # SQLite NO soporta concurrencia real como PostgreSQL.
+    # DEBE configurarse con 1 sola conexión para evitar:
+    # - Database is locked
+    # - Deadlocks
+    # - Corrupción de datos
+    # ============================================================
+    hikari:
+      maximum-pool-size: 1
+      minimum-idle: 1
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      
+      # SQLite-specific connection properties
+      data-source-properties:
+        # Habilita Write-Ahead Logging (WAL) para mejor concurrencia
+        # https://www.sqlite.org/wal.html
+        journal_mode: WAL
+        
+        # Sincronización NORMAL (balance performance/seguridad)
+        synchronous: NORMAL
+        
+        # Timeout para bloqueos (30 segundos)
+        busy_timeout: 30000
+        
+        # Habilita foreign keys (deshabilitado por defecto en SQLite)
+        foreign_keys: true
+
+  # ============================================================
+  # JPA / HIBERNATE
+  # ============================================================
+  jpa:
+    # DDL-AUTO: update
+    # En primera ejecución crea todas las tablas automáticamente.
+    # En ejecuciones posteriores actualiza esquema si es necesario.
+    # NOTA: En producción considerar validar + scripts Flyway.
+    hibernate:
+      ddl-auto: update
+    
+    # Logs SQL (desactivados para producción)
+    show-sql: false
+    
+    # Propiedades específicas de Hibernate
+    properties:
+      hibernate:
+        # CRÍTICO: Dialecto SQLite de Hibernate Community
+        # Requiere dependencia: org.hibernate.orm:hibernate-community-dialects
+        dialect: org.hibernate.community.dialect.SQLiteDialect
+        
+        # Formato SQL legible en logs (si show-sql = true)
+        format_sql: true
+        
+        # Deshabilitar Open Session In View (mala práctica en REST APIs)
+        enable_lazy_load_no_trans: false
+        
+        # Validación de esquema en startup
+        jakarta.persistence.schema-generation.scripts.action: none
+        
+        # Estrategia de nombres físicos (snake_case por defecto)
+        physical_naming_strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        
+        # SQLite-specific optimizations
+        jdbc:
+          batch_size: 25
+          fetch_size: 50
+        
+        # Cache de segundo nivel (opcional)
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+
+    # Desactivar Open Session In View
+    # En arquitectura hexagonal, las sesiones deben cerrarse en el use case
+    open-in-view: false
+
+  # ============================================================
+  # FLYWAY - DESHABILITADO en modo offline
+  # ============================================================
+  # Flyway está diseñado para PostgreSQL con scripts específicos.
+  # En modo offline usamos Hibernate ddl-auto=update para crear el esquema.
+  # Si se desea usar Flyway con SQLite, se requieren scripts separados.
+  flyway:
+    enabled: false
+
+  # ============================================================
+  # SEGURIDAD - Configuración básica
+  # ============================================================
+  # (mantener configuración existente)
+  security:
+    user:
+      name: admin
+      password: admin
+
+# ============================================================
+# CONFIGURACIÓN DE CONTEXTO (MEISEN)
+# ============================================================
+app:
+  context:
+    # ID del local - DEBE configurarse antes del primer arranque
+    local-id: 123e4567-e89b-12d3-a456-426614174000
+    
+    # Datos del local para impresión de tickets
+    local:
+      nombre-local: "Mi Local"
+      direccion: ""
+      telefono: ""
+      cuit: ""
+      mensaje-bienvenida: "¡Gracias por su visita!"
+
+# ============================================================
+# LOGGING
+# ============================================================
+logging:
+  level:
+    root: INFO
+    com.agustinpalma.comandas: INFO
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    org.springframework.orm.jpa: INFO
+    org.sqlite: INFO
+
+# ============================================================
+# NOTAS TÉCNICAS
+# ============================================================
+#
+# 1. TIPOS DE DATOS MAPEADOS:
+#    - UUID → TEXT (36 caracteres)
+#    - LocalDateTime → TEXT (ISO-8601)
+#    - BigDecimal → NUMERIC (precisión/escala preservadas)
+#    - boolean → INTEGER (0/1)
+#    - Enums → TEXT (nombre del enum)
+#
+# 2. LIMITACIONES SQLite:
+#    - No soporta ALTER TABLE complejo (DROP COLUMN, RENAME COLUMN con FK)
+#    - No soporta múltiples conexiones concurrentes de escritura
+#    - No tiene SEQUENCE (usamos UUID desde el dominio)
+#    - No tiene tipos nativos BOOLEAN, TIMESTAMP
+#
+# 3. MIGRACIONES:
+#    - ddl-auto=update maneja creación inicial
+#    - Para producción, considerar Flyway con scripts SQLite
+#    - Backup manual recomendado: copiar comandas.db
+#
+# 4. RENDIMIENTO:
+#    - SQLite es extremadamente rápido para < 100k registros
+#    - WAL mode permite lecturas concurrentes
+#    - Índices funcionan correctamente
+#    - Para operaciones pesadas, considerar PRAGMA optimize
+#
+# 5. PORTABILIDAD:
+#    - comandas.db es un archivo binario portable entre SO
+#    - Copiar el archivo = backup completo
+#    - No requiere instalación de motor de BD
+#
+# ============================================================

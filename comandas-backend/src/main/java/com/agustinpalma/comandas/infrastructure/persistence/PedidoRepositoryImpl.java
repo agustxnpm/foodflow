@@ -179,6 +179,7 @@ public class PedidoRepositoryImpl implements PedidoRepository {
         entity.getPagos().clear(); // Limpia todos los pagos del entity (orphanRemoval los eliminará físicamente)
         for (var pagoDominio : pedido.getPagos()) {
             var pagoEntity = new PagoEntity(
+                UUID.randomUUID(),  // Generar UUID manualmente para consistencia con SQLite
                 pagoDominio.getMedio(),
                 pagoDominio.getMonto(),
                 pagoDominio.getFecha()
