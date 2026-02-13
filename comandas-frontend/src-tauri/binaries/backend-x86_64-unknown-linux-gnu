@@ -1,0 +1,26 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+echo "Buscando JAR desde: $DIR"
+
+# Buscar el JAR en modo desarrollo o producción
+if [ -f "$DIR/backend.jar" ]; then
+    JAR_PATH="$DIR/backend.jar"
+    echo "JAR encontrado en: $JAR_PATH"
+elif [ -f "$DIR/../binaries/backend.jar" ]; then
+    JAR_PATH="$DIR/../binaries/backend.jar"
+    echo "JAR encontrado en: $JAR_PATH"
+elif [ -f "$DIR/../../binaries/backend.jar" ]; then
+    JAR_PATH="$DIR/../../binaries/backend.jar"
+    echo "JAR encontrado en: $JAR_PATH"
+else
+    echo "Error: No se encuentra backend.jar"
+    echo "Intenté en:"
+    echo "  - $DIR/backend.jar"
+    echo "  - $DIR/../binaries/backend.jar"
+    echo "  - $DIR/../../binaries/backend.jar"
+    ls -la "$DIR" || true
+    exit 1
+fi
+
+java -Dspring.profiles.active=offline -jar "$JAR_PATH"

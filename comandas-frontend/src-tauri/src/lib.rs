@@ -1,9 +1,10 @@
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
+use tauri_plugin_shell::process::CommandChild;
 use std::sync::Mutex;
 
 struct AppState {
-    backend_process: Mutex<Option<std::process::Child>>,
+    backend_process: Mutex<Option<CommandChild>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -55,12 +56,8 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
 
   let shell = app.shell();
   
-  // Determinar el nombre del sidecar según la plataforma
-  let sidecar_name = if cfg!(target_os = "windows") {
-    "backend.bat"
-  } else {
-    "backend.sh"
-  };
+  // Usar el nombre base, Tauri agregará automáticamente el target triple
+  let sidecar_name = "backend";
 
   println!("Intentando iniciar sidecar: {}", sidecar_name);
 

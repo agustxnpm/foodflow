@@ -52,26 +52,5 @@
       }
     }
   },
-  "plugins": {},
-  "allowlist": {
-    "all": false,
-    "shell": {
-      "all": false,
-      "execute": true,
-      "sidecar": true,
-      "open": false
-    },
-    "http": {
-      "all": false,
-      "request": true,
-      "scope": [
-        "http://localhost:8080/**",
-        "http://127.0.0.1:8080/**"
-      ]
-    },
-    "protocol": {
-      "asset": true,
-      "assetScope": ["**"]
-    }
-  }
+  "plugins": {}
 }
