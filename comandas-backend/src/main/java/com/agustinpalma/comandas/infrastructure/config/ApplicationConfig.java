@@ -13,14 +13,17 @@ import com.agustinpalma.comandas.application.usecase.CrearProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
+import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionesUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarPromocionUseCase;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
+import com.agustinpalma.comandas.domain.repository.MovimientoCajaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import com.agustinpalma.comandas.domain.repository.PromocionRepository;
@@ -340,5 +343,35 @@ public class ApplicationConfig {
             Clock clock
     ) {
         return new ReabrirPedidoUseCase(pedidoRepository, mesaRepository, clock);
+    }
+
+    /**
+     * Bean del caso de uso para registrar egresos de caja.
+     * 
+     * @param movimientoCajaRepository implementación del repositorio de movimientos
+     * @param clock reloj del sistema para timestamp del movimiento
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public RegistrarEgresoUseCase registrarEgresoUseCase(
+            MovimientoCajaRepository movimientoCajaRepository,
+            Clock clock
+    ) {
+        return new RegistrarEgresoUseCase(movimientoCajaRepository, clock);
+    }
+
+    /**
+     * Bean del caso de uso para generar reporte de caja diario (arqueo).
+     * 
+     * @param pedidoRepository implementación del repositorio de pedidos
+     * @param movimientoCajaRepository implementación del repositorio de movimientos
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public GenerarReporteCajaUseCase generarReporteCajaUseCase(
+            PedidoRepository pedidoRepository,
+            MovimientoCajaRepository movimientoCajaRepository
+    ) {
+        return new GenerarReporteCajaUseCase(pedidoRepository, movimientoCajaRepository);
     }
 }

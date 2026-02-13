@@ -24,7 +24,8 @@ public final class DomainEnums {
         EFECTIVO,
         TARJETA,
         TRANSFERENCIA,
-        QR
+        QR,
+        A_CUENTA
     }
 
     public enum TipoEstrategia {
@@ -47,6 +48,14 @@ public final class DomainEnums {
     public enum TipoDescuento {
         PROMOCION,
         MANUAL
+    }
+
+    /**
+     * Tipo de movimiento de caja.
+     * Actualmente solo soporta EGRESO (salida de efectivo).
+     */
+    public enum TipoMovimiento {
+        EGRESO
     }
 
     public enum AmbitoDescuento {

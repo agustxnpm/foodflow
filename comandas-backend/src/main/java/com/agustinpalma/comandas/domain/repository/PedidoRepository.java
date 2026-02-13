@@ -5,6 +5,9 @@ import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
+
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -61,4 +64,18 @@ public interface PedidoRepository {
      * @return Optional con el pedido abierto si existe, vacío si no
      */
     Optional<Pedido> buscarAbiertoPorMesa(MesaId mesaId, LocalId localId);
+
+    /**
+     * Busca todos los pedidos cerrados de un local dentro de un rango de fechas.
+     * Utilizado por el reporte de caja diario para calcular ventas reales.
+     * 
+     * IMPORTANTE: La implementación DEBE usar JOIN FETCH para cargar los pagos
+     * eager y evitar el problema N+1.
+     *
+     * @param localId identificador del local (tenant)
+     * @param inicio inicio del rango temporal (inclusive)
+     * @param fin fin del rango temporal (inclusive)
+     * @return lista de pedidos cerrados con sus pagos cargados
+     */
+    List<Pedido> buscarCerradosPorFecha(LocalId localId, LocalDateTime inicio, LocalDateTime fin);
 }

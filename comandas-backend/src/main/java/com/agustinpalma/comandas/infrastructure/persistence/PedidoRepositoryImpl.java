@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 
@@ -212,5 +213,14 @@ public class PedidoRepositoryImpl implements PedidoRepository {
     public int obtenerSiguienteNumero(LocalId localId) {
         int maxNumero = springDataRepository.findMaxNumeroByLocalId(localId.getValue());
         return maxNumero + 1;
+    }
+
+    @Override
+    public List<Pedido> buscarCerradosPorFecha(LocalId localId, LocalDateTime inicio, LocalDateTime fin) {
+        return springDataRepository
+            .findCerradosByLocalIdAndFechaCierreBetween(localId.getValue(), inicio, fin)
+            .stream()
+            .map(mapper::toDomain)
+            .toList();
     }
 }

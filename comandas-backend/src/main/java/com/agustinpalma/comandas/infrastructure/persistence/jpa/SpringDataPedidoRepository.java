@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -55,4 +57,25 @@ public interface SpringDataPedidoRepository extends JpaRepository<PedidoEntity, 
      */
     @Query("SELECT COALESCE(MAX(p.numero), 0) FROM PedidoEntity p WHERE p.localId = :localId")
     int findMaxNumeroByLocalId(@Param("localId") UUID localId);
+
+    /**
+     * Busca pedidos cerrados de un local en un rango de fechas.
+     * Usa JOIN FETCH para cargar pagos eagerly y evitar N+1.
+     *
+     * @param localId UUID del local
+     * @param inicio inicio del rango temporal
+     * @param fin fin del rango temporal
+     * @return lista de pedidos cerrados con pagos cargados
+     */
+    @Query("SELECT DISTINCT p FROM PedidoEntity p " +
+           "LEFT JOIN FETCH p.pagos " +
+           "WHERE p.localId = :localId " +
+           "AND p.estado = 'CERRADO' " +
+           "AND p.fechaCierre >= :inicio " +
+           "AND p.fechaCierre <= :fin")
+    List<PedidoEntity> findCerradosByLocalIdAndFechaCierreBetween(
+        @Param("localId") UUID localId,
+        @Param("inicio") LocalDateTime inicio,
+        @Param("fin") LocalDateTime fin
+    );
 }

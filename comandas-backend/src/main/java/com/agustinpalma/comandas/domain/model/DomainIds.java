@@ -333,6 +333,49 @@ public final class DomainIds {
         }
     }
 
+    // ============================================
+    // CAJA AGGREGATE
+    // ============================================
+
+    public static final class MovimientoCajaId {
+        private final UUID value;
+
+        public MovimientoCajaId(UUID value) {
+            if (value == null) throw new IllegalArgumentException("MovimientoCajaId no puede ser null");
+            this.value = value;
+        }
+
+        public static MovimientoCajaId generate() {
+            return new MovimientoCajaId(UUID.randomUUID());
+        }
+
+        public static MovimientoCajaId from(String value) {
+            return new MovimientoCajaId(UUID.fromString(value));
+        }
+
+        public UUID getValue() {
+            return value;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            MovimientoCajaId that = (MovimientoCajaId) o;
+            return Objects.equals(value, that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(value);
+        }
+
+        @Override
+        public String toString() {
+            return value.toString();
+        }
+    }
+
     /**
      * Identidad de un ítem dentro del alcance de una promoción.
      * HU-09: Asociar productos a promociones.
