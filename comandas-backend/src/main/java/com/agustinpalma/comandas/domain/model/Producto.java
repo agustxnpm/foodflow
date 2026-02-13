@@ -43,6 +43,10 @@ public class Producto {
     private final boolean esExtra;                  // true si es un extra (huevo, queso, disco, etc.)
     private final Integer cantidadDiscosCarne;     // Define jerarquía de variantes (null si no aplica)
 
+    // HU-22: Gestión de stock
+    private int stockActual;                       // Cantidad actual en inventario (puede ser negativo por flexibilidad operativa)
+    private boolean controlaStock;                 // Si es false, las operaciones de stock no tienen efecto
+
     /**
      * Constructor completo con soporte para variantes y extras (HU-05.1 + HU-22).
      */
@@ -55,7 +59,9 @@ public class Producto {
             String colorHex,
             ProductoId grupoVarianteId,
             boolean esExtra,
-            Integer cantidadDiscosCarne
+            Integer cantidadDiscosCarne,
+            int stockActual,
+            boolean controlaStock
     ) {
         this.id = Objects.requireNonNull(id, "El id del producto no puede ser null");
         this.localId = Objects.requireNonNull(localId, "El localId no puede ser null");
@@ -66,6 +72,8 @@ public class Producto {
         this.grupoVarianteId = grupoVarianteId;  // Puede ser null si no tiene variantes
         this.esExtra = esExtra;
         this.cantidadDiscosCarne = cantidadDiscosCarne;  // Puede ser null si no aplica
+        this.stockActual = stockActual;
+        this.controlaStock = controlaStock;
     }
     
     /**
@@ -73,7 +81,16 @@ public class Producto {
      * Usado por tests y código legacy.
      */
     public Producto(ProductoId id, LocalId localId, String nombre, BigDecimal precio, boolean activo, String colorHex) {
-        this(id, localId, nombre, precio, activo, colorHex, null, false, null);
+        this(id, localId, nombre, precio, activo, colorHex, null, false, null, 0, false);
+    }
+
+    /**
+     * Constructor de retrocompatibilidad con variantes (sin stock).
+     * Usado por tests de variantes existentes.
+     */
+    public Producto(ProductoId id, LocalId localId, String nombre, BigDecimal precio, boolean activo, String colorHex,
+                    ProductoId grupoVarianteId, boolean esExtra, Integer cantidadDiscosCarne) {
+        this(id, localId, nombre, precio, activo, colorHex, grupoVarianteId, esExtra, cantidadDiscosCarne, 0, false);
     }
 
     private String validarNombre(String nombre) {
@@ -197,6 +214,67 @@ public class Producto {
      */
     public boolean esHamburguesa() {
         return cantidadDiscosCarne != null && cantidadDiscosCarne > 0;
+    }
+
+    // ============================================
+    // HU-22: Gestión de stock
+    // ============================================
+
+    public int getStockActual() {
+        return stockActual;
+    }
+
+    public boolean isControlaStock() {
+        return controlaStock;
+    }
+
+    /**
+     * Descuenta stock del producto.
+     * Si el producto no controla stock, la operación no tiene efecto.
+     * Se permite stock negativo por flexibilidad operativa.
+     *
+     * @param cantidad cantidad a descontar (debe ser > 0)
+     * @throws IllegalArgumentException si la cantidad es <= 0
+     */
+    public void descontarStock(int cantidad) {
+        if (cantidad <= 0) {
+            throw new IllegalArgumentException("La cantidad a descontar debe ser mayor a cero");
+        }
+        if (!controlaStock) {
+            return;
+        }
+        this.stockActual -= cantidad;
+    }
+
+    /**
+     * Repone stock del producto.
+     * Si el producto no controla stock, la operación no tiene efecto.
+     *
+     * @param cantidad cantidad a reponer (debe ser > 0)
+     * @throws IllegalArgumentException si la cantidad es <= 0
+     */
+    public void reponerStock(int cantidad) {
+        if (cantidad <= 0) {
+            throw new IllegalArgumentException("La cantidad a reponer debe ser mayor a cero");
+        }
+        if (!controlaStock) {
+            return;
+        }
+        this.stockActual += cantidad;
+    }
+
+    /**
+     * Activa el control de stock para este producto.
+     */
+    public void activarControlStock() {
+        this.controlaStock = true;
+    }
+
+    /**
+     * Desactiva el control de stock para este producto.
+     */
+    public void desactivarControlStock() {
+        this.controlaStock = false;
     }
 
     @Override

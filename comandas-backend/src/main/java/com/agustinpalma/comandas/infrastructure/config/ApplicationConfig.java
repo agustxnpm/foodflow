@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.infrastructure.config;
 
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.AjustarStockUseCase;
 import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCase;
 import com.agustinpalma.comandas.application.usecase.AsociarProductoAPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
@@ -24,9 +25,11 @@ import com.agustinpalma.comandas.application.usecase.EditarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarPromocionUseCase;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.MovimientoCajaRepository;
+import com.agustinpalma.comandas.domain.repository.MovimientoStockRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import com.agustinpalma.comandas.domain.repository.PromocionRepository;
+import com.agustinpalma.comandas.domain.service.GestorStockService;
 import com.agustinpalma.comandas.domain.service.MotorReglasService;
 import com.agustinpalma.comandas.domain.service.NormalizadorVariantesService;
 
@@ -84,10 +87,14 @@ public class ApplicationConfig {
             MesaRepository mesaRepository,
             PedidoRepository pedidoRepository,
             PromocionRepository promocionRepository,
+            ProductoRepository productoRepository,
+            MovimientoStockRepository movimientoStockRepository,
             MotorReglasService motorReglasService,
+            GestorStockService gestorStockService,
             Clock clock
     ) {
-        return new CerrarMesaUseCase(mesaRepository, pedidoRepository, promocionRepository, motorReglasService, clock);
+        return new CerrarMesaUseCase(mesaRepository, pedidoRepository, promocionRepository,
+                productoRepository, movimientoStockRepository, motorReglasService, gestorStockService, clock);
     }
 
     /**
@@ -340,9 +347,13 @@ public class ApplicationConfig {
     public ReabrirPedidoUseCase reabrirPedidoUseCase(
             PedidoRepository pedidoRepository,
             MesaRepository mesaRepository,
+            ProductoRepository productoRepository,
+            MovimientoStockRepository movimientoStockRepository,
+            GestorStockService gestorStockService,
             Clock clock
     ) {
-        return new ReabrirPedidoUseCase(pedidoRepository, mesaRepository, clock);
+        return new ReabrirPedidoUseCase(pedidoRepository, mesaRepository,
+                productoRepository, movimientoStockRepository, gestorStockService, clock);
     }
 
     /**
@@ -373,5 +384,31 @@ public class ApplicationConfig {
             MovimientoCajaRepository movimientoCajaRepository
     ) {
         return new GenerarReporteCajaUseCase(pedidoRepository, movimientoCajaRepository);
+    }
+
+    // ============================================
+    // HU-22: Gestión de stock
+    // ============================================
+
+    /**
+     * HU-22: Bean del servicio de dominio para gestión de stock.
+     * Es un servicio de dominio puro (sin dependencias de infraestructura).
+     */
+    @Bean
+    public GestorStockService gestorStockService() {
+        return new GestorStockService();
+    }
+
+    /**
+     * HU-22: Bean del caso de uso para ajuste manual de stock.
+     */
+    @Bean
+    public AjustarStockUseCase ajustarStockUseCase(
+            ProductoRepository productoRepository,
+            MovimientoStockRepository movimientoStockRepository,
+            GestorStockService gestorStockService,
+            Clock clock
+    ) {
+        return new AjustarStockUseCase(productoRepository, movimientoStockRepository, gestorStockService, clock);
     }
 }

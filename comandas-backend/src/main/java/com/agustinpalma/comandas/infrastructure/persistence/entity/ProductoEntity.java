@@ -40,12 +40,20 @@ public class ProductoEntity {
     @Column(name = "cantidad_discos_carne")
     private Integer cantidadDiscosCarne;
 
+    // HU-22: Gestión de stock
+    @Column(name = "stock_actual", nullable = false)
+    private int stockActual = 0;
+
+    @Column(name = "controla_stock", nullable = false)
+    private boolean controlaStock = false;
+
     // Constructor vacío para JPA
     public ProductoEntity() {}
 
     // Constructor con parámetros
     public ProductoEntity(UUID id, UUID localId, String nombre, BigDecimal precio, boolean activo, String colorHex,
-                         UUID grupoVarianteId, boolean esExtra, Integer cantidadDiscosCarne) {
+                         UUID grupoVarianteId, boolean esExtra, Integer cantidadDiscosCarne,
+                         int stockActual, boolean controlaStock) {
         this.id = id;
         this.localId = localId;
         this.nombre = nombre;
@@ -55,6 +63,8 @@ public class ProductoEntity {
         this.grupoVarianteId = grupoVarianteId;
         this.esExtra = esExtra;
         this.cantidadDiscosCarne = cantidadDiscosCarne;
+        this.stockActual = stockActual;
+        this.controlaStock = controlaStock;
     }
 
     // Getters y setters
@@ -128,5 +138,21 @@ public class ProductoEntity {
 
     public void setCantidadDiscosCarne(Integer cantidadDiscosCarne) {
         this.cantidadDiscosCarne = cantidadDiscosCarne;
+    }
+
+    public int getStockActual() {
+        return stockActual;
+    }
+
+    public void setStockActual(int stockActual) {
+        this.stockActual = stockActual;
+    }
+
+    public boolean isControlaStock() {
+        return controlaStock;
+    }
+
+    public void setControlaStock(boolean controlaStock) {
+        this.controlaStock = controlaStock;
     }
 }

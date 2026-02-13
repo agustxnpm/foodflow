@@ -29,7 +29,9 @@ public class ProductoMapper {
             entity.getColorHex(),
             entity.getGrupoVarianteId() != null ? new ProductoId(entity.getGrupoVarianteId()) : null,
             entity.isEsExtra(),
-            entity.getCantidadDiscosCarne()
+            entity.getCantidadDiscosCarne(),
+            entity.getStockActual(),
+            entity.isControlaStock()
         );
     }
 
@@ -49,7 +51,9 @@ public class ProductoMapper {
             domain.getColorHex(),
             domain.getGrupoVarianteId() != null ? domain.getGrupoVarianteId().getValue() : null,
             domain.isEsExtra(),
-            domain.getCantidadDiscosCarne()
+            domain.getCantidadDiscosCarne(),
+            domain.getStockActual(),
+            domain.isControlaStock()
         );
     }
 }

@@ -3,15 +3,25 @@ package com.agustinpalma.comandas.application.usecase;
 import com.agustinpalma.comandas.application.dto.ReabrirPedidoResponse;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
+import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
+import com.agustinpalma.comandas.domain.model.ItemPedido;
 import com.agustinpalma.comandas.domain.model.Mesa;
+import com.agustinpalma.comandas.domain.model.MovimientoStock;
 import com.agustinpalma.comandas.domain.model.Pedido;
+import com.agustinpalma.comandas.domain.model.Producto;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
+import com.agustinpalma.comandas.domain.repository.MovimientoStockRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
+import com.agustinpalma.comandas.domain.repository.ProductoRepository;
+import com.agustinpalma.comandas.domain.service.GestorStockService;
+import com.agustinpalma.comandas.domain.service.GestorStockService.ResultadoStock;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * HU-14: Caso de uso para reabrir un pedido previamente cerrado.
@@ -33,9 +43,10 @@ import java.util.Objects;
  * Flujo:
  * 1. Buscar el Pedido por ID y validar tenant
  * 2. Buscar la Mesa asociada al pedido
- * 3. pedido.reabrir() → revierte estado y limpia snapshot/pagos
- * 4. mesa.reocupar() → devuelve la mesa a ABIERTA
- * 5. Persistir cambios (transacción atómica)
+ * 3. HU-22: Revertir stock ANTES de reabrir (el pedido aún tiene sus ítems)
+ * 4. pedido.reabrir() → revierte estado y limpia snapshot/pagos
+ * 5. mesa.reocupar() → devuelve la mesa a ABIERTA
+ * 6. Persistir cambios (transacción atómica)
  * 
  * ADVERTENCIA: Esta operación es destructiva. Los pagos previos se eliminan.
  * Solo debe usarse para correcciones excepcionales antes del cierre de caja.
@@ -45,15 +56,24 @@ public class ReabrirPedidoUseCase {
 
     private final PedidoRepository pedidoRepository;
     private final MesaRepository mesaRepository;
+    private final ProductoRepository productoRepository;
+    private final MovimientoStockRepository movimientoStockRepository;
+    private final GestorStockService gestorStockService;
     private final Clock clock;
 
     public ReabrirPedidoUseCase(
             PedidoRepository pedidoRepository,
             MesaRepository mesaRepository,
+            ProductoRepository productoRepository,
+            MovimientoStockRepository movimientoStockRepository,
+            GestorStockService gestorStockService,
             Clock clock
     ) {
         this.pedidoRepository = Objects.requireNonNull(pedidoRepository, "El pedidoRepository es obligatorio");
         this.mesaRepository = Objects.requireNonNull(mesaRepository, "El mesaRepository es obligatorio");
+        this.productoRepository = Objects.requireNonNull(productoRepository, "El productoRepository es obligatorio");
+        this.movimientoStockRepository = Objects.requireNonNull(movimientoStockRepository, "El movimientoStockRepository es obligatorio");
+        this.gestorStockService = Objects.requireNonNull(gestorStockService, "El gestorStockService es obligatorio");
         this.clock = Objects.requireNonNull(clock, "El clock es obligatorio");
     }
 
@@ -94,17 +114,49 @@ public class ReabrirPedidoUseCase {
         // 4. Timestamp de la reapertura
         LocalDateTime ahora = LocalDateTime.now(clock);
 
-        // 5. Reabrir el pedido (valida estado CERRADO, limpia snapshot y pagos)
+        // 5. HU-22: Revertir stock ANTES de reabrir
+        //    (el pedido aún está CERRADO y tiene sus ítems intactos)
+        revertirStockPorReapertura(pedido, localId, ahora);
+
+        // 6. Reabrir el pedido (valida estado CERRADO, limpia snapshot y pagos)
         pedido.reabrir(ahora);
 
-        // 6. Reocupar la mesa (valida estado LIBRE, vuelve a ABIERTA)
+        // 7. Reocupar la mesa (valida estado LIBRE, vuelve a ABIERTA)
         mesa.reocupar();
 
-        // 7. Persistir cambios (transacción atómica: si falla uno, falla todo)
+        // 8. Persistir cambios (transacción atómica: si falla uno, falla todo)
         pedidoRepository.guardar(pedido);
         mesaRepository.guardar(mesa);
 
-        // 8. Retornar DTO de respuesta
+        // 9. Retornar DTO de respuesta
         return ReabrirPedidoResponse.fromDomain(mesa, pedido, ahora);
+    }
+
+    /**
+     * HU-22: Revierte el stock descontado por la venta original.
+     * Carga los productos involucrados, delega al GestorStockService,
+     * y persiste los cambios y movimientos de auditoría.
+     */
+    private void revertirStockPorReapertura(Pedido pedido, LocalId localId, LocalDateTime fecha) {
+        Map<ProductoId, Producto> productosDelPedido = pedido.getItems().stream()
+            .map(ItemPedido::getProductoId)
+            .distinct()
+            .map(productoId -> productoRepository.buscarPorIdYLocal(productoId, localId).orElse(null))
+            .filter(Objects::nonNull)
+            .collect(Collectors.toMap(Producto::getId, p -> p));
+
+        if (productosDelPedido.isEmpty()) {
+            return;
+        }
+
+        ResultadoStock resultado = gestorStockService.revertirVenta(pedido, productosDelPedido, fecha);
+
+        for (Producto producto : resultado.productosModificados()) {
+            productoRepository.guardar(producto);
+        }
+
+        for (MovimientoStock movimiento : resultado.movimientos()) {
+            movimientoStockRepository.guardar(movimiento);
+        }
     }
 }

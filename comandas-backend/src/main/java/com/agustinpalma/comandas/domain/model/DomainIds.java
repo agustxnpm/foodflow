@@ -418,4 +418,51 @@ public final class DomainIds {
             return value.toString();
         }
     }
+
+    // ============================================
+    // STOCK AGGREGATE
+    // ============================================
+
+    /**
+     * Identidad de un movimiento de stock.
+     * HU-22: Gestión de inventario.
+     */
+    public static final class MovimientoStockId {
+        private final UUID value;
+
+        public MovimientoStockId(UUID value) {
+            if (value == null) throw new IllegalArgumentException("MovimientoStockId no puede ser null");
+            this.value = value;
+        }
+
+        public static MovimientoStockId generate() {
+            return new MovimientoStockId(UUID.randomUUID());
+        }
+
+        public static MovimientoStockId from(String value) {
+            return new MovimientoStockId(UUID.fromString(value));
+        }
+
+        public UUID getValue() {
+            return value;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            MovimientoStockId that = (MovimientoStockId) o;
+            return Objects.equals(value, that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(value);
+        }
+
+        @Override
+        public String toString() {
+            return value.toString();
+        }
+    }
 }

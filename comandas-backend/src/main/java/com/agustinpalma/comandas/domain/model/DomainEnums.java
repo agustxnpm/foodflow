@@ -89,4 +89,15 @@ public final class DomainEnums {
         TRIGGER,
         TARGET
     }
+
+    /**
+     * HU-22: Tipos de movimiento de stock.
+     * Cada movimiento registra la razón del cambio en el inventario.
+     */
+    public enum TipoMovimientoStock {
+        VENTA,
+        REAPERTURA_PEDIDO,
+        AJUSTE_MANUAL,
+        INGRESO_MERCADERIA
+    }
 }

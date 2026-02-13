@@ -15,7 +15,10 @@ import com.agustinpalma.comandas.domain.model.Mesa;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
+import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import com.agustinpalma.comandas.domain.repository.PromocionRepository;
+import com.agustinpalma.comandas.domain.repository.MovimientoStockRepository;
+import com.agustinpalma.comandas.domain.service.GestorStockService;
 import com.agustinpalma.comandas.domain.service.MotorReglasService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +65,15 @@ class CerrarMesaUseCaseTest {
     @Mock
     private MotorReglasService motorReglasService;
 
+    @Mock
+    private ProductoRepository productoRepository;
+
+    @Mock
+    private MovimientoStockRepository movimientoStockRepository;
+
+    @Mock
+    private GestorStockService gestorStockService;
+
     private Clock clock;
 
     private CerrarMesaUseCase useCase;
@@ -77,7 +89,7 @@ class CerrarMesaUseCaseTest {
             Instant.parse("2026-02-06T22:00:00Z"),
             ZoneId.of("America/Argentina/Buenos_Aires")
         );
-        useCase = new CerrarMesaUseCase(mesaRepository, pedidoRepository, promocionRepository, motorReglasService, clock);
+        useCase = new CerrarMesaUseCase(mesaRepository, pedidoRepository, promocionRepository, productoRepository, movimientoStockRepository, motorReglasService, gestorStockService, clock);
         
         localIdValido = new LocalId(UUID.randomUUID());
         mesaIdValida = new MesaId(UUID.randomUUID());
