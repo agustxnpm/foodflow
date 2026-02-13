@@ -4,9 +4,11 @@ import com.agustinpalma.comandas.application.dto.AbrirMesaRequest;
 import com.agustinpalma.comandas.application.dto.AbrirMesaResponse;
 import com.agustinpalma.comandas.application.dto.CerrarMesaRequest;
 import com.agustinpalma.comandas.application.dto.CerrarMesaResponse;
+import com.agustinpalma.comandas.application.dto.ComandaImpresionResponse;
 import com.agustinpalma.comandas.application.dto.CrearMesaRequest;
 import com.agustinpalma.comandas.application.dto.DetallePedidoResponse;
 import com.agustinpalma.comandas.application.dto.MesaResponse;
+import com.agustinpalma.comandas.application.dto.TicketImpresionResponse;
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
@@ -16,6 +18,7 @@ import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
+import com.agustinpalma.comandas.infrastructure.mapper.TicketImpresionMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,6 +41,7 @@ public class MesaController {
     private final CrearMesaUseCase crearMesaUseCase;
     private final EliminarMesaUseCase eliminarMesaUseCase;
     private final ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase;
+    private final TicketImpresionMapper ticketImpresionMapper;
 
     public MesaController(
         LocalContextProvider localContextProvider,
@@ -46,7 +50,8 @@ public class MesaController {
         CerrarMesaUseCase cerrarMesaUseCase,
         CrearMesaUseCase crearMesaUseCase,
         EliminarMesaUseCase eliminarMesaUseCase,
-        ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase
+        ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase,
+        TicketImpresionMapper ticketImpresionMapper
     ) {
         this.localContextProvider = localContextProvider;
         this.consultarMesasUseCase = consultarMesasUseCase;
@@ -55,6 +60,7 @@ public class MesaController {
         this.crearMesaUseCase = crearMesaUseCase;
         this.eliminarMesaUseCase = eliminarMesaUseCase;
         this.consultarDetallePedidoUseCase = consultarDetallePedidoUseCase;
+        this.ticketImpresionMapper = ticketImpresionMapper;
     }
 
     /**
@@ -209,5 +215,62 @@ public class MesaController {
         CerrarMesaResponse response = cerrarMesaUseCase.ejecutar(localId, id, request.pagos());
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Obtiene los datos estructurados para imprimir el ticket de venta (cliente).
+     *
+     * GET /api/mesas/{mesaId}/ticket
+     *
+     * HU-29: Ticket de venta para impresora térmica.
+     * Endpoint de solo lectura — no cierra mesa, no modifica estado, no crea snapshots.
+     *
+     * Flujo:
+     * 1. Obtener tenant vía LocalContextProvider
+     * 2. Delegar a ConsultarDetallePedidoUseCase (datos ya calculados por dominio)
+     * 3. Transformar vía TicketImpresionMapper (datos del local desde MeisenProperties)
+     * 4. Retornar DTO de impresión
+     *
+     * @param mesaId ID de la mesa cuyo ticket se desea obtener
+     * @return datos estructurados del ticket para renderizado en frontend
+     */
+    @GetMapping("/{mesaId}/ticket")
+    public ResponseEntity<TicketImpresionResponse> obtenerTicket(@PathVariable String mesaId) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        MesaId id = MesaId.from(mesaId);
+
+        DetallePedidoResponse detalle = consultarDetallePedidoUseCase.ejecutar(localId, id);
+        TicketImpresionResponse ticket = ticketImpresionMapper.toTicket(detalle);
+
+        return ResponseEntity.ok(ticket);
+    }
+
+    /**
+     * Obtiene los datos estructurados para imprimir la comanda operativa (cocina/barra).
+     *
+     * GET /api/mesas/{mesaId}/comanda
+     *
+     * HU-05: Comanda operativa para cocina.
+     * Endpoint de solo lectura — no modifica pedido ni estado de mesa.
+     * No incluye valores monetarios.
+     *
+     * Flujo:
+     * 1. Obtener tenant vía LocalContextProvider
+     * 2. Delegar a ConsultarDetallePedidoUseCase
+     * 3. Transformar vía TicketImpresionMapper (solo datos operativos, sin precios)
+     * 4. Retornar DTO de comanda
+     *
+     * @param mesaId ID de la mesa cuya comanda se desea obtener
+     * @return datos estructurados de la comanda para renderizado en frontend
+     */
+    @GetMapping("/{mesaId}/comanda")
+    public ResponseEntity<ComandaImpresionResponse> obtenerComanda(@PathVariable String mesaId) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        MesaId id = MesaId.from(mesaId);
+
+        DetallePedidoResponse detalle = consultarDetallePedidoUseCase.ejecutar(localId, id);
+        ComandaImpresionResponse comanda = ticketImpresionMapper.toComanda(detalle);
+
+        return ResponseEntity.ok(comanda);
     }
 }

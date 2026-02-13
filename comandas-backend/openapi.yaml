@@ -1,0 +1,1688 @@
+openapi: 3.0.3
+info:
+  title: FoodFlow API
+  description: |
+    API REST del sistema de comandas FoodFlow.
+    Sistema SaaS de comandas para locales gastronómicos pequeños.
+    Arquitectura multi-tenant por fila — cada request requiere el header X-Local-Id.
+  version: 1.0.0
+  contact:
+    name: Agustín Palma
+
+servers:
+  - url: http://localhost:8080
+    description: Servidor de desarrollo local
+
+security:
+  - localId: []
+
+tags:
+  - name: Mesas
+    description: Gestión de mesas del local (crear, listar, abrir, cerrar, eliminar)
+  - name: Pedidos
+    description: Operaciones sobre pedidos (agregar ítems, descuentos, modificar cantidad, eliminar ítems, reapertura)
+  - name: Productos
+    description: Catálogo de productos (CRUD, consulta por color, ajuste de stock)
+  - name: Caja
+    description: Operaciones de caja (egresos, reporte diario)
+  - name: Promociones
+    description: Gestión de promociones (CRUD, alcance de productos)
+
+paths:
+  # ============================================================
+  # MESAS
+  # ============================================================
+  /api/mesas:
+    get:
+      tags: [Mesas]
+      summary: Listar todas las mesas del local
+      operationId: listarMesas
+      responses:
+        '200':
+          description: Lista de mesas del local
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MesaResponse'
+    post:
+      tags: [Mesas]
+      summary: Crear una nueva mesa
+      operationId: crearMesa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearMesaRequest'
+      responses:
+        '201':
+          description: Mesa creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MesaResponse'
+
+  /api/mesas/{mesaId}/abrir:
+    post:
+      tags: [Mesas]
+      summary: Abrir una mesa libre y crear su pedido inicial
+      operationId: abrirMesa
+      parameters:
+        - $ref: '#/components/parameters/mesaIdPath'
+      responses:
+        '201':
+          description: Mesa abierta y pedido creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AbrirMesaResponse'
+
+  /api/mesas/{mesaId}:
+    delete:
+      tags: [Mesas]
+      summary: Eliminar una mesa (solo si está LIBRE)
+      operationId: eliminarMesa
+      parameters:
+        - $ref: '#/components/parameters/mesaIdPath'
+      responses:
+        '204':
+          description: Mesa eliminada exitosamente
+
+  /api/mesas/{mesaId}/pedido-actual:
+    get:
+      tags: [Mesas]
+      summary: Consultar el detalle del pedido activo de una mesa
+      description: "HU-06: Ver pedido de una mesa. Retorna ítems, totales y contexto."
+      operationId: consultarPedidoActual
+      parameters:
+        - $ref: '#/components/parameters/mesaIdPath'
+      responses:
+        '200':
+          description: Detalle del pedido activo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetallePedidoResponse'
+
+  /api/mesas/{mesaId}/cierre:
+    post:
+      tags: [Mesas]
+      summary: Cerrar una mesa y finalizar su pedido activo
+      description: |
+        Evento de negocio crítico que consolida:
+        - Cierre del pedido (inmutabilidad financiera)
+        - Registro de pagos (soporte pagos parciales/split)
+        - Liberación de la mesa (recurso físico)
+      operationId: cerrarMesa
+      parameters:
+        - $ref: '#/components/parameters/mesaIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CerrarMesaRequest'
+      responses:
+        '200':
+          description: Mesa cerrada con snapshot contable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CerrarMesaResponse'
+
+  /api/mesas/{mesaId}/ticket:
+    get:
+      tags: [Mesas]
+      summary: Obtener datos para impresión de ticket de venta (cliente)
+      description: |
+        HU-29: Ticket de venta para impresora térmica.
+        Endpoint de solo lectura — no cierra mesa, no modifica estado.
+        Contiene resumen financiero con totales, descuentos y datos del local.
+      operationId: obtenerTicket
+      parameters:
+        - $ref: '#/components/parameters/mesaIdPath'
+      responses:
+        '200':
+          description: Datos estructurados del ticket para renderizado en frontend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TicketImpresionResponse'
+
+  /api/mesas/{mesaId}/comanda:
+    get:
+      tags: [Mesas]
+      summary: Obtener datos para impresión de comanda operativa (cocina/barra)
+      description: |
+        HU-05: Comanda operativa para cocina.
+        Endpoint de solo lectura — no modifica pedido ni estado de mesa.
+        No incluye valores monetarios.
+      operationId: obtenerComanda
+      parameters:
+        - $ref: '#/components/parameters/mesaIdPath'
+      responses:
+        '200':
+          description: Datos estructurados de la comanda para renderizado en frontend
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComandaImpresionResponse'
+
+  # ============================================================
+  # PEDIDOS
+  # ============================================================
+  /api/pedidos/{pedidoId}/items:
+    post:
+      tags: [Pedidos]
+      summary: Agregar un producto a un pedido existente
+      description: |
+        HU-05: Agregar productos a un pedido.
+        Captura precio snapshot al momento de la adición.
+        Solo funciona con pedidos ABIERTOS.
+      operationId: agregarProducto
+      parameters:
+        - $ref: '#/components/parameters/pedidoIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgregarProductoRequestBody'
+      responses:
+        '200':
+          description: Pedido actualizado con el nuevo ítem
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgregarProductoResponse'
+
+  /api/pedidos/{pedidoId}/descuento-manual:
+    post:
+      tags: [Pedidos]
+      summary: Aplicar descuento manual global al pedido
+      description: |
+        HU-14: El descuento es dinámico, se recalcula cada vez que cambia el total del pedido.
+      operationId: aplicarDescuentoGlobal
+      parameters:
+        - $ref: '#/components/parameters/pedidoIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DescuentoManualRequestBody'
+      responses:
+        '200':
+          description: Pedido con desglose completo de descuentos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AplicarDescuentoManualResponse'
+
+  /api/pedidos/{pedidoId}/items/{itemId}/descuento-manual:
+    post:
+      tags: [Pedidos]
+      summary: Aplicar descuento manual a un ítem específico del pedido
+      description: |
+        HU-14: El descuento se recalcula sobre el remanente después de promociones automáticas.
+      operationId: aplicarDescuentoPorItem
+      parameters:
+        - $ref: '#/components/parameters/pedidoIdPath'
+        - $ref: '#/components/parameters/itemIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DescuentoManualRequestBody'
+      responses:
+        '200':
+          description: Pedido con desglose completo de descuentos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AplicarDescuentoManualResponse'
+
+  /api/pedidos/{pedidoId}/items/{itemId}:
+    patch:
+      tags: [Pedidos]
+      summary: Modificar la cantidad de un ítem en un pedido abierto
+      description: |
+        HU-21: Modificar cantidad de un producto.
+        - cantidad > 0: actualiza la cantidad
+        - cantidad == 0: elimina el ítem
+        Cualquier cambio dispara recálculo de promociones y descuento global.
+      operationId: modificarCantidadItem
+      parameters:
+        - $ref: '#/components/parameters/pedidoIdPath'
+        - $ref: '#/components/parameters/itemIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModificarCantidadItemRequestBody'
+      responses:
+        '200':
+          description: Pedido actualizado tras la modificación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgregarProductoResponse'
+    delete:
+      tags: [Pedidos]
+      summary: Eliminar un ítem de un pedido abierto
+      description: |
+        HU-20: Tras eliminar, se recalculan todas las promociones del pedido.
+        Si el ítem eliminado era trigger de un combo, el target pierde su descuento.
+      operationId: eliminarItemPedido
+      parameters:
+        - $ref: '#/components/parameters/pedidoIdPath'
+        - $ref: '#/components/parameters/itemIdPath'
+      responses:
+        '200':
+          description: Pedido actualizado tras la eliminación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgregarProductoResponse'
+
+  /api/pedidos/{pedidoId}/reapertura:
+    post:
+      tags: [Pedidos]
+      summary: Reabrir un pedido previamente cerrado
+      description: |
+        HU-14: Válvula de escape para corregir errores operativos antes del cierre de caja.
+        ADVERTENCIA: Operación destructiva — elimina snapshot contable y pagos registrados.
+        Revierte pedido a ABIERTO y mesa a ABIERTA.
+      operationId: reabrirPedido
+      parameters:
+        - $ref: '#/components/parameters/pedidoIdPath'
+      responses:
+        '200':
+          description: Pedido reabierto y mesa reocupada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReabrirPedidoResponse'
+
+  # ============================================================
+  # PRODUCTOS
+  # ============================================================
+  /api/productos:
+    get:
+      tags: [Productos]
+      summary: Listar todos los productos del local
+      description: Soporta filtrado opcional por código hexadecimal de color.
+      operationId: listarProductos
+      parameters:
+        - name: color
+          in: query
+          required: false
+          description: "Código hexadecimal de color para filtrar (ej: %23FF0000)"
+          schema:
+            type: string
+            example: "#FF0000"
+      responses:
+        '200':
+          description: Lista de productos del local
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductoResponse'
+    post:
+      tags: [Productos]
+      summary: Crear un nuevo producto en el catálogo
+      operationId: crearProducto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductoRequest'
+      responses:
+        '201':
+          description: Producto creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductoResponse'
+
+  /api/productos/{id}:
+    get:
+      tags: [Productos]
+      summary: Consultar un producto específico por ID
+      operationId: consultarProducto
+      parameters:
+        - $ref: '#/components/parameters/productoIdPath'
+      responses:
+        '200':
+          description: Producto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductoResponse'
+    put:
+      tags: [Productos]
+      summary: Editar un producto existente
+      operationId: editarProducto
+      parameters:
+        - $ref: '#/components/parameters/productoIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductoRequest'
+      responses:
+        '200':
+          description: Producto actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductoResponse'
+    delete:
+      tags: [Productos]
+      summary: Eliminar un producto del catálogo
+      operationId: eliminarProducto
+      parameters:
+        - $ref: '#/components/parameters/productoIdPath'
+      responses:
+        '204':
+          description: Producto eliminado exitosamente
+
+  /api/productos/{id}/stock:
+    patch:
+      tags: [Productos]
+      summary: Ajustar el stock de un producto
+      description: |
+        HU-22: Gestión de inventario.
+        Si el producto no tenía control de stock activo, se activa automáticamente
+        al realizar el primer ajuste manual.
+      operationId: ajustarStock
+      parameters:
+        - $ref: '#/components/parameters/productoIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAjusteRequestBody'
+      responses:
+        '200':
+          description: Stock ajustado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AjustarStockResponse'
+
+  # ============================================================
+  # CAJA
+  # ============================================================
+  /api/caja/egresos:
+    post:
+      tags: [Caja]
+      summary: Registrar un egreso de caja
+      operationId: registrarEgreso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EgresoRequestBody'
+      responses:
+        '201':
+          description: Egreso registrado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EgresoResponse'
+
+  /api/caja/reporte:
+    get:
+      tags: [Caja]
+      summary: Generar el reporte de caja diario (arqueo)
+      operationId: obtenerReporteDiario
+      parameters:
+        - name: fecha
+          in: query
+          required: true
+          description: Fecha del reporte en formato ISO (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+            example: "2026-02-12"
+      responses:
+        '200':
+          description: Reporte de caja del día solicitado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteCajaResponse'
+
+  # ============================================================
+  # PROMOCIONES
+  # ============================================================
+  /api/promociones:
+    get:
+      tags: [Promociones]
+      summary: Listar todas las promociones del local
+      operationId: listarPromociones
+      parameters:
+        - name: estado
+          in: query
+          required: false
+          description: Filtrar por estado de la promoción
+          schema:
+            type: string
+            enum: [ACTIVA, INACTIVA]
+      responses:
+        '200':
+          description: Lista de promociones del local
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PromocionResponse'
+    post:
+      tags: [Promociones]
+      summary: Crear una nueva promoción con triggers configurables
+      operationId: crearPromocion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearPromocionCommand'
+      responses:
+        '201':
+          description: Promoción creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromocionResponse'
+
+  /api/promociones/{id}:
+    get:
+      tags: [Promociones]
+      summary: Obtener el detalle de una promoción específica
+      operationId: obtenerPromocion
+      parameters:
+        - $ref: '#/components/parameters/promocionIdPath'
+      responses:
+        '200':
+          description: Detalle de la promoción
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromocionResponse'
+    put:
+      tags: [Promociones]
+      summary: Actualizar una promoción existente
+      description: |
+        Permite actualización parcial de nombre, descripción, prioridad.
+        Los triggers se reemplazan completamente si se especifican.
+      operationId: editarPromocion
+      parameters:
+        - $ref: '#/components/parameters/promocionIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EditarPromocionCommand'
+      responses:
+        '200':
+          description: Promoción actualizada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromocionResponse'
+    delete:
+      tags: [Promociones]
+      summary: Eliminar (desactivar) una promoción
+      description: |
+        Implementa soft delete: marca la promoción como INACTIVA sin borrarla
+        físicamente, preservando el histórico de pedidos que la aplicaron.
+      operationId: eliminarPromocion
+      parameters:
+        - $ref: '#/components/parameters/promocionIdPath'
+      responses:
+        '204':
+          description: Promoción desactivada exitosamente
+
+  /api/promociones/{id}/alcance:
+    put:
+      tags: [Promociones]
+      summary: Asociar productos/categorías al alcance de una promoción
+      description: |
+        HU-09: Define qué productos/categorías ACTIVAN la promoción (TRIGGER)
+        y cuáles RECIBEN el beneficio (TARGET).
+      operationId: asociarProductos
+      parameters:
+        - $ref: '#/components/parameters/promocionIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsociarScopeCommand'
+      responses:
+        '200':
+          description: Alcance actualizado con la promoción resultante
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromocionResponse'
+
+# ==============================================================
+# COMPONENTES
+# ==============================================================
+components:
+  securitySchemes:
+    localId:
+      type: apiKey
+      in: header
+      name: X-Local-Id
+      description: UUID del local (tenant). Obligatorio en todos los endpoints.
+
+  parameters:
+    mesaIdPath:
+      name: mesaId
+      in: path
+      required: true
+      description: UUID de la mesa
+      schema:
+        type: string
+        format: uuid
+    pedidoIdPath:
+      name: pedidoId
+      in: path
+      required: true
+      description: UUID del pedido
+      schema:
+        type: string
+        format: uuid
+    itemIdPath:
+      name: itemId
+      in: path
+      required: true
+      description: UUID del ítem del pedido
+      schema:
+        type: string
+        format: uuid
+    productoIdPath:
+      name: id
+      in: path
+      required: true
+      description: UUID del producto
+      schema:
+        type: string
+        format: uuid
+    promocionIdPath:
+      name: id
+      in: path
+      required: true
+      description: UUID de la promoción
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    # ----------------------------------------------------------
+    # MESAS — Request/Response
+    # ----------------------------------------------------------
+    CrearMesaRequest:
+      type: object
+      required: [numero]
+      properties:
+        numero:
+          type: integer
+          description: Número de la nueva mesa
+          example: 15
+
+    MesaResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identificador único de la mesa
+        numero:
+          type: integer
+          description: Número de la mesa
+          example: 5
+        estado:
+          type: string
+          enum: [LIBRE, ABIERTA]
+          description: Estado actual de la mesa
+
+    AbrirMesaResponse:
+      type: object
+      properties:
+        mesaId:
+          type: string
+          format: uuid
+        numeroMesa:
+          type: integer
+        estadoMesa:
+          type: string
+          enum: [LIBRE, ABIERTA]
+        pedidoId:
+          type: string
+          format: uuid
+        numeroPedido:
+          type: integer
+        estadoPedido:
+          type: string
+          enum: [ABIERTO, CERRADO]
+        fechaApertura:
+          type: string
+          format: date-time
+
+    CerrarMesaRequest:
+      type: object
+      properties:
+        pagos:
+          type: array
+          description: Lista de pagos para cubrir el total del pedido
+          items:
+            $ref: '#/components/schemas/PagoRequest'
+
+    PagoRequest:
+      type: object
+      properties:
+        medio:
+          type: string
+          enum: [EFECTIVO, TARJETA, TRANSFERENCIA, QR, A_CUENTA]
+          description: Medio de pago utilizado
+        monto:
+          type: number
+          format: double
+          description: Monto del pago (debe ser > 0)
+          example: 5000.00
+
+    CerrarMesaResponse:
+      type: object
+      properties:
+        mesaId:
+          type: string
+          format: uuid
+        mesaNumero:
+          type: integer
+        mesaEstado:
+          type: string
+          enum: [LIBRE, ABIERTA]
+        pedidoId:
+          type: string
+          format: uuid
+        pedidoEstado:
+          type: string
+          enum: [ABIERTO, CERRADO]
+        montoSubtotal:
+          type: number
+          format: double
+          description: Subtotal congelado (antes de descuentos)
+        montoDescuentos:
+          type: number
+          format: double
+          description: Monto total de descuentos aplicados
+        montoTotal:
+          type: number
+          format: double
+          description: Total final congelado
+        pagos:
+          type: array
+          items:
+            $ref: '#/components/schemas/PagoResponse'
+        fechaCierre:
+          type: string
+          format: date-time
+
+    PagoResponse:
+      type: object
+      properties:
+        medio:
+          type: string
+          enum: [EFECTIVO, TARJETA, TRANSFERENCIA, QR, A_CUENTA]
+        monto:
+          type: number
+          format: double
+        fecha:
+          type: string
+          format: date-time
+
+    DetallePedidoResponse:
+      type: object
+      properties:
+        pedidoId:
+          type: string
+          format: uuid
+        numeroPedido:
+          type: integer
+        numeroMesa:
+          type: integer
+        estado:
+          type: string
+          enum: [ABIERTO, CERRADO]
+        fechaApertura:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemDetalleDTO'
+        subtotal:
+          type: number
+          format: double
+          description: Total sin descuentos
+        totalDescuentos:
+          type: number
+          format: double
+          description: Suma de descuentos de todos los ítems
+        totalParcial:
+          type: number
+          format: double
+          description: Lo que paga el cliente (subtotal - descuentos)
+
+    ItemDetalleDTO:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombreProducto:
+          type: string
+        cantidad:
+          type: integer
+        precioUnitarioBase:
+          type: number
+          format: double
+          description: Precio de lista (para tachar en UI)
+        subtotal:
+          type: number
+          format: double
+          description: precioBase × cantidad
+        descuentoTotal:
+          type: number
+          format: double
+          description: Monto de descuento aplicado
+        precioFinal:
+          type: number
+          format: double
+          description: Lo que paga el cliente
+        observacion:
+          type: string
+          nullable: true
+        nombrePromocion:
+          type: string
+          nullable: true
+          description: Nombre de la promo aplicada
+        tienePromocion:
+          type: boolean
+
+    # ----------------------------------------------------------
+    # PEDIDOS — Request/Response
+    # ----------------------------------------------------------
+    AgregarProductoRequestBody:
+      type: object
+      required: [productoId, cantidad]
+      properties:
+        productoId:
+          type: string
+          format: uuid
+          description: ID del producto a agregar
+        cantidad:
+          type: integer
+          minimum: 1
+          description: Cantidad de unidades
+          example: 2
+        observaciones:
+          type: string
+          nullable: true
+          description: "Notas adicionales (ej: 'sin cebolla')"
+          example: "sin cebolla"
+        extrasIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+          description: "Lista opcional de IDs de productos adicionales/extras (HU-05.1)"
+          example: ["550e8400-e29b-41d4-a716-446655440001"]
+
+    AgregarProductoResponse:
+      type: object
+      properties:
+        pedidoId:
+          type: string
+          format: uuid
+        numeroPedido:
+          type: integer
+        estadoPedido:
+          type: string
+          enum: [ABIERTO, CERRADO]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemPedidoDTO'
+        subtotal:
+          type: number
+          format: double
+          description: Subtotal bruto sin descuentos
+        totalDescuentos:
+          type: number
+          format: double
+          description: "Total de descuentos (promos + manuales + global)"
+        total:
+          type: number
+          format: double
+          description: Total final del pedido
+        fechaApertura:
+          type: string
+          format: date-time
+
+    ItemPedidoDTO:
+      type: object
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        productoId:
+          type: string
+          format: uuid
+        nombreProducto:
+          type: string
+        cantidad:
+          type: integer
+        precioUnitarioBase:
+          type: number
+          format: double
+          description: Precio de lista (para tachar en UI)
+        subtotalItem:
+          type: number
+          format: double
+          description: precioBase × cantidad (sin descuento)
+        descuentoTotal:
+          type: number
+          format: double
+          description: Ahorro total del ítem (promo + manual)
+        precioFinal:
+          type: number
+          format: double
+          description: Lo que paga el cliente
+        observacion:
+          type: string
+          nullable: true
+        nombrePromocion:
+          type: string
+          nullable: true
+          description: Etiqueta de la promo aplicada
+        tienePromocion:
+          type: boolean
+
+    DescuentoManualRequestBody:
+      type: object
+      required: [porcentaje, usuarioId]
+      properties:
+        porcentaje:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Porcentaje del descuento (0-100, máximo 2 decimales)
+          example: 10.5
+        razon:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: "Motivo del descuento (ej: 'Cliente frecuente')"
+          example: "Cliente frecuente"
+        usuarioId:
+          type: string
+          format: uuid
+          description: ID del usuario que aplica el descuento (auditoría)
+
+    AplicarDescuentoManualResponse:
+      type: object
+      properties:
+        pedidoId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemDescuentoDTO'
+        subtotalBruto:
+          type: number
+          format: double
+          description: Suma de (precioUnitario × cantidad) sin descuentos
+        totalPromocionesAuto:
+          type: number
+          format: double
+          description: Suma de descuentos de promociones automáticas (HU-10)
+        montoDescuentoManualItems:
+          type: number
+          format: double
+          description: Suma de descuentos manuales por ítem
+        montoDescuentoGlobal:
+          type: number
+          format: double
+          description: Descuento global aplicado al pedido
+        totalFinal:
+          type: number
+          format: double
+          description: Total final del pedido
+        tieneDescuentoGlobal:
+          type: boolean
+
+    ItemDescuentoDTO:
+      type: object
+      properties:
+        itemId:
+          type: string
+          format: uuid
+        nombreProducto:
+          type: string
+        cantidad:
+          type: integer
+        precioUnitario:
+          type: number
+          format: double
+        subtotalBruto:
+          type: number
+          format: double
+        montoDescuentoPromo:
+          type: number
+          format: double
+          description: Descuento de promoción automática
+        nombrePromocion:
+          type: string
+          nullable: true
+        montoDescuentoManual:
+          type: number
+          format: double
+          description: Descuento manual por ítem
+        porcentajeDescuentoManual:
+          type: number
+          format: double
+          nullable: true
+        precioFinal:
+          type: number
+          format: double
+
+    ModificarCantidadItemRequestBody:
+      type: object
+      required: [cantidad]
+      properties:
+        cantidad:
+          type: integer
+          minimum: 0
+          description: "Nueva cantidad (0 = eliminar ítem)"
+          example: 4
+
+    ReabrirPedidoResponse:
+      type: object
+      properties:
+        mesaId:
+          type: string
+          format: uuid
+        mesaNumero:
+          type: integer
+        mesaEstado:
+          type: string
+          enum: [LIBRE, ABIERTA]
+        pedidoId:
+          type: string
+          format: uuid
+        pedidoNumero:
+          type: integer
+        pedidoEstado:
+          type: string
+          enum: [ABIERTO, CERRADO]
+        fechaReapertura:
+          type: string
+          format: date-time
+        cantidadItems:
+          type: integer
+          description: Cantidad de ítems que conserva el pedido reabierto
+
+    # ----------------------------------------------------------
+    # PRODUCTOS — Request/Response
+    # ----------------------------------------------------------
+    ProductoRequest:
+      type: object
+      required: [nombre, precio]
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          description: Nombre del producto
+          example: "Hamburguesa"
+        precio:
+          type: number
+          format: double
+          minimum: 0.01
+          description: Precio del producto (debe ser mayor a cero)
+          example: 1500.00
+        activo:
+          type: boolean
+          nullable: true
+          description: "Si es null se asume true en creación"
+        colorHex:
+          type: string
+          nullable: true
+          description: "Código hexadecimal de color (ej: '#FF0000'). Si es null se asigna #FFFFFF"
+          example: "#FF0000"
+
+    ProductoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        precio:
+          type: number
+          format: double
+        activo:
+          type: boolean
+        colorHex:
+          type: string
+          description: "Siempre normalizado a mayúsculas (ej: #FF0000)"
+          example: "#FF0000"
+        stockActual:
+          type: integer
+          nullable: true
+          description: Cantidad actual en inventario
+        controlaStock:
+          type: boolean
+          nullable: true
+          description: Si el producto tiene control de inventario activo
+
+    StockAjusteRequestBody:
+      type: object
+      required: [cantidad, tipo, motivo]
+      properties:
+        cantidad:
+          type: integer
+          description: Cantidad a ajustar (positiva o negativa)
+          example: 10
+        tipo:
+          type: string
+          enum: [VENTA, REAPERTURA_PEDIDO, AJUSTE_MANUAL, INGRESO_MERCADERIA]
+          description: Tipo de movimiento de stock
+          example: "INGRESO_MERCADERIA"
+        motivo:
+          type: string
+          minLength: 1
+          description: Motivo del ajuste
+          example: "Reposición desde depósito"
+
+    AjustarStockResponse:
+      type: object
+      properties:
+        productoId:
+          type: string
+          format: uuid
+        nombreProducto:
+          type: string
+        stockActual:
+          type: integer
+          description: Stock actualizado después del ajuste
+        cantidadAjustada:
+          type: integer
+        tipo:
+          type: string
+          enum: [VENTA, REAPERTURA_PEDIDO, AJUSTE_MANUAL, INGRESO_MERCADERIA]
+        motivo:
+          type: string
+        fecha:
+          type: string
+          format: date-time
+
+    # ----------------------------------------------------------
+    # CAJA — Request/Response
+    # ----------------------------------------------------------
+    EgresoRequestBody:
+      type: object
+      required: [monto, descripcion]
+      properties:
+        monto:
+          type: number
+          format: double
+          description: Monto del egreso (debe ser > 0)
+          example: 1500.00
+        descripcion:
+          type: string
+          description: "Descripción del egreso (ej: 'Productos de limpieza')"
+          example: "Productos de limpieza"
+
+    EgresoResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        monto:
+          type: number
+          format: double
+        descripcion:
+          type: string
+        fecha:
+          type: string
+          format: date-time
+        tipo:
+          type: string
+          enum: [EGRESO]
+          description: Tipo de movimiento de caja
+        numeroComprobante:
+          type: string
+          description: Número de comprobante generado automáticamente
+
+    ReporteCajaResponse:
+      type: object
+      properties:
+        totalVentasReales:
+          type: number
+          format: double
+          description: Suma de pedidos cerrados excluyendo pagos A_CUENTA
+        totalConsumoInterno:
+          type: number
+          format: double
+          description: Suma de pagos A_CUENTA
+        totalEgresos:
+          type: number
+          format: double
+          description: Suma de movimientos de caja
+        balanceEfectivo:
+          type: number
+          format: double
+          description: (total pagos EFECTIVO) − (total egresos)
+        desglosePorMedioPago:
+          type: object
+          additionalProperties:
+            type: number
+            format: double
+          description: "Mapa con el total por cada medio de pago comercial. Claves: EFECTIVO, TARJETA, TRANSFERENCIA, QR"
+          example:
+            EFECTIVO: 25000.00
+            TARJETA: 15000.00
+            TRANSFERENCIA: 8000.00
+        movimientos:
+          type: array
+          items:
+            $ref: '#/components/schemas/MovimientoResumen'
+
+    MovimientoResumen:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        monto:
+          type: number
+          format: double
+        descripcion:
+          type: string
+        fecha:
+          type: string
+          format: date-time
+        numeroComprobante:
+          type: string
+
+    # ----------------------------------------------------------
+    # PROMOCIONES — Request/Response
+    # ----------------------------------------------------------
+    CrearPromocionCommand:
+      type: object
+      required: [nombre, prioridad, tipoEstrategia, triggers]
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          description: Nombre de la promoción
+          example: "2x1 en Pizzas"
+        descripcion:
+          type: string
+          nullable: true
+        prioridad:
+          type: integer
+          minimum: 0
+          description: Prioridad de evaluación (menor = mayor prioridad)
+        tipoEstrategia:
+          type: string
+          enum: [DESCUENTO_DIRECTO, CANTIDAD_FIJA, COMBO_CONDICIONAL, PRECIO_FIJO_CANTIDAD]
+          description: Tipo de estrategia de beneficio
+        descuentoDirecto:
+          $ref: '#/components/schemas/DescuentoDirectoParams'
+        cantidadFija:
+          $ref: '#/components/schemas/CantidadFijaParams'
+        comboCondicional:
+          $ref: '#/components/schemas/ComboCondicionalParams'
+        precioFijoPorCantidad:
+          $ref: '#/components/schemas/PrecioFijoPorCantidadParams'
+        triggers:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/TriggerParams'
+
+    DescuentoDirectoParams:
+      type: object
+      required: [modo, valor]
+      properties:
+        modo:
+          type: string
+          enum: [PORCENTAJE, MONTO_FIJO]
+          description: Modo del descuento
+        valor:
+          type: number
+          format: double
+          description: Valor del descuento (porcentaje o monto fijo)
+
+    CantidadFijaParams:
+      type: object
+      required: [cantidadLlevas, cantidadPagas]
+      properties:
+        cantidadLlevas:
+          type: integer
+          minimum: 1
+          description: Cantidad que se lleva el cliente
+          example: 3
+        cantidadPagas:
+          type: integer
+          minimum: 1
+          description: Cantidad que paga el cliente
+          example: 2
+
+    ComboCondicionalParams:
+      type: object
+      required: [cantidadMinimaTrigger, porcentajeBeneficio]
+      properties:
+        cantidadMinimaTrigger:
+          type: integer
+          minimum: 1
+          description: Cantidad mínima del trigger para activar
+        porcentajeBeneficio:
+          type: number
+          format: double
+          description: Porcentaje de beneficio aplicado al target
+
+    PrecioFijoPorCantidadParams:
+      type: object
+      required: [cantidadActivacion, precioPaquete]
+      properties:
+        cantidadActivacion:
+          type: integer
+          minimum: 2
+          description: Cantidad mínima para activar el precio de paquete
+        precioPaquete:
+          type: number
+          format: double
+          description: Precio fijo del paquete
+
+    TriggerParams:
+      type: object
+      required: [tipo]
+      properties:
+        tipo:
+          type: string
+          enum: [TEMPORAL, CONTENIDO, MONTO_MINIMO]
+          description: Tipo de criterio de activación
+        fechaDesde:
+          type: string
+          format: date
+          nullable: true
+          description: "Fecha inicio (solo para tipo TEMPORAL)"
+        fechaHasta:
+          type: string
+          format: date
+          nullable: true
+          description: "Fecha fin (solo para tipo TEMPORAL)"
+        diasSemana:
+          type: array
+          nullable: true
+          items:
+            type: string
+            enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+          description: "Días de la semana (solo para tipo TEMPORAL)"
+        horaDesde:
+          type: string
+          format: time
+          nullable: true
+          description: "Hora inicio HH:mm (solo para tipo TEMPORAL)"
+        horaHasta:
+          type: string
+          format: time
+          nullable: true
+          description: "Hora fin HH:mm (solo para tipo TEMPORAL)"
+        productosRequeridos:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+          description: "IDs de productos requeridos (solo para tipo CONTENIDO)"
+        montoMinimo:
+          type: number
+          format: double
+          nullable: true
+          description: "Monto mínimo del pedido (solo para tipo MONTO_MINIMO)"
+
+    EditarPromocionCommand:
+      type: object
+      required: [nombre]
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          maxLength: 150
+        descripcion:
+          type: string
+          maxLength: 500
+          nullable: true
+        prioridad:
+          type: integer
+          minimum: 0
+          nullable: true
+        triggers:
+          type: array
+          minItems: 1
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TriggerParams'
+          description: "Si se especifican, reemplazan completamente los triggers existentes"
+
+    AsociarScopeCommand:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ItemScopeParams'
+
+    ItemScopeParams:
+      type: object
+      required: [referenciaId, tipo, rol]
+      properties:
+        referenciaId:
+          type: string
+          format: uuid
+          description: ID del producto o categoría
+        tipo:
+          type: string
+          enum: [PRODUCTO, CATEGORIA]
+          description: Si la referencia es un producto individual o una categoría
+        rol:
+          type: string
+          enum: [TRIGGER, TARGET]
+          description: "TRIGGER: activa la promoción. TARGET: recibe el beneficio."
+
+    PromocionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
+        prioridad:
+          type: integer
+        estado:
+          type: string
+          enum: [ACTIVA, INACTIVA]
+        estrategia:
+          $ref: '#/components/schemas/EstrategiaResponse'
+        triggers:
+          type: array
+          items:
+            $ref: '#/components/schemas/TriggerResponse'
+        alcance:
+          $ref: '#/components/schemas/AlcanceResponse'
+
+    EstrategiaResponse:
+      type: object
+      description: "Representación aplanada de la estrategia. Los campos relevantes dependen del tipo."
+      properties:
+        tipo:
+          type: string
+          enum: [DESCUENTO_DIRECTO, CANTIDAD_FIJA, COMBO_CONDICIONAL, PRECIO_FIJO_CANTIDAD]
+        modoDescuento:
+          type: string
+          enum: [PORCENTAJE, MONTO_FIJO]
+          nullable: true
+          description: "Solo para DESCUENTO_DIRECTO"
+        valorDescuento:
+          type: number
+          format: double
+          nullable: true
+          description: "Solo para DESCUENTO_DIRECTO"
+        cantidadLlevas:
+          type: integer
+          nullable: true
+          description: "Solo para CANTIDAD_FIJA"
+        cantidadPagas:
+          type: integer
+          nullable: true
+          description: "Solo para CANTIDAD_FIJA"
+        cantidadMinimaTrigger:
+          type: integer
+          nullable: true
+          description: "Solo para COMBO_CONDICIONAL"
+        porcentajeBeneficio:
+          type: number
+          format: double
+          nullable: true
+          description: "Solo para COMBO_CONDICIONAL"
+        cantidadActivacion:
+          type: integer
+          nullable: true
+          description: "Solo para PRECIO_FIJO_CANTIDAD"
+        precioPaquete:
+          type: number
+          format: double
+          nullable: true
+          description: "Solo para PRECIO_FIJO_CANTIDAD"
+
+    TriggerResponse:
+      type: object
+      description: "Representación aplanada de un trigger. Los campos relevantes dependen del tipo."
+      properties:
+        tipo:
+          type: string
+          enum: [TEMPORAL, CONTENIDO, MONTO_MINIMO]
+        fechaDesde:
+          type: string
+          format: date
+          nullable: true
+        fechaHasta:
+          type: string
+          format: date
+          nullable: true
+        diasSemana:
+          type: array
+          nullable: true
+          items:
+            type: string
+            enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+        horaDesde:
+          type: string
+          format: time
+          nullable: true
+        horaHasta:
+          type: string
+          format: time
+          nullable: true
+        productosRequeridos:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uuid
+        montoMinimo:
+          type: number
+          format: double
+          nullable: true
+
+    AlcanceResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemAlcanceResponse'
+
+    ItemAlcanceResponse:
+      type: object
+      properties:
+        referenciaId:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [PRODUCTO, CATEGORIA]
+        rol:
+          type: string
+          enum: [TRIGGER, TARGET]
+
+    # ============================================================
+    # IMPRESIÓN — Ticket y Comanda
+    # ============================================================
+
+    TicketImpresionResponse:
+      type: object
+      description: "HU-29: Datos estructurados para impresión de ticket de venta (cliente)."
+      required: [header, items, totales, footer]
+      properties:
+        header:
+          $ref: '#/components/schemas/HeaderTicket'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemTicket'
+        totales:
+          $ref: '#/components/schemas/TotalesTicket'
+        footer:
+          $ref: '#/components/schemas/FooterTicket'
+
+    HeaderTicket:
+      type: object
+      required: [nombreLocal, fechaHora, numeroMesa]
+      properties:
+        nombreLocal:
+          type: string
+        direccion:
+          type: string
+          nullable: true
+        telefono:
+          type: string
+          nullable: true
+        cuit:
+          type: string
+          nullable: true
+        fechaHora:
+          type: string
+          format: date-time
+        numeroMesa:
+          type: integer
+
+    ItemTicket:
+      type: object
+      required: [cantidad, descripcion, precioUnitario, importe]
+      properties:
+        cantidad:
+          type: integer
+        descripcion:
+          type: string
+        precioUnitario:
+          type: number
+          format: double
+        importe:
+          type: number
+          format: double
+
+    TotalesTicket:
+      type: object
+      required: [subtotal, montoDescuentoPromos, montoDescuentoManual, totalFinal, desglosePromociones]
+      properties:
+        subtotal:
+          type: number
+          format: double
+        montoDescuentoPromos:
+          type: number
+          format: double
+        montoDescuentoManual:
+          type: number
+          format: double
+        totalFinal:
+          type: number
+          format: double
+        desglosePromociones:
+          type: array
+          items:
+            $ref: '#/components/schemas/DesglosePromocion'
+
+    DesglosePromocion:
+      type: object
+      required: [nombrePromocion, ahorro]
+      properties:
+        nombrePromocion:
+          type: string
+        ahorro:
+          type: number
+          format: double
+
+    FooterTicket:
+      type: object
+      properties:
+        mensajeBienvenida:
+          type: string
+          nullable: true
+
+    ComandaImpresionResponse:
+      type: object
+      description: "HU-05: Datos estructurados para impresión de comanda operativa (cocina/barra). Sin valores monetarios."
+      required: [header, items]
+      properties:
+        header:
+          $ref: '#/components/schemas/HeaderComanda'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemComanda'
+
+    HeaderComanda:
+      type: object
+      required: [numeroMesa, numeroPedido, fechaHora]
+      properties:
+        numeroMesa:
+          type: integer
+        numeroPedido:
+          type: integer
+        fechaHora:
+          type: string
+          format: date-time
+
+    ItemComanda:
+      type: object
+      required: [cantidad, nombreProducto]
+      properties:
+        cantidad:
+          type: integer
+        nombreProducto:
+          type: string
+        observaciones:
+          type: string
+          nullable: true

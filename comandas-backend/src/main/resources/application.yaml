@@ -25,3 +25,9 @@ spring:
 app:
   context:
     local-id: 123e4567-e89b-12d3-a456-426614174000
+    local:
+      nombre-local: "Mi Local"
+      direccion: ""
+      telefono: ""
+      cuit: ""
+      mensaje-bienvenida: "¡Gracias por su visita!"
