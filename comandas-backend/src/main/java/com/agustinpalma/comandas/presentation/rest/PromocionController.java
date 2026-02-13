@@ -5,6 +5,7 @@ import com.agustinpalma.comandas.application.dto.CrearPromocionCommand;
 import com.agustinpalma.comandas.application.dto.EditarPromocionCommand;
 import com.agustinpalma.comandas.application.dto.PromocionResponse;
 import com.agustinpalma.comandas.application.usecase.*;
+import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPromocion;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PromocionId;
@@ -32,6 +33,7 @@ import java.util.UUID;
 @RequestMapping("/api/promociones")
 public class PromocionController {
 
+    private final LocalContextProvider localContextProvider;
     private final CrearPromocionUseCase crearPromocionUseCase;
     private final ConsultarPromocionesUseCase consultarPromocionesUseCase;
     private final ConsultarPromocionUseCase consultarPromocionUseCase;
@@ -40,6 +42,7 @@ public class PromocionController {
     private final AsociarProductoAPromocionUseCase asociarProductoAPromocionUseCase;
 
     public PromocionController(
+            LocalContextProvider localContextProvider,
             CrearPromocionUseCase crearPromocionUseCase,
             ConsultarPromocionesUseCase consultarPromocionesUseCase,
             ConsultarPromocionUseCase consultarPromocionUseCase,
@@ -47,6 +50,7 @@ public class PromocionController {
             EliminarPromocionUseCase eliminarPromocionUseCase,
             AsociarProductoAPromocionUseCase asociarProductoAPromocionUseCase
     ) {
+        this.localContextProvider = localContextProvider;
         this.crearPromocionUseCase = crearPromocionUseCase;
         this.consultarPromocionesUseCase = consultarPromocionesUseCase;
         this.consultarPromocionUseCase = consultarPromocionUseCase;
@@ -67,15 +71,14 @@ public class PromocionController {
     public ResponseEntity<List<PromocionResponse>> listarPromociones(
             @RequestParam(required = false) String estado
     ) {
-        // TODO: Reemplazar por localId del contexto de autenticación cuando se implemente JWT
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
         
         List<PromocionResponse> promociones;
         if (estado != null) {
             EstadoPromocion estadoEnum = EstadoPromocion.valueOf(estado);
-            promociones = consultarPromocionesUseCase.ejecutarPorEstado(localIdSimulado, estadoEnum);
+            promociones = consultarPromocionesUseCase.ejecutarPorEstado(localId, estadoEnum);
         } else {
-            promociones = consultarPromocionesUseCase.ejecutar(localIdSimulado);
+            promociones = consultarPromocionesUseCase.ejecutar(localId);
         }
         
         return ResponseEntity.ok(promociones);
@@ -88,11 +91,10 @@ public class PromocionController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<PromocionResponse> obtenerPromocion(@PathVariable String id) {
-        // TODO: Reemplazar por localId del contexto de autenticación cuando se implemente JWT
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
         PromocionId promocionId = new PromocionId(UUID.fromString(id));
         
-        PromocionResponse response = consultarPromocionUseCase.ejecutar(localIdSimulado, promocionId);
+        PromocionResponse response = consultarPromocionUseCase.ejecutar(localId, promocionId);
         return ResponseEntity.ok(response);
     }
 
@@ -107,9 +109,8 @@ public class PromocionController {
      */
     @PostMapping
     public ResponseEntity<PromocionResponse> crearPromocion(@Valid @RequestBody CrearPromocionCommand command) {
-        // TODO: Reemplazar por localId del contexto de autenticación cuando se implemente JWT
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
-        PromocionResponse response = crearPromocionUseCase.ejecutar(localIdSimulado, command);
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        PromocionResponse response = crearPromocionUseCase.ejecutar(localId, command);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -127,11 +128,10 @@ public class PromocionController {
             @Valid @RequestBody EditarPromocionCommand command
     ) {
                 
-        // TODO: Reemplazar por localId del contexto de autenticación cuando se implemente JWT
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
         PromocionId promocionId = new PromocionId(UUID.fromString(id));
         
-        PromocionResponse response = editarPromocionUseCase.ejecutar(localIdSimulado, promocionId, command);
+        PromocionResponse response = editarPromocionUseCase.ejecutar(localId, promocionId, command);
         return ResponseEntity.ok(response);
     }
 
@@ -145,11 +145,10 @@ public class PromocionController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarPromocion(@PathVariable String id) {
-        // TODO: Reemplazar por localId del contexto de autenticación cuando se implemente JWT        
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
         PromocionId promocionId = new PromocionId(UUID.fromString(id));
         
-        eliminarPromocionUseCase.ejecutar(localIdSimulado, promocionId);
+        eliminarPromocionUseCase.ejecutar(localId, promocionId);
         return ResponseEntity.noContent().build();
     }
 
@@ -179,12 +178,11 @@ public class PromocionController {
             @PathVariable String id,
             @Valid @RequestBody AsociarScopeCommand command
     ) {
-        // TODO: Reemplazar por localId del contexto de autenticación cuando se implemente JWT
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
         PromocionId promocionId = new PromocionId(UUID.fromString(id));
 
         PromocionResponse response = asociarProductoAPromocionUseCase.ejecutar(
-                localIdSimulado,
+                localId,
                 promocionId,
                 command
         );

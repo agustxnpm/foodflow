@@ -13,6 +13,7 @@ import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCa
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
+import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * Controller REST para operaciones sobre mesas.
@@ -31,6 +31,7 @@ import java.util.UUID;
 @RequestMapping("/api/mesas")
 public class MesaController {
 
+    private final LocalContextProvider localContextProvider;
     private final ConsultarMesasUseCase consultarMesasUseCase;
     private final AbrirMesaUseCase abrirMesaUseCase;
     private final CerrarMesaUseCase cerrarMesaUseCase;
@@ -39,6 +40,7 @@ public class MesaController {
     private final ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase;
 
     public MesaController(
+        LocalContextProvider localContextProvider,
         ConsultarMesasUseCase consultarMesasUseCase,
         AbrirMesaUseCase abrirMesaUseCase,
         CerrarMesaUseCase cerrarMesaUseCase,
@@ -46,6 +48,7 @@ public class MesaController {
         EliminarMesaUseCase eliminarMesaUseCase,
         ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase
     ) {
+        this.localContextProvider = localContextProvider;
         this.consultarMesasUseCase = consultarMesasUseCase;
         this.abrirMesaUseCase = abrirMesaUseCase;
         this.cerrarMesaUseCase = cerrarMesaUseCase;
@@ -66,11 +69,9 @@ public class MesaController {
      */
     @GetMapping
     public ResponseEntity<List<MesaResponse>> listarMesas() {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        // Ejemplo futuro: LocalId localId = securityContext.getAuthenticatedUser().getLocalId();
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
 
-        List<MesaResponse> mesas = consultarMesasUseCase.ejecutar(localIdSimulado);
+        List<MesaResponse> mesas = consultarMesasUseCase.ejecutar(localId);
 
         return ResponseEntity.ok(mesas);
     }
@@ -88,11 +89,10 @@ public class MesaController {
      */
     @PostMapping("/{mesaId}/abrir")
     public ResponseEntity<AbrirMesaResponse> abrirMesa(@PathVariable String mesaId) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
 
         AbrirMesaRequest request = new AbrirMesaRequest(mesaId);
-        AbrirMesaResponse response = abrirMesaUseCase.ejecutar(localIdSimulado, request);
+        AbrirMesaResponse response = abrirMesaUseCase.ejecutar(localId, request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -115,10 +115,9 @@ public class MesaController {
      */
     @PostMapping
     public ResponseEntity<MesaResponse> crearMesa(@RequestBody CrearMesaRequest request) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
 
-        MesaResponse response = crearMesaUseCase.ejecutar(localIdSimulado, request.numero());
+        MesaResponse response = crearMesaUseCase.ejecutar(localId, request.numero());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -141,11 +140,10 @@ public class MesaController {
      */
     @DeleteMapping("/{mesaId}")
     public ResponseEntity<Void> eliminarMesa(@PathVariable String mesaId) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
 
         MesaId id = MesaId.from(mesaId);
-        eliminarMesaUseCase.ejecutar(localIdSimulado, id);
+        eliminarMesaUseCase.ejecutar(localId, id);
 
         return ResponseEntity.noContent().build();
     }
@@ -168,11 +166,10 @@ public class MesaController {
      */
     @GetMapping("/{mesaId}/pedido-actual")
     public ResponseEntity<DetallePedidoResponse> consultarPedidoActual(@PathVariable String mesaId) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
 
         MesaId id = MesaId.from(mesaId);
-        DetallePedidoResponse detalle = consultarDetallePedidoUseCase.ejecutar(localIdSimulado, id);
+        DetallePedidoResponse detalle = consultarDetallePedidoUseCase.ejecutar(localId, id);
 
         return ResponseEntity.ok(detalle);
     }
@@ -206,11 +203,10 @@ public class MesaController {
             @PathVariable String mesaId,
             @RequestBody CerrarMesaRequest request
     ) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
 
         MesaId id = MesaId.from(mesaId);
-        CerrarMesaResponse response = cerrarMesaUseCase.ejecutar(localIdSimulado, id, request.pagos());
+        CerrarMesaResponse response = cerrarMesaUseCase.ejecutar(localId, id, request.pagos());
 
         return ResponseEntity.ok(response);
     }

@@ -6,6 +6,7 @@ import com.agustinpalma.comandas.application.usecase.ConsultarProductosUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
+import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
 import jakarta.validation.Valid;
@@ -31,17 +32,20 @@ import java.util.UUID;
 @RequestMapping("/api/productos")
 public class ProductoController {
 
+    private final LocalContextProvider localContextProvider;
     private final ConsultarProductosUseCase consultarProductosUseCase;
     private final CrearProductoUseCase crearProductoUseCase;
     private final EditarProductoUseCase editarProductoUseCase;
     private final EliminarProductoUseCase eliminarProductoUseCase;
 
     public ProductoController(
+        LocalContextProvider localContextProvider,
         ConsultarProductosUseCase consultarProductosUseCase,
         CrearProductoUseCase crearProductoUseCase,
         EditarProductoUseCase editarProductoUseCase,
         EliminarProductoUseCase eliminarProductoUseCase
     ) {
+        this.localContextProvider = localContextProvider;
         this.consultarProductosUseCase = consultarProductosUseCase;
         this.crearProductoUseCase = crearProductoUseCase;
         this.editarProductoUseCase = editarProductoUseCase;
@@ -65,11 +69,9 @@ public class ProductoController {
     public ResponseEntity<List<ProductoResponse>> listarProductos(
         @RequestParam(required = false) String color
     ) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        // Ejemplo futuro: LocalId localId = securityContext.getAuthenticatedUser().getLocalId();
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
 
-        List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localIdSimulado, color);
+        List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localId, color);
 
         return ResponseEntity.ok(productos);
     }
@@ -88,10 +90,9 @@ public class ProductoController {
      */
     @PostMapping
     public ResponseEntity<ProductoResponse> crearProducto(@Valid @RequestBody ProductoRequest request) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
 
-        ProductoResponse producto = crearProductoUseCase.ejecutar(localIdSimulado, request);
+        ProductoResponse producto = crearProductoUseCase.ejecutar(localId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(producto);
     }
 
@@ -113,11 +114,10 @@ public class ProductoController {
         @PathVariable UUID id,
         @Valid @RequestBody ProductoRequest request
     ) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
         ProductoId productoId = new ProductoId(id);
 
-        ProductoResponse producto = editarProductoUseCase.ejecutar(productoId, localIdSimulado, request);
+        ProductoResponse producto = editarProductoUseCase.ejecutar(productoId, localId, request);
         return ResponseEntity.ok(producto);
     }
 
@@ -137,11 +137,10 @@ public class ProductoController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarProducto(@PathVariable UUID id) {
-        // TODO: Reemplazar por extracción del localId desde el contexto de seguridad
-        LocalId localIdSimulado = new LocalId(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        LocalId localId = localContextProvider.getCurrentLocalId();
         ProductoId productoId = new ProductoId(id);
 
-        eliminarProductoUseCase.ejecutar(productoId, localIdSimulado);
+        eliminarProductoUseCase.ejecutar(productoId, localId);
         return ResponseEntity.noContent().build();
     }
 }

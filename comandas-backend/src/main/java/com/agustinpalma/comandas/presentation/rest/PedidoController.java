@@ -5,6 +5,7 @@ import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCase;
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
+import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainIds.ItemPedidoId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
@@ -30,17 +31,20 @@ import java.util.UUID;
 @RequestMapping("/api/pedidos")
 public class PedidoController {
 
+    private final LocalContextProvider localContextProvider;
     private final AgregarProductoUseCase agregarProductoUseCase;
     private final AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase;
     private final GestionarItemsPedidoUseCase gestionarItemsPedidoUseCase;
     private final ReabrirPedidoUseCase reabrirPedidoUseCase;
 
     public PedidoController(
+            LocalContextProvider localContextProvider,
             AgregarProductoUseCase agregarProductoUseCase,
             AplicarDescuentoManualUseCase aplicarDescuentoManualUseCase,
             GestionarItemsPedidoUseCase gestionarItemsPedidoUseCase,
             ReabrirPedidoUseCase reabrirPedidoUseCase
     ) {
+        this.localContextProvider = localContextProvider;
         this.agregarProductoUseCase = agregarProductoUseCase;
         this.aplicarDescuentoManualUseCase = aplicarDescuentoManualUseCase;
         this.gestionarItemsPedidoUseCase = gestionarItemsPedidoUseCase;
@@ -269,11 +273,12 @@ public class PedidoController {
      */
     @PostMapping("/{pedidoId}/reapertura")
     public ResponseEntity<ReabrirPedidoResponse> reabrirPedido(
-            @PathVariable UUID pedidoId,
-            @RequestParam UUID localId
+            @PathVariable UUID pedidoId
     ) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+
         ReabrirPedidoResponse response = reabrirPedidoUseCase.ejecutar(
-            new LocalId(localId),
+            localId,
             new PedidoId(pedidoId)
         );
 
