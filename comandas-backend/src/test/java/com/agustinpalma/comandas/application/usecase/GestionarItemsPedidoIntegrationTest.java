@@ -22,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -79,6 +80,9 @@ class GestionarItemsPedidoIntegrationTest {
 
     @Autowired
     private MesaRepository mesaRepository;
+
+    @Autowired
+    private Clock clock;
 
     // Datos base del test
     private LocalId localId;
@@ -738,14 +742,12 @@ class GestionarItemsPedidoIntegrationTest {
         return producto;
     }
 
-    // Fecha de referencia alineada con el clock fijo de test (2026-02-06)
-    private static final LocalDate FECHA_TEST = LocalDate.of(2026, 2, 6);
-
     private Promocion crearPromocionNxM(String nombre, int llevas, int pagas, UUID productoId, int prioridad) {
         EstrategiaPromocion estrategia = new CantidadFija(llevas, pagas);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
 
         Promocion promo = new Promocion(
@@ -763,9 +765,10 @@ class GestionarItemsPedidoIntegrationTest {
             BigDecimal porcentajeBeneficio, int cantidadMinimaTrigger, int prioridad
     ) {
         EstrategiaPromocion estrategia = new ComboCondicional(cantidadMinimaTrigger, porcentajeBeneficio);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
 
         Promocion promo = new Promocion(
@@ -787,9 +790,10 @@ class GestionarItemsPedidoIntegrationTest {
             int prioridad
     ) {
         EstrategiaPromocion estrategia = new PrecioFijoPorCantidad(cantidadActivacion, precioPaquete);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
 
         Promocion promo = new Promocion(

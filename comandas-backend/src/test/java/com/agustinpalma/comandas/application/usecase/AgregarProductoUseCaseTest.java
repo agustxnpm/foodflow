@@ -66,9 +66,9 @@ class AgregarProductoUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        // Clock fijo para tests deterministas: 6 feb 2026, 19:00 (Jueves)
+        // Clock fijo para tests deterministas: 12 feb 2026, 19:00 (Jueves)
         clock = Clock.fixed(
-            LocalDateTime.of(2026, 2, 6, 19, 0).atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant(),
+            LocalDateTime.of(2026, 2, 12, 19, 0).atZone(ZoneId.of("America/Argentina/Buenos_Aires")).toInstant(),
             ZoneId.of("America/Argentina/Buenos_Aires")
         );
         
@@ -546,7 +546,7 @@ class AgregarProductoUseCaseTest {
     // =================================================
 
     // Fecha de referencia alineada con el clock fijo de test (2026-02-06)
-    private static final LocalDate FECHA_TEST = LocalDate.of(2026, 2, 6);
+    private static final LocalDate FECHA_TEST = LocalDate.of(2026, 2, 12);
 
     private Promocion crearPromocionDescuento(
             String nombre,

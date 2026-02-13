@@ -75,6 +75,9 @@ class PromocionesIntegrationTest {
     @Autowired
     private MesaRepository mesaRepository;
 
+    @Autowired
+    private java.time.Clock clock;
+
     // Datos base del test
     private LocalId localId;
     private Mesa mesa;
@@ -537,7 +540,7 @@ class PromocionesIntegrationTest {
 
             // Then: Solo aplica si hoy es jueves
             var item = response.items().get(0);
-            DayOfWeek hoy = LocalDate.now().getDayOfWeek();
+            DayOfWeek hoy = LocalDate.now(clock).getDayOfWeek();
             
             if (hoy == DayOfWeek.THURSDAY) {
                 assertThat(item.descuentoTotal()).isEqualByComparingTo("625.00"); // 25% de 2500
@@ -612,8 +615,8 @@ class PromocionesIntegrationTest {
 
             // Then: Solo aplica si es Jueves Y está entre 18-20hs
             var item = response.items().get(0);
-            DayOfWeek hoy = LocalDate.now().getDayOfWeek();
-            LocalTime ahora = LocalTime.now();
+            DayOfWeek hoy = LocalDate.now(clock).getDayOfWeek();
+            LocalTime ahora = LocalTime.now(clock);
             boolean estaEnHorario = ahora.isAfter(LocalTime.of(18, 0)) && ahora.isBefore(LocalTime.of(20, 0));
 
             if (hoy == DayOfWeek.THURSDAY && estaEnHorario) {
@@ -966,14 +969,12 @@ class PromocionesIntegrationTest {
         return producto;
     }
 
-    // Fecha de referencia alineada con el clock fijo de test (2026-02-06)
-    private static final LocalDate FECHA_TEST = LocalDate.of(2026, 2, 6);
-
     private Promocion crearPromocionNxM(String nombre, int llevas, int pagas, UUID productoId, int prioridad) {
         EstrategiaPromocion estrategia = new CantidadFija(llevas, pagas);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
 
         Promocion promo = new Promocion(
@@ -994,9 +995,10 @@ class PromocionesIntegrationTest {
 
     private Promocion crearPromocionDescuento(String nombre, UUID productoId, BigDecimal porcentaje, int prioridad) {
         EstrategiaPromocion estrategia = new DescuentoDirecto(ModoDescuento.PORCENTAJE, porcentaje);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
 
         Promocion promo = new Promocion(
@@ -1024,9 +1026,10 @@ class PromocionesIntegrationTest {
             int prioridad
     ) {
         EstrategiaPromocion estrategia = new ComboCondicional(cantidadMinimaTrigger, porcentajeBeneficio);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
 
         Promocion promo = new Promocion(
@@ -1055,9 +1058,10 @@ class PromocionesIntegrationTest {
             int prioridad
     ) {
         EstrategiaPromocion estrategia = new DescuentoDirecto(ModoDescuento.PORCENTAJE, porcentaje);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = new CriterioTemporal(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30),
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30),
             null,
             horaInicio,
             horaFin
@@ -1087,9 +1091,10 @@ class PromocionesIntegrationTest {
             int prioridad
     ) {
         EstrategiaPromocion estrategia = new DescuentoDirecto(ModoDescuento.PORCENTAJE, porcentaje);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = new CriterioTemporal(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30),
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30),
             dias,
             null,
             null
@@ -1120,10 +1125,11 @@ class PromocionesIntegrationTest {
     ) {
         EstrategiaPromocion estrategia = new DescuentoDirecto(ModoDescuento.PORCENTAJE, porcentaje);
         
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         // Trigger temporal
         CriterioActivacion triggerTemporal = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
         
         // Trigger de monto mínimo
@@ -1155,9 +1161,10 @@ class PromocionesIntegrationTest {
             int prioridad
     ) {
         EstrategiaPromocion estrategia = new DescuentoDirecto(ModoDescuento.PORCENTAJE, porcentaje);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = new CriterioTemporal(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30),
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30),
             dias,
             horaInicio,
             horaFin
@@ -1187,9 +1194,10 @@ class PromocionesIntegrationTest {
             int prioridad
     ) {
         EstrategiaPromocion estrategia = new PrecioFijoPorCantidad(cantidadActivacion, precioPaquete);
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
 
         Promocion promo = new Promocion(

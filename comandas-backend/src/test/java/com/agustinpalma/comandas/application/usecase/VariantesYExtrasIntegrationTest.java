@@ -10,16 +10,19 @@ import com.agustinpalma.comandas.domain.model.EstrategiaPromocion.CantidadFija;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import com.agustinpalma.comandas.domain.repository.PromocionRepository;
+import com.agustinpalma.comandas.infrastructure.config.TestClockConfig;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -39,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@Import(TestClockConfig.class)
 @DisplayName("Variantes y Extras - Test de Integración E2E")
 class VariantesYExtrasIntegrationTest {
 
@@ -57,8 +61,8 @@ class VariantesYExtrasIntegrationTest {
     @Autowired
     private EntityManager entityManager;
 
-    // Fecha fija para tests deterministas: 6 feb 2026, Jueves
-    private static final LocalDate FECHA_TEST = LocalDate.of(2026, 2, 6);
+    @Autowired
+    private Clock clock;
 
     // IDs compartidos por toda la familia de hamburguesas
     private LocalId localId;
@@ -382,14 +386,15 @@ class VariantesYExtrasIntegrationTest {
 
     /**
      * Crea y retorna una promoción 2x1 para Hamburguesa Doble.
-     * Vigente en FECHA_TEST, con prioridad alta.
+     * Vigente en la fecha del TestClockConfig, con prioridad alta.
      */
     private Promocion crearPromocion2x1ParaDoble() {
         EstrategiaPromocion estrategia = new CantidadFija(2, 1);
 
+        LocalDate fechaTest = LocalDate.ofInstant(clock.instant(), clock.getZone());
         CriterioActivacion trigger = CriterioTemporal.soloFechas(
-            FECHA_TEST.minusDays(1),
-            FECHA_TEST.plusDays(30)
+            fechaTest.minusDays(1),
+            fechaTest.plusDays(30)
         );
 
         Promocion promo = new Promocion(

@@ -5,11 +5,13 @@ import com.agustinpalma.comandas.domain.model.DomainIds.*;
 import com.agustinpalma.comandas.domain.model.DomainEnums.*;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
+import com.agustinpalma.comandas.infrastructure.config.TestClockConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +35,7 @@ import static org.assertj.core.api.Assertions.*;
  */
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestClockConfig.class)
 @Transactional
 @DisplayName("HU-07: Mantener pedido abierto - Test de Integración")
 class PedidoRepositoryIntegrationTest {

@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.infrastructure.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.time.Clock;
 import java.time.ZoneId;
@@ -18,6 +19,7 @@ import java.time.ZoneId;
  * En tests, este bean puede ser sobrescrito con Clock.fixed() para determinismo.
  */
 @Configuration
+@Profile("!test")
 public class ClockConfig {
 
     /**

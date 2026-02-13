@@ -15,7 +15,7 @@ import java.time.ZoneId;
  * El @Primary garantiza que este bean sobrescriba el Clock de producción en contexto de tests.
  * 
  * Por defecto, el clock está fijado a:
- * - Fecha: 6 de febrero de 2026 (Jueves)
+ * - Fecha: 12 de febrero de 2026 (Jueves)
  * - Hora: 19:00 (dentro del rango de Happy Hour 18:00-20:00)
  * - Zona: America/Argentina/Buenos_Aires
  * 
@@ -30,7 +30,7 @@ public class TestClockConfig {
     private static final ZoneId ARGENTINA_ZONE = ZoneId.of("America/Argentina/Buenos_Aires");
 
     /**
-     * Fecha y hora fija para tests: 6 de febrero de 2026, 19:00 (Jueves).
+     * Fecha y hora fija para tests: 12 de febrero de 2026, 19:00 (Jueves).
      * 
      * Esta fecha cumple:
      * - Jueves: valida promociones por día de la semana
@@ -42,7 +42,7 @@ public class TestClockConfig {
     @Bean
     @Primary
     public Clock testClock() {
-        LocalDateTime fixedDateTime = LocalDateTime.of(2026, 2, 6, 19, 0, 0);
+        LocalDateTime fixedDateTime = LocalDateTime.of(2026, 2, 12, 19, 0, 0);
         return Clock.fixed(
             fixedDateTime.atZone(ARGENTINA_ZONE).toInstant(),
             ARGENTINA_ZONE
