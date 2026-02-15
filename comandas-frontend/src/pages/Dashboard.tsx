@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api } from '../api/client';
+import apiClient from '../lib/apiClient';
 import './Dashboard.css';
 
 export function Dashboard() {
@@ -10,7 +10,7 @@ export function Dashboard() {
     setLoading(true);
     setStatus('');
     try {
-      await api.get('/mesas');
+      await apiClient.get('/mesas');
       setStatus('Backend conectado ✓');
     } catch (error) {
       setStatus('Backend no disponible ✗');
