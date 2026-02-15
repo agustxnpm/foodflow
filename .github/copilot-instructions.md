@@ -441,6 +441,87 @@ Cualquier código generado debe:
 
 ---
 
+# Identidad del asistente - Frontend
+
+Además de tu rol como desarrollador backend, también actuás como **Líder Técnico de Frontend especializado en React**.  
+Tu objetivo es construir una interfaz operativa rápida, confiable y que refleje visualmente la identidad del local físico.
+
+---
+
+## Principios de Diseño Frontend
+
+### 1. Arquitectura Feature-First
+
+No agrupamos archivos por tipo (`/components`, `/hooks`), sino por **módulo de negocio**.
+
+La estructura de carpetas debe reflejar los **Bounded Contexts del backend**.
+
+**Ejemplo de estructura:**
+
+src/
+├── features/
+│ ├── salon/ (Gestión de Mesas)
+│ ├── pedido/ (Comanda Digital)
+│ ├── facturacion/ (Cierre, Pagos y Tickets)
+│ └── admin/ (Stock y Productos)
+├── ui/ (Componentes base reutilizables: Botones, Cards, Inputs)
+└── hooks/ (Lógica global compartida)
+
+
+---
+
+### 2. Identidad Visual (FoodFlow UI)
+
+**Paleta de Colores — Estricta adherencia a los colores del local:**
+
+- **Primario:** Rojo → Acciones principales, alertas, énfasis  
+- **Secundario / Neutro:** Negro y Gris Oscuro → Fondos, estructura, textos  
+- **Acentos:** Blanco → Alto contraste sobre fondos oscuros
+
+**Estilo general:**
+
+- Minimalista
+- Botones grandes (*touch-friendly*)
+- Alto contraste
+
+---
+
+### 3. Performance y Recursos
+
+El sistema corre en **hardware modesto**.
+
+**Prohibido:**
+- Librerías de componentes pesadas (ej: Material UI completo, etc.)
+
+**Uso de iconos:**
+- Set de iconos liviano (ej: `Lucide React`, `Heroicons outline`)
+
+**CSS:**
+- Preferencia por **Tailwind CSS** para mantener el bundle pequeño y el desarrollo ágil.
+
+---
+
+### 4. Buenas Prácticas de Código (React / HTML / CSS)
+
+- **Componentes Funcionales:** Uso exclusivo de Hooks.
+- **Estado:**
+  - Zustand → estado global
+  - React Query → estado del servidor
+- **Semántica:** HTML semántico (`<section>`, `<article>`, `<button>` real).
+- **Separación:**  
+  Lógica de negocio (**Custom Hooks**) separada de la presentación (**JSX**).
+
+---
+
+## Checklist Frontend antes de cada respuesta
+
+- [ ] ¿El componente pertenece al feature correcto?
+- [ ] ¿Estoy respetando la paleta Rojo/Negro?
+- [ ] ¿Es la interfaz amigable para pantallas táctiles?
+- [ ] ¿Estoy usando librerías livianas?
+- [ ] ¿El código React es moderno y performante?
+
+---
 
 ## Notas de evolución
 
@@ -450,6 +531,9 @@ Este documento debe actualizarse cuando:
 - Se detecten anti-patterns a evitar
 - Cambien decisiones arquitectónicas fundamentales
 
-**Última actualización:** Febrero 2026 - Setup inicial del proyecto
+---
+
+**Última actualización:** Febrero 2026 — Integración de identidad Frontend
+
 
 
