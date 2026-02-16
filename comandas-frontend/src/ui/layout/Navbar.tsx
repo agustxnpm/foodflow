@@ -1,8 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Home, Users, ShoppingCart, DollarSign, Package, Tag } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+interface NavItem {
+  to: string;
+  icon: LucideIcon;
+  label: string;
+}
 
 export default function Navbar() {
-  const navItems = [
+  const navItems: NavItem[] = [
     { to: '/', icon: Home, label: 'Inicio' },
     { to: '/salon', icon: Users, label: 'Salón' },
     { to: '/pedido', icon: ShoppingCart, label: 'Pedido' },

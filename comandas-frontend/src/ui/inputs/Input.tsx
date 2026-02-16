@@ -1,4 +1,11 @@
-export default function Input({ label, error, ...props }) {
+import type { InputHTMLAttributes } from 'react';
+
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+}
+
+export default function Input({ label, error, ...props }: InputProps) {
   return (
     <div className="flex flex-col gap-1">
       {label && <label className="text-sm text-text-secondary">{label}</label>}

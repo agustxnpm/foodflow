@@ -2,12 +2,30 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
+import { ToastContainer } from './ui'
+import useToast from './hooks/useToast'
 
 function App() {
   const [count, setCount] = useState(0)
+  const toast = useToast()
+
+  const handleClick = () => {
+    setCount((count) => count + 1)
+    
+    // Ejemplo de uso de toasts
+    if (count % 5 === 0) {
+      toast.success('¡Llegaste a un múltiplo de 5!')
+    } else if (count % 3 === 0) {
+      toast.warning('Cuidado, múltiplo de 3')
+    } else {
+      toast.info(`Contador: ${count + 1}`)
+    }
+  }
 
   return (
     <>
+      <ToastContainer />
+      
       <div>
         <a href="https://vite.dev" target="_blank">
           <img src={viteLogo} className="logo" alt="Vite logo" />
@@ -18,7 +36,7 @@ function App() {
       </div>
       <h1>Vite + React</h1>
       <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
+        <button onClick={handleClick}>
           count is {count}
         </button>
         <p>
