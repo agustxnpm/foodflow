@@ -8,6 +8,8 @@ import {
   Trash2,
   Minus,
   Plus,
+  ChefHat,
+  Loader2,
 } from 'lucide-react';
 import type { DetallePedidoResponse, ItemDetalle } from '../types';
 
@@ -57,6 +59,8 @@ interface TicketItemProps {
   item: ItemDetalle;
   onModificarCantidad: (itemId: string, nuevaCantidad: number) => void;
   onEliminar: (itemId: string) => void;
+  /** Si el ítem ya fue enviado a cocina */
+  enviadoACocina?: boolean;
 }
 
 /**
@@ -70,7 +74,7 @@ interface TicketItemProps {
  * - Controles +/- para modificar cantidad
  * - Botón eliminar
  */
-function TicketItem({ item, onModificarCantidad, onEliminar }: TicketItemProps) {
+function TicketItem({ item, onModificarCantidad, onEliminar, enviadoACocina = false }: TicketItemProps) {
   const hayDescuento = item.descuentoTotal > 0;
 
   return (
@@ -78,12 +82,30 @@ function TicketItem({ item, onModificarCantidad, onEliminar }: TicketItemProps) 
       <div className="flex items-start justify-between gap-2">
         {/* Info del ítem */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-200 font-medium leading-tight">
-            <span className="text-red-400 font-mono font-bold mr-1.5">
-              {item.cantidad}x
-            </span>
-            {item.nombreProducto}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className={[
+              'text-sm font-medium leading-tight',
+              enviadoACocina ? 'text-gray-400' : 'text-gray-200',
+            ].join(' ')}>
+              <span className={[
+                'font-mono font-bold mr-1.5',
+                enviadoACocina ? 'text-gray-500' : 'text-red-400',
+              ].join(' ')}>
+                {item.cantidad}x
+              </span>
+              {item.nombreProducto}
+            </p>
+            {/* Badge de estado cocina */}
+            {enviadoACocina ? (
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-neutral-800 text-gray-500 border border-neutral-700">
+                Enviado
+              </span>
+            ) : (
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-yellow-900/30 text-yellow-400 border border-yellow-700/40">
+                Nuevo
+              </span>
+            )}
+          </div>
 
           {item.observacion && (
             <p className="text-[11px] text-gray-500 mt-0.5 italic truncate">
@@ -192,6 +214,10 @@ interface TicketPedidoProps {
   onEliminarItem: (itemId: string) => void;
   onAplicarDescuento: () => void;
   onCerrarMesa: () => void;
+  onMandarCocina: () => void;
+  enviandoCocina: boolean;
+  /** IDs de ítems que ya fueron enviados a cocina */
+  itemsEnviadosIds: Set<string>;
 }
 
 /**
@@ -212,9 +238,15 @@ export default function TicketPedido({
   onEliminarItem,
   onAplicarDescuento,
   onCerrarMesa,
+  onMandarCocina,
+  enviandoCocina,
+  itemsEnviadosIds,
 }: TicketPedidoProps) {
   const hayItems = pedido && pedido.items.length > 0;
   const hayDescuentos = pedido && pedido.totalDescuentos > 0;
+  const hayItemsNuevos = pedido
+    ? pedido.items.some((i) => !itemsEnviadosIds.has(i.id))
+    : false;
 
   const formatHora = (fecha: string) => {
     const d = new Date(fecha);
@@ -293,6 +325,7 @@ export default function TicketPedido({
                 item={item}
                 onModificarCantidad={onModificarCantidad}
                 onEliminar={onEliminarItem}
+                enviadoACocina={itemsEnviadosIds.has(item.id)}
               />
             ))}
 
@@ -334,6 +367,35 @@ export default function TicketPedido({
 
       {/* ── Botonera de acciones ── */}
       <div className="px-4 py-3 border-t border-neutral-800 shrink-0 space-y-2">
+        {/* Botón Mandar a Cocina */}
+        <button
+          type="button"
+          onClick={onMandarCocina}
+          disabled={!hayItemsNuevos || enviandoCocina}
+          className="
+            w-full flex items-center justify-center gap-2
+            h-11 rounded-xl
+            text-sm font-semibold
+            bg-orange-900/30 text-orange-300
+            border border-orange-700/40
+            hover:bg-orange-900/50 hover:text-orange-200
+            disabled:opacity-40 disabled:cursor-not-allowed
+            transition-colors active:scale-[0.98]
+          "
+        >
+          {enviandoCocina ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Enviando…</span>
+            </>
+          ) : (
+            <>
+              <ChefHat size={16} />
+              <span>Mandar a Cocina</span>
+            </>
+          )}
+        </button>
+
         <button
           type="button"
           onClick={onAplicarDescuento}

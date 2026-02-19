@@ -85,6 +85,22 @@ export interface ItemDescuento {
   precioFinal: number;
 }
 
+// ─── Ajustes económicos ───────────────────────────────────────────────────────
+
+/**
+ * Ajuste económico materializado por el dominio.
+ * Representa un descuento concreto (promoción o manual) con su narrativa.
+ *
+ * El Pedido (Aggregate Root) genera estos ajustes explícitamente,
+ * eliminando cualquier inferencia algebraica (subtotal - total).
+ */
+export interface AjusteEconomico {
+  tipo: 'PROMOCION' | 'MANUAL';
+  ambito: 'ITEM' | 'TOTAL';
+  descripcion: string;
+  monto: number;
+}
+
 // ─── Requests ─────────────────────────────────────────────────────────────────
 
 /**
@@ -163,10 +179,12 @@ export interface DetallePedidoResponse {
   items: ItemDetalle[];
   /** Total sin descuentos */
   subtotal: number;
-  /** Suma de descuentos de todos los ítems */
+  /** Suma de descuentos explícitos (materializados por el dominio) */
   totalDescuentos: number;
   /** Lo que paga el cliente (subtotal - totalDescuentos) */
   totalParcial: number;
+  /** Narrativa económica: cada ajuste explica un descuento concreto */
+  ajustesEconomicos: AjusteEconomico[];
 }
 
 /**

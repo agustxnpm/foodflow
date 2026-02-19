@@ -62,11 +62,15 @@ export interface ItemTicket {
   importe: number;
 }
 
-/** Desglose de una promoción aplicada en el ticket */
-export interface DesglosePromocion {
-  nombrePromocion: string;
-  /** Monto ahorrado por la promo */
-  ahorro: number;
+/**
+ * Desglose de un ajuste económico individual en el ticket.
+ * Reemplaza DesglosePromocion con soporte para cualquier tipo de descuento.
+ */
+export interface DesgloseAjuste {
+  tipo: 'PROMOCION' | 'MANUAL';
+  descripcion: string;
+  /** Monto del ajuste */
+  monto: number;
 }
 
 /** Totales del ticket con desglose de descuentos */
@@ -75,7 +79,7 @@ export interface TotalesTicket {
   montoDescuentoPromos: number;
   montoDescuentoManual: number;
   totalFinal: number;
-  desglosePromociones: DesglosePromocion[];
+  desgloseAjustes: DesgloseAjuste[];
 }
 
 /** Footer del ticket */

@@ -1,9 +1,11 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import ListaCategorias from '../components/ListaCategorias';
 import GrillaProductos from '../components/GrillaProductos';
 import TicketPedido from '../components/TicketPedido';
+import DescuentoManualModal from '../components/DescuentoManualModal';
+import CerrarMesaModal from '../components/CerrarMesaModal';
 import { useProductos } from '../../catalogo/hooks/useProductos';
-import { usePedidoMesa } from '../../salon/hooks/useMesas';
+import { usePedidoMesa, useObtenerComanda } from '../../salon/hooks/useMesas';
 import {
   useAgregarProducto,
   useModificarCantidad,
@@ -40,6 +42,10 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   // ── Estado local ──
   const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState('');
+  const [mostrarDescuento, setMostrarDescuento] = useState(false);
+  const [mostrarCierre, setMostrarCierre] = useState(false);
+  /** IDs de ítems ya enviados a cocina (tracking local por sesión) */
+  const [itemsEnviadosIds, setItemsEnviadosIds] = useState<Set<string>>(new Set());
 
   // ── Datos del backend ──
   const { data: productos = [], isLoading: cargandoProductos } =
@@ -52,6 +58,7 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   const agregarProducto = useAgregarProducto();
   const modificarCantidad = useModificarCantidad();
   const eliminarItem = useEliminarItem();
+  const obtenerComanda = useObtenerComanda();
 
   // ── Bloquear scroll del body mientras el modal está abierto ──
   useEffect(() => {
@@ -154,12 +161,48 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   );
 
   const handleAplicarDescuento = useCallback(() => {
-    toast.error('Descuentos manuales — próximamente');
-  }, [toast]);
+    if (!pedido?.pedidoId) return;
+    setMostrarDescuento(true);
+  }, [pedido]);
 
   const handleCerrarMesa = useCallback(() => {
-    toast.error('Cierre de mesa — próximamente');
-  }, [toast]);
+    if (!pedido?.pedidoId) return;
+    setMostrarCierre(true);
+  }, [pedido]);
+
+  /**
+   * Mandar a cocina: llama al endpoint de comanda y marca
+   * los ítems actuales como "enviados" en el estado local.
+   */
+  const handleMandarCocina = useCallback(() => {
+    if (!pedido?.pedidoId) return;
+
+    obtenerComanda.mutate(mesaId, {
+      onSuccess: () => {
+        // Marcar todos los ítems actuales como enviados
+        const idsActuales = new Set(pedido.items.map((i) => i.id));
+        setItemsEnviadosIds((prev) => new Set([...prev, ...idsActuales]));
+        toast.success('Comanda enviada a cocina');
+      },
+      onError: (error: any) => {
+        const msg =
+          error?.response?.data?.message || 'Error al enviar comanda';
+        toast.error(msg);
+      },
+    });
+  }, [pedido, mesaId, obtenerComanda, toast]);
+
+  /**
+   * Callback tras cierre exitoso de mesa:
+   * cierra todos los modales y vuelve al salón.
+   */
+  const handleCierreExitoso = useCallback(() => {
+    setMostrarCierre(false);
+    onCerrar();
+  }, [onCerrar]);
+
+  // ── Memo: Set de IDs enviados (estable para prop del TicketPedido) ──
+  const itemsEnviadosSet = useMemo(() => itemsEnviadosIds, [itemsEnviadosIds]);
 
   // ── Número de mesa para el header del ticket ──
   const numeroMesa = pedido?.numeroMesa ?? 0;
@@ -229,10 +272,31 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
               onEliminarItem={handleEliminarItem}
               onAplicarDescuento={handleAplicarDescuento}
               onCerrarMesa={handleCerrarMesa}
+              onMandarCocina={handleMandarCocina}
+              enviandoCocina={obtenerComanda.isPending}
+              itemsEnviadosIds={itemsEnviadosSet}
             />
           </aside>
         </section>
       </div>
+
+      {/* ── Modal: Descuento Manual ── */}
+      {mostrarDescuento && pedido && (
+        <DescuentoManualModal
+          pedido={pedido}
+          onClose={() => setMostrarDescuento(false)}
+        />
+      )}
+
+      {/* ── Modal: Cierre de Mesa y Pago ── */}
+      {mostrarCierre && pedido && (
+        <CerrarMesaModal
+          mesaId={mesaId}
+          pedido={pedido}
+          onClose={() => setMostrarCierre(false)}
+          onSuccess={handleCierreExitoso}
+        />
+      )}
     </>
   );
 }

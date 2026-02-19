@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mesasApi } from '../api/mesasApi';
-import type { CerrarMesaRequest, PagoRequest } from '../types';
+import type { CerrarMesaRequest, CerrarMesaResponse, PagoRequest } from '../types';
+import type { ComandaImpresionResponse, TicketImpresionResponse } from '../../pedido/types-impresion';
 
 /**
  * HU-02: Hook para listar todas las mesas del local
@@ -61,13 +62,14 @@ export function useAbrirMesa() {
 
 /**
  * HU-04 & HU-12: Hook para cerrar mesa y finalizar pedido
- * CRÍTICO: Invalida múltiples dominios (mesas, pedido, reporte-caja) para arqueo
+ * CRÍTICO: Invalida múltiples dominios (mesas, pedido, reporte-caja) para arqueo.
+ * Devuelve CerrarMesaResponse con snapshot contable congelado.
  */
 export function useCerrarMesa() {
   const queryClient = useQueryClient();
   
-  return useMutation({
-    mutationFn: ({ mesaId, pagos }: { mesaId: string; pagos: PagoRequest[] }) => {
+  return useMutation<CerrarMesaResponse, Error, { mesaId: string; pagos: PagoRequest[] }>({
+    mutationFn: async ({ mesaId, pagos }) => {
       const dto: CerrarMesaRequest = { pagos };
       return mesasApi.cerrar(mesaId, dto);
     },
@@ -101,25 +103,21 @@ export function useEliminarMesa() {
 }
 
 /**
- * Hook para obtener ticket de impresión
- * Se ejecuta manualmente (enabled: false)
+ * HU-29: Obtener ticket de venta para preview/impresión.
+ * Se invoca manualmente (mutation) para obtener datos estructurados.
  */
-export function useObtenerTicket(mesaId?: string) {
-  return useQuery({
-    queryKey: ['ticket', mesaId],
-    queryFn: () => mesasApi.obtenerTicket(mesaId!),
-    enabled: false,
+export function useObtenerTicket() {
+  return useMutation<TicketImpresionResponse, Error, string>({
+    mutationFn: (mesaId: string) => mesasApi.obtenerTicket(mesaId),
   });
 }
 
 /**
- * Hook para obtener comanda de cocina
- * Se ejecuta manualmente (enabled: false)
+ * HU-05: Obtener comanda operativa para cocina/barra.
+ * Se invoca manualmente (mutation) para enviar a cocina.
  */
-export function useObtenerComanda(mesaId?: string) {
-  return useQuery({
-    queryKey: ['comanda', mesaId],
-    queryFn: () => mesasApi.obtenerComanda(mesaId!),
-    enabled: false,
+export function useObtenerComanda() {
+  return useMutation<ComandaImpresionResponse, Error, string>({
+    mutationFn: (mesaId: string) => mesasApi.obtenerComanda(mesaId),
   });
 }

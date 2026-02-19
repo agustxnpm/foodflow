@@ -1,6 +1,7 @@
 import apiClient from '../../../lib/apiClient';
-import type { Mesa, CrearMesaRequest, CerrarMesaRequest } from '../types';
+import type { Mesa, CrearMesaRequest, CerrarMesaRequest, CerrarMesaResponse } from '../types';
 import type { DetallePedidoResponse } from '../../pedido/types';
+import type { ComandaImpresionResponse, TicketImpresionResponse } from '../../pedido/types-impresion';
 
 /**
  * Cliente API para operaciones sobre mesas
@@ -48,28 +49,28 @@ export const mesasApi = {
 
   /**
    * HU-04, HU-12: Cerrar mesa y finalizar pedido
+   * Devuelve snapshot contable congelado con pagos registrados.
    */
-  cerrar: async (mesaId: string, dto: CerrarMesaRequest): Promise<void> => {
-    await apiClient.post(`/mesas/${mesaId}/cierre`, dto);
-  },
-
-  /**
-   * Obtener ticket de la mesa (impresión)
-   */
-  obtenerTicket: async (mesaId: string): Promise<Blob> => {
-    const response = await apiClient.get(`/mesas/${mesaId}/ticket`, {
-      responseType: 'blob',
-    });
+  cerrar: async (mesaId: string, dto: CerrarMesaRequest): Promise<CerrarMesaResponse> => {
+    const response = await apiClient.post<CerrarMesaResponse>(`/mesas/${mesaId}/cierre`, dto);
     return response.data;
   },
 
   /**
-   * Obtener comanda de cocina
+   * HU-29: Obtener ticket de venta para el cliente
+   * Devuelve estructura tipada para renderizado en preview/impresión.
    */
-  obtenerComanda: async (mesaId: string): Promise<Blob> => {
-    const response = await apiClient.get(`/mesas/${mesaId}/comanda`, {
-      responseType: 'blob',
-    });
+  obtenerTicket: async (mesaId: string): Promise<TicketImpresionResponse> => {
+    const response = await apiClient.get<TicketImpresionResponse>(`/mesas/${mesaId}/ticket`);
+    return response.data;
+  },
+
+  /**
+   * HU-05: Obtener comanda operativa para cocina/barra
+   * Devuelve estructura tipada sin información financiera.
+   */
+  obtenerComanda: async (mesaId: string): Promise<ComandaImpresionResponse> => {
+    const response = await apiClient.get<ComandaImpresionResponse>(`/mesas/${mesaId}/comanda`);
     return response.data;
   },
 };
