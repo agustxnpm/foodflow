@@ -32,12 +32,21 @@ export default function MesaGrid({
   // Skeleton loading: muestra placeholders pulsantes mientras carga
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3 lg:gap-4">
+      <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-7 gap-3">
         {Array.from({ length: 14 }).map((_, i) => (
           <div
             key={i}
-            className="aspect-square rounded-2xl bg-neutral-800 border-2 border-neutral-700 animate-pulse"
-          />
+            className="
+              aspect-square rounded-xl
+              bg-neutral-900 border-2 border-neutral-800
+              animate-pulse
+              flex flex-col items-center justify-center gap-1.5
+            "
+          >
+            <div className="w-10 h-10 rounded-lg bg-neutral-800" />
+            <div className="w-12 h-3 rounded bg-neutral-800" />
+            <div className="w-10 h-3 rounded-full bg-neutral-800" />
+          </div>
         ))}
       </div>
     );
@@ -87,7 +96,7 @@ export default function MesaGrid({
   }
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3 lg:gap-4">
+    <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-7 gap-3">
       {mesas.map((mesa) => (
         <MesaCard
           key={mesa.id}

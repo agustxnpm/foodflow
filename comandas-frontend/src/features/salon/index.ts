@@ -26,6 +26,8 @@ export {
   useObtenerTicket,
   useObtenerComanda,
 } from './hooks/useMesas';
+export { usePedidosMesasAbiertas } from './hooks/usePedidosMesasAbiertas';
+export type { ResumenMesaAbierta } from './hooks/usePedidosMesasAbiertas';
 
 // API
 export { mesasApi } from './api/mesasApi';
