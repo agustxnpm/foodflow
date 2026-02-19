@@ -1,7 +1,9 @@
 package com.agustinpalma.comandas.application.usecase;
 
+import com.agustinpalma.comandas.application.dto.AjusteEconomicoDTO;
 import com.agustinpalma.comandas.application.dto.DetallePedidoResponse;
 import com.agustinpalma.comandas.application.dto.ItemDetalleDTO;
+import com.agustinpalma.comandas.domain.model.AjusteEconomico;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoMesa;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
@@ -12,6 +14,7 @@ import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 
@@ -105,11 +108,24 @@ public class ConsultarDetallePedidoUseCase {
             .map(this::mapearItem)
             .toList();
 
-        // HU-10 - Calcular subtotal y descuentos totales
+        // Ajustes económicos explícitos desde el dominio — la narrativa del pedido.
+        // Cada ajuste describe un descuento concreto con su origen, razón y monto.
+        List<AjusteEconomico> ajustes = pedido.obtenerAjustesEconomicos();
+        List<AjusteEconomicoDTO> ajustesDTO = ajustes.stream()
+            .map(a -> new AjusteEconomicoDTO(
+                a.getTipo().name(),
+                a.getAmbito().name(),
+                a.getDescripcion(),
+                a.getMonto()
+            ))
+            .toList();
+
+        // Totales derivados de los ajustes explícitos — sin inferencia subtotal - total.
+        // totalDescuentos = suma de cada ajuste materializado por el dominio.
         var subtotal = pedido.calcularSubtotalItems();
-        var totalDescuentos = pedido.getItems().stream()
-            .map(ItemPedido::getMontoDescuento)
-            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        var totalDescuentos = ajustes.stream()
+            .map(AjusteEconomico::getMonto)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
         var totalParcial = subtotal.subtract(totalDescuentos);
 
         // AC3 - Construir respuesta con información de contexto
@@ -122,7 +138,8 @@ public class ConsultarDetallePedidoUseCase {
             itemsDTO,
             subtotal,
             totalDescuentos,
-            totalParcial
+            totalParcial,
+            ajustesDTO
         );
     }
 
@@ -139,17 +156,24 @@ public class ConsultarDetallePedidoUseCase {
      * @return DTO con la información del ítem
      */
     private ItemDetalleDTO mapearItem(ItemPedido item) {
+        // Descuentos explícitos del dominio: promo (snapshot) + manual (calculado desde VO).
+        // No se infiere por resta subtotal - precioFinal.
+        var subtotal = item.calcularSubtotalLinea();
+        var precioFinal = item.calcularPrecioFinal();
+        var descuentoTotal = item.getMontoDescuento()
+            .add(item.calcularMontoDescuentoManual());
+
         return new ItemDetalleDTO(
             item.getId().getValue().toString(),
             item.getNombreProducto(),
             item.getCantidad(),
             item.getPrecioUnitario(),
-            item.calcularSubtotal(),
-            item.getMontoDescuento(),
-            item.calcularPrecioFinal(),
+            subtotal,
+            descuentoTotal,
+            precioFinal,
             item.getObservacion(),
             item.getNombrePromocion(),
-            item.tienePromocion()
+            item.tienePromocion() || item.tieneDescuentoManual()
         );
     }
 }

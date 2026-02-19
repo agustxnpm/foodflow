@@ -45,22 +45,12 @@ public final class DomainEnums {
         INACTIVA
     }
 
-    public enum TipoDescuento {
-        PROMOCION,
-        MANUAL
-    }
-
     /**
      * Tipo de movimiento de caja.
      * Actualmente solo soporta EGRESO (salida de efectivo).
      */
     public enum TipoMovimiento {
         EGRESO
-    }
-
-    public enum AmbitoDescuento {
-        ITEM,
-        TOTAL
     }
 
     public enum TipoCriterio {

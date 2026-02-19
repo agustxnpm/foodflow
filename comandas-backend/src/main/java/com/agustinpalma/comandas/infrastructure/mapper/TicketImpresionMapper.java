@@ -1,12 +1,13 @@
 package com.agustinpalma.comandas.infrastructure.mapper;
 
+import com.agustinpalma.comandas.application.dto.AjusteEconomicoDTO;
 import com.agustinpalma.comandas.application.dto.ComandaImpresionResponse;
 import com.agustinpalma.comandas.application.dto.ComandaImpresionResponse.HeaderComanda;
 import com.agustinpalma.comandas.application.dto.ComandaImpresionResponse.ItemComanda;
 import com.agustinpalma.comandas.application.dto.DetallePedidoResponse;
 import com.agustinpalma.comandas.application.dto.ItemDetalleDTO;
 import com.agustinpalma.comandas.application.dto.TicketImpresionResponse;
-import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.DesglosePromocion;
+import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.DesgloseAjuste;
 import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.FooterTicket;
 import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.HeaderTicket;
 import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.ItemTicket;
@@ -16,8 +17,8 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -108,39 +109,52 @@ public class TicketImpresionMapper {
     }
 
     /**
-     * Calcula los totales del ticket separando descuentos por promoción y descuentos manuales.
+     * Construye los totales del ticket a partir de los ajustes económicos explícitos.
      *
-     * El desglose de promociones agrupa los ítems con promoción por nombre
-     * y suma el ahorro de cada una.
+     * No infiere descuentos. No resta valores. Solo agrupa y suma datos
+     * ya materializados por el dominio y transportados por el DTO.
      */
     private TotalesTicket calcularTotales(DetallePedidoResponse detalle) {
-        // Descuentos de promociones: ítems que tienen promoción aplicada
-        Map<String, BigDecimal> promosPorNombre = detalle.items().stream()
-                .filter(ItemDetalleDTO::tienePromocion)
-                .collect(Collectors.groupingBy(
-                        ItemDetalleDTO::nombrePromocion,
-                        Collectors.reducing(BigDecimal.ZERO, ItemDetalleDTO::descuentoTotal, BigDecimal::add)
-                ));
+        var ajustes = detalle.ajustesEconomicos();
 
-        BigDecimal montoDescuentoPromos = promosPorNombre.values().stream()
+        // Sumar montos por tipo — datos explícitos, sin inferencia
+        BigDecimal montoPromos = ajustes.stream()
+                .filter(a -> "PROMOCION".equals(a.tipo()))
+                .map(AjusteEconomicoDTO::monto)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Descuentos manuales: diferencia entre total descuentos y descuentos por promo
-        BigDecimal montoDescuentoManual = detalle.totalDescuentos().subtract(montoDescuentoPromos);
-        if (montoDescuentoManual.compareTo(BigDecimal.ZERO) < 0) {
-            montoDescuentoManual = BigDecimal.ZERO;
-        }
+        BigDecimal montoManual = ajustes.stream()
+                .filter(a -> "MANUAL".equals(a.tipo()))
+                .map(AjusteEconomicoDTO::monto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        List<DesglosePromocion> desglose = promosPorNombre.entrySet().stream()
-                .map(entry -> new DesglosePromocion(entry.getKey(), entry.getValue()))
+        // Promos: agrupar por descripción (ej: "2x1 Cervezas" en 2 ítems → 1 línea)
+        List<DesgloseAjuste> desglosePromos = ajustes.stream()
+                .filter(a -> "PROMOCION".equals(a.tipo()))
+                .collect(Collectors.groupingBy(
+                        AjusteEconomicoDTO::descripcion,
+                        Collectors.reducing(BigDecimal.ZERO, AjusteEconomicoDTO::monto, BigDecimal::add)
+                ))
+                .entrySet().stream()
+                .map(e -> new DesgloseAjuste("PROMOCION", e.getKey(), e.getValue()))
                 .toList();
+
+        // Manuales: listar individualmente con razón
+        List<DesgloseAjuste> desgloseManuales = ajustes.stream()
+                .filter(a -> "MANUAL".equals(a.tipo()))
+                .map(a -> new DesgloseAjuste("MANUAL", a.descripcion(), a.monto()))
+                .toList();
+
+        // Combinar: promos primero, manuales después
+        var desgloseCompleto = new ArrayList<DesgloseAjuste>(desglosePromos);
+        desgloseCompleto.addAll(desgloseManuales);
 
         return new TotalesTicket(
                 detalle.subtotal(),
-                montoDescuentoPromos,
-                montoDescuentoManual,
+                montoPromos,
+                montoManual,
                 detalle.totalParcial(),
-                desglose
+                List.copyOf(desgloseCompleto)
         );
     }
 }

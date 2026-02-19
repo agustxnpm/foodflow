@@ -203,7 +203,7 @@ class AbrirMesaUseCaseTest {
         assertThat(pedidoGuardado.getMesaId()).isEqualTo(mesaId);
         assertThat(pedidoGuardado.getEstado()).isEqualTo(EstadoPedido.ABIERTO);
         assertThat(pedidoGuardado.getItems()).isEmpty();
-        assertThat(pedidoGuardado.getDescuentos()).isEmpty();
+        assertThat(pedidoGuardado.obtenerAjustesEconomicos()).isEmpty();
         assertThat(pedidoGuardado.getFechaApertura()).isNotNull();
     }
 

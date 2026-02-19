@@ -82,7 +82,7 @@ public record TicketImpresionResponse(
             BigDecimal montoDescuentoPromos,
             BigDecimal montoDescuentoManual,
             BigDecimal totalFinal,
-            List<DesglosePromocion> desglosePromociones
+            List<DesgloseAjuste> desgloseAjustes
     ) {
         public TotalesTicket {
             if (subtotal == null || subtotal.compareTo(BigDecimal.ZERO) < 0) {
@@ -97,22 +97,30 @@ public record TicketImpresionResponse(
             if (totalFinal == null || totalFinal.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalArgumentException("El total final no puede ser nulo ni negativo");
             }
-            if (desglosePromociones == null) {
-                throw new IllegalArgumentException("El desglose de promociones no puede ser nulo");
+            if (desgloseAjustes == null) {
+                throw new IllegalArgumentException("El desglose de ajustes no puede ser nulo");
             }
         }
     }
 
-    public record DesglosePromocion(
-            String nombrePromocion,
-            BigDecimal ahorro
+    /**
+     * Desglose de un ajuste económico individual en el ticket.
+     * Reemplaza el antiguo DesglosePromocion con soporte para cualquier tipo de descuento.
+     */
+    public record DesgloseAjuste(
+            String tipo,
+            String descripcion,
+            BigDecimal monto
     ) {
-        public DesglosePromocion {
-            if (nombrePromocion == null || nombrePromocion.isBlank()) {
-                throw new IllegalArgumentException("El nombre de la promoción no puede ser nulo o vacío");
+        public DesgloseAjuste {
+            if (tipo == null || tipo.isBlank()) {
+                throw new IllegalArgumentException("El tipo de ajuste no puede ser nulo o vacío");
             }
-            if (ahorro == null || ahorro.compareTo(BigDecimal.ZERO) < 0) {
-                throw new IllegalArgumentException("El ahorro no puede ser nulo ni negativo");
+            if (descripcion == null) {
+                throw new IllegalArgumentException("La descripción del ajuste no puede ser nula");
+            }
+            if (monto == null || monto.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("El monto no puede ser nulo ni negativo");
             }
         }
     }

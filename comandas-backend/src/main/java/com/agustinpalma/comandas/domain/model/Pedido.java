@@ -27,7 +27,6 @@ public class Pedido {
     private LocalDateTime fechaCierre;
     private MedioPago medioPago;
     private final List<ItemPedido> items;
-    private final List<DescuentoAplicado> descuentos;
     
     // HU-14: Descuento global dinámico (opcional)
     private DescuentoManual descuentoGlobal;  // null si no tiene descuento global
@@ -48,7 +47,6 @@ public class Pedido {
         this.estado = Objects.requireNonNull(estado, "El estado del pedido no puede ser null");
         this.fechaApertura = Objects.requireNonNull(fechaApertura, "La fecha de apertura no puede ser null");
         this.items = new ArrayList<>();
-        this.descuentos = new ArrayList<>();
         this.pagos = new ArrayList<>();
     }
 
@@ -106,10 +104,6 @@ public class Pedido {
      */
     public void agregarItemDesdePersistencia(ItemPedido item) {
         this.items.add(item);
-    }
-
-    public List<DescuentoAplicado> getDescuentos() {
-        return Collections.unmodifiableList(descuentos);
     }
 
     /**
@@ -413,6 +407,72 @@ public class Pedido {
         return descuentoGlobal.calcularMonto(baseGravable);
     }
 
+    /**
+     * Materializa la narrativa económica del pedido como lista explícita de ajustes.
+     * 
+     * Recorre todos los mecanismos de descuento del agregado y los convierte
+     * en AjusteEconomico con monto final (snapshot monetario), eliminando
+     * la necesidad de inferir descuentos por resta subtotal - total.
+     * 
+     * El Pedido se convierte en la única fuente de verdad del relato económico.
+     * 
+     * Orden de materialización:
+     * 1. Promociones automáticas por ítem (HU-10) — snapshot fijo
+     * 2. Descuentos manuales por ítem (HU-14) — calculados dinámicamente
+     * 3. Descuento global (HU-14) — calculado dinámicamente sobre base gravable
+     * 
+     * @return lista inmutable de ajustes económicos (puede estar vacía)
+     */
+    public List<AjusteEconomico> obtenerAjustesEconomicos() {
+        List<AjusteEconomico> ajustes = new ArrayList<>();
+
+        // 1. Promociones automáticas por ítem (HU-10)
+        for (ItemPedido item : items) {
+            if (item.tienePromocion()) {
+                String descripcion = item.getNombrePromocion() != null
+                    ? item.getNombrePromocion()
+                    : "Promoción";
+                ajustes.add(new AjusteEconomico(
+                    AjusteEconomico.TipoAjuste.PROMOCION,
+                    AjusteEconomico.AmbitoAjuste.ITEM,
+                    descripcion,
+                    item.getMontoDescuento()
+                ));
+            }
+        }
+
+        // 2. Descuentos manuales por ítem (HU-14)
+        for (ItemPedido item : items) {
+            if (item.tieneDescuentoManual()) {
+                String descripcion = item.getDescuentoManual().getRazon();
+                if (descripcion == null || descripcion.isBlank()) {
+                    descripcion = "Descuento manual";
+                }
+                ajustes.add(new AjusteEconomico(
+                    AjusteEconomico.TipoAjuste.MANUAL,
+                    AjusteEconomico.AmbitoAjuste.ITEM,
+                    descripcion,
+                    item.calcularMontoDescuentoManual()
+                ));
+            }
+        }
+
+        // 3. Descuento global (HU-14)
+        if (descuentoGlobal != null) {
+            String descripcion = descuentoGlobal.getRazon();
+            if (descripcion == null || descripcion.isBlank()) {
+                descripcion = "Descuento global";
+            }
+            ajustes.add(new AjusteEconomico(
+                AjusteEconomico.TipoAjuste.MANUAL,
+                AjusteEconomico.AmbitoAjuste.TOTAL,
+                descripcion,
+                calcularMontoDescuentoGlobal()
+            ));
+        }
+
+        return Collections.unmodifiableList(ajustes);
+    }
 
     /**
      * Cierra el pedido registrando los pagos y capturando el snapshot contable.

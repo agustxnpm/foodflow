@@ -3,6 +3,7 @@ package com.agustinpalma.comandas.application.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import com.agustinpalma.comandas.application.dto.AjusteEconomicoDTO;
 
 /**
  * DTO de respuesta para la consulta de detalle de un pedido.
@@ -21,7 +22,8 @@ public record DetallePedidoResponse(
     List<ItemDetalleDTO> items,
     BigDecimal subtotal,           // Total sin descuentos
     BigDecimal totalDescuentos,    // Suma de descuentos de todos los ítems
-    BigDecimal totalParcial        // Lo que paga el cliente
+    BigDecimal totalParcial,       // Lo que paga el cliente
+    List<AjusteEconomicoDTO> ajustesEconomicos  // Narrativa económica explícita
 ) {
     /**
      * Valida que los campos obligatorios no sean nulos.
@@ -54,6 +56,9 @@ public record DetallePedidoResponse(
         }
         if (totalParcial == null || totalParcial.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("El total parcial no puede ser nulo ni negativo");
+        }
+        if (ajustesEconomicos == null) {
+            throw new IllegalArgumentException("La lista de ajustes económicos no puede ser nula");
         }
     }
 }
