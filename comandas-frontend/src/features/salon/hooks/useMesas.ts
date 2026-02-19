@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mesasApi } from '../api/mesasApi';
+import type { CerrarMesaRequest, PagoRequest } from '../types';
 
+/**
+ * HU-02: Hook para listar todas las mesas del local
+ */
 export function useMesas() {
   return useQuery({
     queryKey: ['mesas'],
@@ -8,23 +12,26 @@ export function useMesas() {
   });
 }
 
-export function usePedidoMesa(mesaId) {
+/**
+ * HU-06: Hook para consultar el pedido actual de una mesa
+ */
+export function usePedidoMesa(mesaId?: string) {
   return useQuery({
     queryKey: ['pedido', mesaId],
-    queryFn: () => mesasApi.consultarPedido(mesaId),
+    queryFn: () => mesasApi.consultarPedido(mesaId!),
     enabled: !!mesaId,
   });
 }
 
 /**
- * HU-03: Crear nueva mesa en el salón.
- * Invalida el listado de mesas.
+ * HU-15: Hook para crear nueva mesa en el salón
+ * Invalida el listado de mesas tras la creación
  */
 export function useCrearMesa() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: mesasApi.crear,
+    mutationFn: (numero: number) => mesasApi.crear(numero),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
     },
@@ -35,14 +42,14 @@ export function useCrearMesa() {
 }
 
 /**
- * HU-02: Abrir mesa y crear pedido inicial.
- * Invalida mesas para refrescar estados (LIBRE → ABIERTA).
+ * HU-03: Hook para abrir mesa y crear pedido inicial
+ * Invalida mesas para refrescar estados (LIBRE → ABIERTA)
  */
 export function useAbrirMesa() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: mesasApi.abrir,
+    mutationFn: (mesaId: string) => mesasApi.abrir(mesaId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
     },
@@ -53,14 +60,17 @@ export function useAbrirMesa() {
 }
 
 /**
- * HU-04 & HU-12: Cerrar mesa y finalizar pedido.
- * CRÍTICO: Invalida múltiples dominios (mesas, pedido, reporte-caja) para arqueo.
+ * HU-04 & HU-12: Hook para cerrar mesa y finalizar pedido
+ * CRÍTICO: Invalida múltiples dominios (mesas, pedido, reporte-caja) para arqueo
  */
 export function useCerrarMesa() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ mesaId, pagos }) => mesasApi.cerrar(mesaId, pagos),
+    mutationFn: ({ mesaId, pagos }: { mesaId: string; pagos: PagoRequest[] }) => {
+      const dto: CerrarMesaRequest = { pagos };
+      return mesasApi.cerrar(mesaId, dto);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
@@ -73,14 +83,14 @@ export function useCerrarMesa() {
 }
 
 /**
- * HU-03: Eliminar mesa del salón.
- * Solo permite eliminar mesas LIBRES sin pedidos activos.
+ * HU-16: Hook para eliminar mesa del salón
+ * Solo permite eliminar mesas LIBRES sin pedidos activos
  */
 export function useEliminarMesa() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: mesasApi.eliminar,
+    mutationFn: (mesaId: string) => mesasApi.eliminar(mesaId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
     },
@@ -90,18 +100,26 @@ export function useEliminarMesa() {
   });
 }
 
-export function useObtenerTicket(mesaId) {
+/**
+ * Hook para obtener ticket de impresión
+ * Se ejecuta manualmente (enabled: false)
+ */
+export function useObtenerTicket(mesaId?: string) {
   return useQuery({
     queryKey: ['ticket', mesaId],
-    queryFn: () => mesasApi.obtenerTicket(mesaId),
-    enabled: false, // Se ejecuta manualmente
+    queryFn: () => mesasApi.obtenerTicket(mesaId!),
+    enabled: false,
   });
 }
 
-export function useObtenerComanda(mesaId) {
+/**
+ * Hook para obtener comanda de cocina
+ * Se ejecuta manualmente (enabled: false)
+ */
+export function useObtenerComanda(mesaId?: string) {
   return useQuery({
     queryKey: ['comanda', mesaId],
-    queryFn: () => mesasApi.obtenerComanda(mesaId),
-    enabled: false, // Se ejecuta manualmente
+    queryFn: () => mesasApi.obtenerComanda(mesaId!),
+    enabled: false,
   });
 }

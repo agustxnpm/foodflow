@@ -1,19 +1,52 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { MainLayout } from '../layout/MainLayout';
-import { Dashboard } from '../pages/Dashboard';
-import { MesasPage } from '../pages/MesasPage';
-import { ProductosPage } from '../pages/ProductosPage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ToastContainer } from '../ui';
+import MainLayout from '../layout/MainLayout';
+import SalonPage from '../features/salon/pages/SalonPage';
+import CajaIndex from '../features/caja/components/CajaIndex';
+import MostradorPage from '../pages/MostradorPage';
 
+// Configuración de React Query
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30000,
+    },
+  },
+});
+
+/**
+ * Router principal de la aplicación FoodFlow
+ *
+ * MainLayout actúa como wrapper de toda la app,
+ * provee la Navbar superior y renderiza <Outlet /> para la ruta activa.
+ */
 export function AppRouter() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="mesas" element={<MesasPage />} />
-          <Route path="productos" element={<ProductosPage />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ToastContainer />
+        <Routes>
+          {/* Layout principal con Navbar */}
+          <Route element={<MainLayout />}>
+            {/* Home: Salón (gestión de mesas) */}
+            <Route index element={<SalonPage />} />
+
+            {/* Caja */}
+            <Route path="caja" element={<CajaIndex />} />
+
+            {/* Mostrador */}
+            <Route path="mostrador" element={<MostradorPage />} />
+
+            {/* Rutas futuras */}
+            {/* <Route path="pedido/:mesaId" element={<PedidoPage />} /> */}
+            {/* <Route path="catalogo" element={<CatalogoPage />} /> */}
+            {/* <Route path="promociones" element={<PromocionesPage />} /> */}
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
