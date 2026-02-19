@@ -1,45 +1,35 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Mesa } from '../types';
-import { useMesas, usePedidoMesa, useAbrirMesa } from './useMesas';
+import { useMesas, useAbrirMesa } from './useMesas';
 import useToast from '../../../hooks/useToast';
 
 /**
  * Hook que encapsula el estado operativo del Salón.
  *
  * Responsabilidades:
- * - Proveer la lista de mesas desde el backend vía useMesas() (React Query)
- * - Gestionar la selección de mesa y apertura del modal de detalle
- * - Consultar el pedido activo vía usePedidoMesa() (solo si mesa ABIERTA)
- * - Abrir mesas libres vía useAbrirMesa() desde el modal
+ * - Proveer la lista de mesas desde el backend vía useMesas()
+ * - Abrir el modal POS (`PantallaPedido`) al hacer click en una mesa
+ * - Si la mesa está LIBRE, primero abre el pedido y luego muestra el modal
+ * - Si la mesa está ABIERTA, muestra el modal directamente
  *
- * Comportamiento:
- * - Mesa LIBRE → modal con opción de abrir pedido
- * - Mesa ABIERTA → modal con detalle del pedido (skeleton loading real)
- *
- * DECISIÓN: Se separa la lógica del JSX para mantener SalonPage como orquestador puro.
+ * DECISIÓN: Se usa modal overlay en lugar de navegación a ruta separada.
+ * Esto evita desorientar al operador — el salón siempre está "detrás"
+ * y el modal se cierra exclusivamente con el botón "Atrás".
  */
 export function useSalonState() {
-  const [mesaSeleccionada, setMesaSeleccionada] = useState<Mesa | null>(null);
-  const [modalAbierto, setModalAbierto] = useState(false);
   const toast = useToast();
 
-  // ── Data del backend ──
+  // ID de la mesa cuyo modal POS está abierto (null = cerrado)
+  const [mesaSeleccionadaId, setMesaSeleccionadaId] = useState<string | null>(null);
+
+  // Mesa LIBRE pendiente de confirmación (pre-modal)
+  const [mesaPendienteApertura, setMesaPendienteApertura] = useState<Mesa | null>(null);
+
   const {
     data: mesas = [],
     isLoading: cargandoMesas,
     isError: errorMesas,
   } = useMesas();
-
-  // Solo consulta el pedido si la mesa seleccionada está ABIERTA
-  const consultarPedido =
-    modalAbierto && mesaSeleccionada?.estado === 'ABIERTA'
-      ? mesaSeleccionada.id
-      : undefined;
-
-  const {
-    data: pedidoDetalle = null,
-    isLoading: cargandoDetalle,
-  } = usePedidoMesa(consultarPedido);
 
   const abrirMesaMutation = useAbrirMesa();
 
@@ -48,34 +38,51 @@ export function useSalonState() {
     [mesas]
   );
 
-  // Abre el modal para cualquier mesa (libre u ocupada)
-  const abrirDetalleMesa = useCallback((mesa: Mesa) => {
-    setMesaSeleccionada(mesa);
-    setModalAbierto(true);
-  }, []);
+  /**
+   * Click en una mesa:
+   * - ABIERTA → abre modal POS directamente
+   * - LIBRE → muestra pre-modal de confirmación
+   */
+  const handleMesaClick = useCallback(
+    (mesa: Mesa) => {
+      if (mesa.estado === 'ABIERTA') {
+        setMesaSeleccionadaId(mesa.id);
+        return;
+      }
 
-  // Acción: abrir una mesa libre → crea pedido en el backend
-  const handleAbrirMesa = useCallback(
-    (mesaId: string) => {
-      abrirMesaMutation.mutate(mesaId, {
-        onSuccess: () => {
-          const mesa = mesas.find((m) => m.id === mesaId);
-          toast.success(`Mesa ${mesa?.numero ?? mesaId} abierta`);
-          cerrarModal();
-        },
-        onError: (error: any) => {
-          const mensaje =
-            error?.response?.data?.message || 'Error al abrir mesa';
-          toast.error(mensaje);
-        },
-      });
+      // Mesa LIBRE: mostrar pre-modal de confirmación
+      setMesaPendienteApertura(mesa);
     },
-    [abrirMesaMutation, mesas, toast]
+    []
   );
 
-  const cerrarModal = useCallback(() => {
-    setModalAbierto(false);
-    setMesaSeleccionada(null);
+  /** Confirmar apertura de mesa LIBRE desde el pre-modal */
+  const confirmarAperturaMesa = useCallback(() => {
+    if (!mesaPendienteApertura) return;
+
+    const mesa = mesaPendienteApertura;
+    abrirMesaMutation.mutate(mesa.id, {
+      onSuccess: () => {
+        toast.success(`Mesa ${mesa.numero} abierta`);
+        setMesaPendienteApertura(null);
+        setMesaSeleccionadaId(mesa.id);
+      },
+      onError: (error: any) => {
+        const mensaje =
+          error?.response?.data?.message || 'Error al abrir mesa';
+        toast.error(mensaje);
+      },
+    });
+  }, [mesaPendienteApertura, abrirMesaMutation, toast]);
+
+  /** Cancelar la apertura de mesa desde el pre-modal */
+  const cancelarAperturaMesa = useCallback(() => {
+    setMesaPendienteApertura(null);
+  }, []);
+
+  /** Cierra el modal POS y vuelve al salón */
+  const cerrarPedido = useCallback(() => {
+    setMesaSeleccionadaId(null);
   }, []);
 
   return {
@@ -83,13 +90,12 @@ export function useSalonState() {
     mesasAbiertas,
     cargandoMesas,
     errorMesas,
-    mesaSeleccionada,
-    modalAbierto,
-    cargandoDetalle,
-    pedidoDetalle,
-    abrirDetalleMesa,
-    handleAbrirMesa,
+    handleMesaClick,
     abriendoMesa: abrirMesaMutation.isPending,
-    cerrarModal,
+    mesaSeleccionadaId,
+    cerrarPedido,
+    mesaPendienteApertura,
+    confirmarAperturaMesa,
+    cancelarAperturaMesa,
   } as const;
 }

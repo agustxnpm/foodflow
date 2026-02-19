@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { pedidosApi } from '../api/pedidosApi';
+import type { AgregarProductoRequest, DescuentoManualRequest } from '../types';
 
 /**
  * HU-05: Agregar producto al pedido (Aggregate Root).
@@ -9,11 +10,12 @@ export function useAgregarProducto() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ pedidoId, ...data }) => pedidosApi.agregarProducto(pedidoId, data),
+    mutationFn: ({ pedidoId, ...data }: { pedidoId: string } & AgregarProductoRequest) =>
+      pedidosApi.agregarProducto(pedidoId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useAgregarProducto] Error al agregar producto:', error);
     },
   });
@@ -27,11 +29,12 @@ export function useAplicarDescuentoGlobal() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ pedidoId, ...data }) => pedidosApi.aplicarDescuentoGlobal(pedidoId, data),
+    mutationFn: ({ pedidoId, ...data }: { pedidoId: string } & DescuentoManualRequest) =>
+      pedidosApi.aplicarDescuentoGlobal(pedidoId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useAplicarDescuentoGlobal] Error al aplicar descuento:', error);
     },
   });
@@ -45,11 +48,12 @@ export function useAplicarDescuentoPorItem() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ pedidoId, itemId, ...data }) => pedidosApi.aplicarDescuentoPorItem(pedidoId, itemId, data),
+    mutationFn: ({ pedidoId, itemId, ...data }: { pedidoId: string; itemId: string } & DescuentoManualRequest) =>
+      pedidosApi.aplicarDescuentoPorItem(pedidoId, itemId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useAplicarDescuentoPorItem] Error al aplicar descuento:', error);
     },
   });
@@ -63,11 +67,12 @@ export function useModificarCantidad() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ pedidoId, itemId, cantidad }) => pedidosApi.modificarCantidad(pedidoId, itemId, cantidad),
+    mutationFn: ({ pedidoId, itemId, cantidad }: { pedidoId: string; itemId: string; cantidad: number }) =>
+      pedidosApi.modificarCantidad(pedidoId, itemId, cantidad),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useModificarCantidad] Error al modificar cantidad:', error);
     },
   });
@@ -81,11 +86,12 @@ export function useEliminarItem() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ pedidoId, itemId }) => pedidosApi.eliminarItem(pedidoId, itemId),
+    mutationFn: ({ pedidoId, itemId }: { pedidoId: string; itemId: string }) =>
+      pedidosApi.eliminarItem(pedidoId, itemId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useEliminarItem] Error al eliminar ítem:', error);
     },
   });
@@ -99,12 +105,12 @@ export function useReabrirPedido() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: pedidosApi.reabrir,
+    mutationFn: (pedidoId: string) => pedidosApi.reabrir(pedidoId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useReabrirPedido] Error al reabrir pedido:', error);
     },
   });

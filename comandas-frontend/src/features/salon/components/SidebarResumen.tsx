@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Clock, ChevronRight, Receipt, UtensilsCrossed, Armchair, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Clock, ChevronRight, Receipt, UtensilsCrossed, Armchair, Search, ArrowDownUp, ArrowUp, ArrowDown } from 'lucide-react';
 import type { Mesa } from '../types';
 import {
   usePedidosMesasAbiertas,
@@ -151,15 +151,32 @@ export default function SidebarResumen({
   onMesaClick,
 }: SidebarResumenProps) {
   const [busqueda, setBusqueda] = useState('');
+  const [orden, setOrden] = useState<'mesa' | 'llegada'>('mesa');
+  const [direccion, setDireccion] = useState<'asc' | 'desc'>('asc');
+
   const { resumenes, totalGeneral, cargando } =
     usePedidosMesasAbiertas(mesasAbiertas);
 
-  /** Filtra los resúmenes según el input de búsqueda (typeahead por número de mesa) */
-  const resumenesFiltrados = busqueda.trim()
-    ? resumenes.filter((r) =>
-        String(r.numeroMesa).includes(busqueda.trim())
-      )
-    : resumenes;
+  /** Filtra y ordena los resúmenes según búsqueda, criterio y dirección */
+  const resumenesFiltrados = useMemo(() => {
+    let resultado = busqueda.trim()
+      ? resumenes.filter((r) =>
+          String(r.numeroMesa).includes(busqueda.trim())
+        )
+      : [...resumenes];
+
+    const factor = direccion === 'asc' ? 1 : -1;
+
+    if (orden === 'llegada') {
+      resultado.sort(
+        (a, b) => factor * (new Date(a.fechaApertura).getTime() - new Date(b.fechaApertura).getTime())
+      );
+    } else {
+      resultado.sort((a, b) => factor * (a.numeroMesa - b.numeroMesa));
+    }
+
+    return resultado;
+  }, [resumenes, busqueda, orden, direccion]);
 
   /** Convierte el click del sidebar (por mesaId) al formato que espera SalonPage */
   const handleVerPedido = (mesaId: string) => {
@@ -181,9 +198,9 @@ export default function SidebarResumen({
         </p>
       </div>
 
-      {/* ── Buscador typeahead ── */}
+      {/* ── Buscador typeahead + ordenamiento ── */}
       {mesasAbiertas.length > 0 && (
-        <div className="px-4 py-3 border-b border-neutral-800">
+        <div className="px-4 py-3 border-b border-neutral-800 space-y-2">
           <div className="relative">
             <Search
               size={16}
@@ -203,6 +220,59 @@ export default function SidebarResumen({
                 transition-colors
               "
             />
+          </div>
+
+          {/* Toggle de ordenamiento */}
+          <div className="flex items-center gap-1.5">
+            <ArrowDownUp size={12} className="text-gray-600 shrink-0" />
+            <button
+              type="button"
+              onClick={() => {
+                if (orden === 'mesa') {
+                  setDireccion((d) => (d === 'asc' ? 'desc' : 'asc'));
+                } else {
+                  setOrden('mesa');
+                  setDireccion('asc');
+                }
+              }}
+              className={[
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors inline-flex items-center gap-1',
+                orden === 'mesa'
+                  ? 'bg-neutral-700 text-gray-200'
+                  : 'text-gray-600 hover:text-gray-400',
+              ].join(' ')}
+            >
+              Nº mesa
+              {orden === 'mesa' && (
+                direccion === 'asc'
+                  ? <ArrowUp size={10} className="text-red-500" />
+                  : <ArrowDown size={10} className="text-red-500" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (orden === 'llegada') {
+                  setDireccion((d) => (d === 'asc' ? 'desc' : 'asc'));
+                } else {
+                  setOrden('llegada');
+                  setDireccion('asc');
+                }
+              }}
+              className={[
+                'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors inline-flex items-center gap-1',
+                orden === 'llegada'
+                  ? 'bg-neutral-700 text-gray-200'
+                  : 'text-gray-600 hover:text-gray-400',
+              ].join(' ')}
+            >
+              Llegada
+              {orden === 'llegada' && (
+                direccion === 'asc'
+                  ? <ArrowUp size={10} className="text-red-500" />
+                  : <ArrowDown size={10} className="text-red-500" />
+              )}
+            </button>
           </div>
         </div>
       )}

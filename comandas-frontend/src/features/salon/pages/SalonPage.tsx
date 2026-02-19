@@ -3,7 +3,7 @@ import { useSalonState } from '../hooks/useSalonState';
 import MesaGrid from '../components/MesaGrid';
 import SalonControls from '../components/SalonControls';
 import SidebarResumen from '../components/SidebarResumen';
-import PedidoDetalleModal from '../components/PedidoDetalleModal';
+import PantallaPedido from '../../pedido/pages/PantallaPedido';
 
 /**
  * Página principal del módulo Salón — Vista operativa de mesas.
@@ -12,11 +12,15 @@ import PedidoDetalleModal from '../components/PedidoDetalleModal';
  * - Panel izquierdo (75%): Grid de mesas con representación geométrica
  * - Panel derecho (25%): Sidebar de resumen rápido ("Tickets rápidos")
  *
- * Interacción: click en mesa ocupada abre modal de detalle con Skeleton Loading.
+ * Interacción:
+ * - Mesa ABIERTA → abre modal POS (PantallaPedido como overlay)
+ * - Mesa LIBRE → abre pedido y luego abre modal POS
+ *
+ * El modal POS se renderiza condicionalmente sobre el salón.
+ * Solo se cierra con el botón "Atrás" para evitar cierres accidentales.
  *
  * HU-02: Ver estado de mesas
  * HU-03: Abrir mesa
- * HU-06: Consultar pedido
  * HU-15: Crear mesa
  * HU-16: Eliminar mesa
  */
@@ -28,14 +32,13 @@ export default function SalonPage() {
     mesasAbiertas,
     cargandoMesas,
     errorMesas,
-    mesaSeleccionada,
-    modalAbierto,
-    cargandoDetalle,
-    pedidoDetalle,
-    abrirDetalleMesa,
-    handleAbrirMesa,
+    handleMesaClick,
+    mesaSeleccionadaId,
+    cerrarPedido,
+    mesaPendienteApertura,
+    confirmarAperturaMesa,
+    cancelarAperturaMesa,
     abriendoMesa,
-    cerrarModal,
   } = useSalonState();
 
   return (
@@ -67,7 +70,7 @@ export default function SalonPage() {
           <div className="flex-1 overflow-y-auto px-6 pb-6">
             <MesaGrid
               mesas={mesas}
-              onMesaClick={abrirDetalleMesa}
+              onMesaClick={handleMesaClick}
               modoEdicion={modoEdicion}
               isLoading={cargandoMesas}
               isError={errorMesas}
@@ -79,20 +82,82 @@ export default function SalonPage() {
         <aside className="w-1/4 border-l border-neutral-800 bg-neutral-950 overflow-hidden">
           <SidebarResumen
             mesasAbiertas={mesasAbiertas}
-            onMesaClick={abrirDetalleMesa}
+            onMesaClick={handleMesaClick}
           />
         </aside>
       </section>
 
-      {/* ── Modal de Detalle ── */}
-      {modalAbierto && (
-        <PedidoDetalleModal
-          mesa={mesaSeleccionada}
-          pedido={pedidoDetalle}
-          cargando={cargandoDetalle}
-          onClose={cerrarModal}
-          onAbrirMesa={handleAbrirMesa}
-          abriendoMesa={abriendoMesa}
+      {/* ── Pre-modal: Confirmación de apertura de mesa LIBRE ── */}
+      {mesaPendienteApertura && (
+        <>
+          <div
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+            onClick={cancelarAperturaMesa}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div className="bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl shadow-black/50 p-6 max-w-sm w-full text-center space-y-4">
+              {/* Icono mesa */}
+              <div className="mx-auto w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center">
+                <span className="text-3xl">🍽️</span>
+              </div>
+
+              {/* Título */}
+              <h3 className="text-lg font-bold text-gray-100">
+                Mesa {mesaPendienteApertura.numero}
+              </h3>
+
+              {/* Mensaje */}
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Esta mesa está libre.{' '}
+                <span className="text-gray-300 font-medium">
+                  Abrila para iniciar un nuevo pedido.
+                </span>
+              </p>
+
+              {/* Botones */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={cancelarAperturaMesa}
+                  className="
+                    flex-1 h-11 rounded-xl
+                    text-sm font-semibold
+                    bg-neutral-800 text-gray-400
+                    border border-neutral-700
+                    hover:border-neutral-600 hover:text-gray-300
+                    transition-colors active:scale-[0.97]
+                  "
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmarAperturaMesa}
+                  disabled={abriendoMesa}
+                  className="
+                    flex-1 h-11 rounded-xl
+                    text-sm font-bold
+                    bg-red-600 text-white
+                    hover:bg-red-500
+                    disabled:opacity-50 disabled:cursor-not-allowed
+                    transition-colors active:scale-[0.97]
+                    shadow-sm shadow-red-950/40
+                  "
+                >
+                  {abriendoMesa ? 'Abriendo…' : 'Abrir Mesa'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── Modal POS: Detalle de Pedido ── */}
+      {mesaSeleccionadaId && (
+        <PantallaPedido
+          mesaId={mesaSeleccionadaId}
+          onCerrar={cerrarPedido}
         />
       )}
     </>

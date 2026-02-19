@@ -4,7 +4,6 @@ import { ToastContainer } from '../ui';
 import MainLayout from '../layout/MainLayout';
 import SalonPage from '../features/salon/pages/SalonPage';
 import CajaIndex from '../features/caja/components/CajaIndex';
-import MostradorPage from '../pages/MostradorPage';
 
 // Configuración de React Query
 const queryClient = new QueryClient({
@@ -22,6 +21,9 @@ const queryClient = new QueryClient({
  *
  * MainLayout actúa como wrapper de toda la app,
  * provee la Navbar superior y renderiza <Outlet /> para la ruta activa.
+ *
+ * NOTA: El detalle de pedido (PantallaPedido) se renderiza como modal
+ * overlay dentro de SalonPage, no como ruta separada.
  */
 export function AppRouter() {
   return (
@@ -31,17 +33,13 @@ export function AppRouter() {
         <Routes>
           {/* Layout principal con Navbar */}
           <Route element={<MainLayout />}>
-            {/* Home: Salón (gestión de mesas) */}
+            {/* Home: Salón (gestión de mesas + modal POS) */}
             <Route index element={<SalonPage />} />
 
             {/* Caja */}
             <Route path="caja" element={<CajaIndex />} />
 
-            {/* Mostrador */}
-            <Route path="mostrador" element={<MostradorPage />} />
-
             {/* Rutas futuras */}
-            {/* <Route path="pedido/:mesaId" element={<PedidoPage />} /> */}
             {/* <Route path="catalogo" element={<CatalogoPage />} /> */}
             {/* <Route path="promociones" element={<PromocionesPage />} /> */}
           </Route>

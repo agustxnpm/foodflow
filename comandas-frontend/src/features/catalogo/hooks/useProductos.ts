@@ -1,17 +1,32 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productosApi } from '../api/productosApi';
+import type { ProductoResponse, ProductoRequest } from '../types';
 
-export function useProductos(color = null) {
-  return useQuery({
+/**
+ * Lista productos filtrados por color (categoría visual).
+ * queryKey: ['productos', color] para invalidación granular.
+ */
+export function useProductos(color: string | null = null) {
+  return useQuery<ProductoResponse[]>({
     queryKey: ['productos', color],
-    queryFn: () => productosApi.listar(color),
+    queryFn: async () => {
+      const { data } = await productosApi.listar(color);
+      return data;
+    },
   });
 }
 
-export function useProducto(id) {
-  return useQuery({
+/**
+ * Consulta un producto individual por ID.
+ * Habilitado solo cuando el ID está definido.
+ */
+export function useProducto(id?: string) {
+  return useQuery<ProductoResponse>({
     queryKey: ['producto', id],
-    queryFn: () => productosApi.consultar(id),
+    queryFn: async () => {
+      const { data } = await productosApi.consultar(id!);
+      return data;
+    },
     enabled: !!id,
   });
 }
@@ -24,11 +39,11 @@ export function useCrearProducto() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: productosApi.crear,
+    mutationFn: (data: ProductoRequest) => productosApi.crear(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productos'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useCrearProducto] Error al crear producto:', error);
     },
   });
@@ -42,12 +57,13 @@ export function useEditarProducto() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, ...data }) => productosApi.editar(id, data),
+    mutationFn: ({ id, ...data }: { id: string } & Partial<ProductoRequest>) =>
+      productosApi.editar(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productos'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['producto'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useEditarProducto] Error al editar producto:', error);
     },
   });
@@ -61,11 +77,11 @@ export function useEliminarProducto() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: productosApi.eliminar,
+    mutationFn: (id: string) => productosApi.eliminar(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productos'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useEliminarProducto] Error al eliminar producto:', error);
     },
   });
@@ -79,12 +95,13 @@ export function useAjustarStock() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, ...data }) => productosApi.ajustarStock(id, data),
+    mutationFn: ({ id, ...data }: { id: string; cantidad: number; tipo: string }) =>
+      productosApi.ajustarStock(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productos'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['producto'], exact: false });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error('[useAjustarStock] Error al ajustar stock:', error);
     },
   });

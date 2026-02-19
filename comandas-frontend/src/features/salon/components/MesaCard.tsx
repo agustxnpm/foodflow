@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Mesa } from '../types';
 import { X } from 'lucide-react';
 
@@ -28,6 +29,16 @@ export default function MesaCard({
 }: MesaCardProps) {
   const isAbierta = mesa.estado === 'ABIERTA';
   const isLibre = mesa.estado === 'LIBRE';
+  const [animando, setAnimando] = useState(false);
+
+  const handleClick = () => {
+    setAnimando(true);
+    // Permitir que la animación se vea antes de abrir el modal
+    setTimeout(() => {
+      onClick(mesa);
+      setAnimando(false);
+    }, 0);
+  };
 
   const handleEliminar = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -37,12 +48,13 @@ export default function MesaCard({
   return (
     <button
       type="button"
-      onClick={() => onClick(mesa)}
+      onClick={handleClick}
       className={[
         'group relative flex flex-col items-center justify-center gap-1',
         'w-full aspect-square rounded-xl p-2',
         'transition-all duration-200 cursor-pointer',
-        'active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500',
+        animando ? 'animate-mesa-press animate-mesa-ring' : 'active:scale-95',
         isAbierta
           ? 'bg-gradient-to-b from-red-950/60 to-neutral-900 border-2 border-red-600 shadow-md shadow-red-950/30 hover:border-red-400'
           : 'bg-neutral-900 border-2 border-neutral-800 hover:border-neutral-600 hover:bg-neutral-800/80',
