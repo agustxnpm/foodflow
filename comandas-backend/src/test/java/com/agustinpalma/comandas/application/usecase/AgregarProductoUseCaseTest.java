@@ -208,7 +208,7 @@ class AgregarProductoUseCaseTest {
     }
 
     @Test
-    @DisplayName("AC1 - Acumulación: Permite agregar el mismo producto múltiples veces")
+    @DisplayName("AC1 - Merge: Agregar el mismo producto acumula cantidad y combina observaciones")
     void deberia_permitir_agregar_mismo_producto_multiples_veces() {
         // Given: Un producto y un pedido abierto
         Producto producto = new Producto(productoId, localId, "Empanada", new BigDecimal("25.00"), true, "#FF00FF");
@@ -220,21 +220,20 @@ class AgregarProductoUseCaseTest {
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // When: Se agrega el mismo producto dos veces (líneas separadas)
+        // When: Se agrega el mismo producto dos veces con observaciones diferentes
         AgregarProductoRequest request1 = new AgregarProductoRequest(pedidoId, productoId, 3, "De carne");
         AgregarProductoRequest request2 = new AgregarProductoRequest(pedidoId, productoId, 2, "De pollo");
         
         useCase.ejecutar(request1);
         AgregarProductoResponse response = useCase.ejecutar(request2);
 
-        // Then: Deben existir 2 líneas independientes
-        assertThat(response.items()).hasSize(2);
-        assertThat(response.items().get(0).cantidad()).isEqualTo(3);
-        assertThat(response.items().get(0).observacion()).isEqualTo("De carne");
-        assertThat(response.items().get(1).cantidad()).isEqualTo(2);
-        assertThat(response.items().get(1).observacion()).isEqualTo("De pollo");
+        // Then: Debe existir 1 sola línea con cantidad acumulada (3+2=5)
+        // y observaciones combinadas con separador ";"
+        assertThat(response.items()).hasSize(1);
+        assertThat(response.items().get(0).cantidad()).isEqualTo(5);
+        assertThat(response.items().get(0).observacion()).isEqualTo("De carne; De pollo");
         
-        // Subtotal: (3 * 25) + (2 * 25) = 125
+        // Subtotal: 5 * 25 = 125
         assertThat(response.subtotal()).isEqualByComparingTo(new BigDecimal("125.00"));
     }
 

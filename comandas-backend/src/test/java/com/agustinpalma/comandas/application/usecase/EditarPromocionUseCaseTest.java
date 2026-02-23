@@ -73,7 +73,8 @@ class EditarPromocionUseCaseTest {
                 "Nuevo Nombre",
                 "Nueva descripción",
                 15,
-                List.of(trigger)
+                List.of(trigger),
+                null, null, null, null, null
         );
 
         // When
@@ -103,7 +104,8 @@ class EditarPromocionUseCaseTest {
                 "Nombre Existente",
                 null,
                 null,
-                null
+                null,
+                null, null, null, null, null
         );
 
         // When & Then
@@ -137,7 +139,8 @@ class EditarPromocionUseCaseTest {
                 "Mismo Nombre",
                 "Nueva descripción",
                 10,
-                List.of(trigger)
+                List.of(trigger),
+                null, null, null, null, null
         );
 
         // When
@@ -184,7 +187,8 @@ class EditarPromocionUseCaseTest {
                 "Promoción",
                 null,
                 null,
-                List.of(triggerContenido, triggerMonto)
+                List.of(triggerContenido, triggerMonto),
+                null, null, null, null, null
         );
 
         // When
@@ -209,7 +213,8 @@ class EditarPromocionUseCaseTest {
                 "Nuevo Nombre",
                 null,
                 null,
-                null
+                null,
+                null, null, null, null, null
         );
 
         // When & Then

@@ -5,6 +5,9 @@ import type { ProductoResponse, ProductoRequest } from '../types';
 /**
  * Lista productos filtrados por color (categoría visual).
  * queryKey: ['productos', color] para invalidación granular.
+ * Polling cada 60s: los productos/promociones rara vez cambian
+ * durante el servicio, pero el badge de "Promo Activa" debe
+ * actualizarse eventualmente sin requerir F5.
  */
 export function useProductos(color: string | null = null) {
   return useQuery<ProductoResponse[]>({
@@ -13,12 +16,30 @@ export function useProductos(color: string | null = null) {
       const { data } = await productosApi.listar(color);
       return data;
     },
+    refetchInterval: 60_000,
+  });
+}
+
+/**
+ * Lista productos marcados como extra (huevo, queso, disco de carne, etc.).
+ * queryKey: ['productos', 'extras'] para invalidación independiente.
+ * Filtra del catálogo general los productos con esExtra === true.
+ */
+export function useExtras() {
+  return useQuery<ProductoResponse[]>({
+    queryKey: ['productos', 'extras'],
+    queryFn: async () => {
+      const { data } = await productosApi.listar(null);
+      return data.filter((p) => p.esExtra && p.activo);
+    },
+    refetchInterval: 60_000,
   });
 }
 
 /**
  * Consulta un producto individual por ID.
  * Habilitado solo cuando el ID está definido.
+ * Polling cada 60s para capturar cambios de precio o promos.
  */
 export function useProducto(id?: string) {
   return useQuery<ProductoResponse>({
@@ -28,6 +49,7 @@ export function useProducto(id?: string) {
       return data;
     },
     enabled: !!id,
+    refetchInterval: 60_000,
   });
 }
 
@@ -95,7 +117,7 @@ export function useAjustarStock() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: ({ id, ...data }: { id: string; cantidad: number; tipo: string }) =>
+    mutationFn: ({ id, ...data }: { id: string; cantidad: number; tipo: string; motivo: string }) =>
       productosApi.ajustarStock(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['productos'], exact: false });

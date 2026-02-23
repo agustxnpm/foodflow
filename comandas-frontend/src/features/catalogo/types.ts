@@ -34,12 +34,27 @@ export interface ProductoRequest {
   activo?: boolean;
   /** Color hex para botones en el frontend (ej: "#FF0000"). Default: "#FFFFFF" */
   colorHex?: string;
+  /** Activa el control de inventario. Default: false en creación */
+  controlaStock?: boolean;
+  /** Indica si el producto es un extra (huevo, queso, disco, etc.). Default: false */
+  esExtra?: boolean;
+}
+
+/**
+ * Información resumida de una promoción activa asociada a un producto.
+ * Refleja ProductoResponse.PromocionActivaInfo del backend.
+ */
+export interface PromocionActivaInfo {
+  nombre: string;
+  /** Tipo de estrategia: DESCUENTO_DIRECTO, CANTIDAD_FIJA, COMBO_CONDICIONAL, PRECIO_FIJO_CANTIDAD */
+  tipoEstrategia: string;
 }
 
 /**
  * DTO de salida para productos.
  * Refleja ProductoResponse del backend.
  * Incluye colorHex para renderizar botones y datos de stock.
+ * Incluye promociones activas asociadas al producto.
  */
 export interface ProductoResponse {
   /** UUID como string */
@@ -53,6 +68,10 @@ export interface ProductoResponse {
   stockActual: number | null;
   /** Si el producto tiene control de inventario activo */
   controlaStock: boolean | null;
+  /** true si es un extra (huevo, queso, disco de carne, etc.) */
+  esExtra: boolean;
+  /** Promociones activas que aplican a este producto (puede estar vacía) */
+  promocionesActivas: PromocionActivaInfo[];
 }
 
 // ─── Stock ────────────────────────────────────────────────────────────────────

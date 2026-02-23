@@ -21,6 +21,6 @@ export const productosApi = {
   eliminar: (id: string): Promise<AxiosResponse<void>> =>
     apiClient.delete(`/productos/${id}`),
 
-  ajustarStock: (id: string, data: { cantidad: number; tipo: string }): Promise<AxiosResponse<unknown>> =>
+  ajustarStock: (id: string, data: { cantidad: number; tipo: string; motivo: string }): Promise<AxiosResponse<unknown>> =>
     apiClient.patch(`/productos/${id}/stock`, data),
 };

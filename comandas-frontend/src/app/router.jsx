@@ -6,7 +6,6 @@ import { SalonRoutes } from '../features/salon/routes';
 import { PedidoRoutes } from '../features/pedido/routes';
 import { CajaRoutes } from '../features/caja/routes';
 import { CatalogoRoutes } from '../features/catalogo/routes';
-import { PromocionesRoutes } from '../features/promociones/routes';
 
 export const router = createBrowserRouter([
   {
@@ -21,7 +20,6 @@ export const router = createBrowserRouter([
       ...PedidoRoutes,
       ...CajaRoutes,
       ...CatalogoRoutes,
-      ...PromocionesRoutes,
     ],
   },
 ]);

@@ -21,6 +21,10 @@ public record ProductoRequest(
     
     Boolean activo,  // Opcional, si es null se asume true en creación
     
-    String colorHex  // Opcional, si es null el dominio asigna #FFFFFF
+    String colorHex,  // Opcional, si es null el dominio asigna #FFFFFF
+    
+    Boolean controlaStock,  // Opcional, si es null se preserva el estado actual (edición) o false (creación)
+
+    Boolean esExtra  // Indica si el producto es un extra (huevo, queso, disco, etc.). Default: false en creación
 ) {
 }

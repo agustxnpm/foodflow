@@ -4,7 +4,11 @@ import GrillaProductos from '../components/GrillaProductos';
 import TicketPedido from '../components/TicketPedido';
 import DescuentoManualModal from '../components/DescuentoManualModal';
 import CerrarMesaModal from '../components/CerrarMesaModal';
+import TicketPreviewModal from '../components/TicketPreviewModal';
+import ConfigurarProductoModal from '../components/ConfigurarProductoModal';
+import type { ConfigurarProductoPayload } from '../components/ConfigurarProductoModal';
 import { useProductos } from '../../catalogo/hooks/useProductos';
+import type { ProductoResponse } from '../../catalogo/types';
 import { usePedidoMesa, useObtenerComanda } from '../../salon/hooks/useMesas';
 import {
   useAgregarProducto,
@@ -44,6 +48,9 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   const [busqueda, setBusqueda] = useState('');
   const [mostrarDescuento, setMostrarDescuento] = useState(false);
   const [mostrarCierre, setMostrarCierre] = useState(false);
+  const [mostrarTicketPreview, setMostrarTicketPreview] = useState(false);
+  /** Producto seleccionado para configurar (observaciones + extras) antes de agregar */
+  const [productoSeleccionado, setProductoSeleccionado] = useState<ProductoResponse | null>(null);
   /** IDs de ítems ya enviados a cocina (tracking local por sesión) */
   const [itemsEnviadosIds, setItemsEnviadosIds] = useState<Set<string>>(new Set());
 
@@ -77,48 +84,61 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
 
   // ── Handlers ──
 
+  /**
+   * Al tocar un producto en la grilla, se abre el modal de configuración
+   * en lugar de agregar directamente. Esto permite al operador definir
+   * observaciones y extras antes de confirmar.
+   */
   const handleAgregarProducto = useCallback(
     (productoId: string) => {
       if (!pedido?.pedidoId) {
         toast.error('No hay un pedido activo para esta mesa');
         return;
       }
-
-      // Buscar si el producto ya existe en el pedido para sumar cantidad
       const producto = productos.find((p) => p.id === productoId);
-      const itemExistente = producto
-        ? pedido.items?.find((i) => i.nombreProducto === producto.nombre)
-        : undefined;
-
-      if (itemExistente) {
-        modificarCantidad.mutate(
-          {
-            pedidoId: pedido.pedidoId,
-            itemId: itemExistente.id,
-            cantidad: itemExistente.cantidad + 1,
-          },
-          {
-            onError: (error: any) => {
-              const msg =
-                error?.response?.data?.message || 'Error al modificar cantidad';
-              toast.error(msg);
-            },
-          }
-        );
-      } else {
-        agregarProducto.mutate(
-          { pedidoId: pedido.pedidoId, productoId, cantidad: 1 },
-          {
-            onError: (error: any) => {
-              const msg =
-                error?.response?.data?.message || 'Error al agregar producto';
-              toast.error(msg);
-            },
-          }
-        );
+      if (producto) {
+        setProductoSeleccionado(producto);
       }
     },
-    [pedido, productos, agregarProducto, modificarCantidad, toast]
+    [pedido, productos, toast]
+  );
+
+  /**
+   * Callback del modal de configuración.
+   *
+   * El frontend SIEMPRE delega al endpoint agregarProducto del backend,
+   * que internamente maneja el merge: si ya existe un ítem con el mismo
+   * productoId, acumula cantidad, combina extras y observaciones,
+   * y recalcula promociones sobre la cantidad total.
+   *
+   * El frontend NO necesita detectar duplicados ni usar modificarCantidad
+   * para este flujo. Esa responsabilidad pertenece al dominio (backend).
+   */
+  const handleConfirmarProducto = useCallback(
+    (payload: ConfigurarProductoPayload) => {
+      if (!pedido?.pedidoId) return;
+
+      agregarProducto.mutate(
+        {
+          pedidoId: pedido.pedidoId,
+          productoId: payload.productoId,
+          cantidad: payload.cantidad,
+          observaciones: payload.observaciones,
+          extrasIds: payload.extrasIds.length > 0 ? payload.extrasIds : undefined,
+        },
+        {
+          onSuccess: () => {
+            setProductoSeleccionado(null);
+          },
+          onError: (error: any) => {
+            const msg =
+              error?.response?.data?.message || 'Error al agregar producto';
+            toast.error(msg);
+          },
+        }
+      );
+    },
+    [pedido, agregarProducto, toast]
   );
 
   const handleModificarCantidad = useCallback(
@@ -163,6 +183,11 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   const handleAplicarDescuento = useCallback(() => {
     if (!pedido?.pedidoId) return;
     setMostrarDescuento(true);
+  }, [pedido]);
+
+  const handleControlMesa = useCallback(() => {
+    if (!pedido?.pedidoId) return;
+    setMostrarTicketPreview(true);
   }, [pedido]);
 
   const handleCerrarMesa = useCallback(() => {
@@ -272,6 +297,7 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
               onEliminarItem={handleEliminarItem}
               onAplicarDescuento={handleAplicarDescuento}
               onCerrarMesa={handleCerrarMesa}
+              onControlMesa={handleControlMesa}
               onMandarCocina={handleMandarCocina}
               enviandoCocina={obtenerComanda.isPending}
               itemsEnviadosIds={itemsEnviadosSet}
@@ -280,11 +306,29 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
         </section>
       </div>
 
+      {/* ── Modal: Configurar Producto (Observaciones + Extras) ── */}
+      {productoSeleccionado && (
+        <ConfigurarProductoModal
+          producto={productoSeleccionado}
+          onConfirmar={handleConfirmarProducto}
+          onCerrar={() => setProductoSeleccionado(null)}
+          enviando={agregarProducto.isPending}
+        />
+      )}
+
       {/* ── Modal: Descuento Manual ── */}
       {mostrarDescuento && pedido && (
         <DescuentoManualModal
           pedido={pedido}
           onClose={() => setMostrarDescuento(false)}
+        />
+      )}
+
+      {/* ── Modal: Control de Mesa (Preview del ticket) ── */}
+      {mostrarTicketPreview && pedido && (
+        <TicketPreviewModal
+          mesaId={mesaId}
+          onClose={() => setMostrarTicketPreview(false)}
         />
       )}
 

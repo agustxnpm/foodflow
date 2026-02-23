@@ -39,6 +39,7 @@ export function usePedidosMesasAbiertas(mesasAbiertas: Mesa[]) {
       // Refresco suave cada 30s para mantener totales actualizados
       // sin saturar el backend en un local con pocas mesas
       staleTime: 30_000,
+      refetchInterval: 30_000,
     })),
   });
 

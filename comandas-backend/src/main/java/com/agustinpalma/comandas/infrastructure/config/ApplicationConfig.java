@@ -20,6 +20,7 @@ import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionesUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionUseCase;
+import com.agustinpalma.comandas.application.usecase.CambiarEstadoPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarPromocionUseCase;
@@ -192,14 +193,19 @@ public class ApplicationConfig {
 
     /**
      * Bean del caso de uso para consultar productos.
-     * Spring inyectará automáticamente la implementación JPA del repositorio.
+     * Spring inyectará automáticamente las implementaciones JPA de los repositorios.
+     * PromocionRepository se usa para enriquecer los productos con promos activas.
      *
      * @param productoRepository implementación del repositorio de productos
+     * @param promocionRepository implementación del repositorio de promociones
      * @return instancia del caso de uso lista para usar
      */
     @Bean
-    public ConsultarProductosUseCase consultarProductosUseCase(ProductoRepository productoRepository) {
-        return new ConsultarProductosUseCase(productoRepository);
+    public ConsultarProductosUseCase consultarProductosUseCase(
+            ProductoRepository productoRepository,
+            PromocionRepository promocionRepository
+    ) {
+        return new ConsultarProductosUseCase(productoRepository, promocionRepository);
     }
 
     /**
@@ -280,6 +286,14 @@ public class ApplicationConfig {
     @Bean
     public EliminarPromocionUseCase eliminarPromocionUseCase(PromocionRepository promocionRepository) {
         return new EliminarPromocionUseCase(promocionRepository);
+    }
+
+    /**
+     * Bean del caso de uso para cambiar el estado (ACTIVA/INACTIVA) de una promoción.
+     */
+    @Bean
+    public CambiarEstadoPromocionUseCase cambiarEstadoPromocionUseCase(PromocionRepository promocionRepository) {
+        return new CambiarEstadoPromocionUseCase(promocionRepository);
     }
 
     /**

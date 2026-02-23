@@ -3,8 +3,16 @@ package com.agustinpalma.comandas.application.usecase;
 import com.agustinpalma.comandas.application.dto.ProductoResponse;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
+import com.agustinpalma.comandas.domain.model.DomainIds.PromocionId;
+import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPromocion;
+import com.agustinpalma.comandas.domain.model.AlcancePromocion;
+import com.agustinpalma.comandas.domain.model.CriterioActivacion;
+import com.agustinpalma.comandas.domain.model.EstrategiaPromocion;
+import com.agustinpalma.comandas.domain.model.ItemPromocion;
 import com.agustinpalma.comandas.domain.model.Producto;
+import com.agustinpalma.comandas.domain.model.Promocion;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
+import com.agustinpalma.comandas.domain.repository.PromocionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -26,6 +35,7 @@ import static org.mockito.Mockito.*;
  * - Consulta con filtro de color: retorna solo productos con ese color
  * - Aislamiento multi-tenancy: no retorna productos de otros locales
  * - Manejo de lista vacía
+ * - Enriquecimiento con promociones activas
  */
 @ExtendWith(MockitoExtension.class)
 class ConsultarProductosUseCaseTest {
@@ -33,14 +43,20 @@ class ConsultarProductosUseCaseTest {
     @Mock
     private ProductoRepository productoRepository;
 
+    @Mock
+    private PromocionRepository promocionRepository;
+
     private ConsultarProductosUseCase useCase;
 
     private LocalId localId;
 
     @BeforeEach
     void setUp() {
-        useCase = new ConsultarProductosUseCase(productoRepository);
+        useCase = new ConsultarProductosUseCase(productoRepository, promocionRepository);
         localId = LocalId.generate();
+        // Por defecto, no hay promociones activas (los tests de producto no necesitan promos)
+        lenient().when(promocionRepository.buscarActivasPorLocal(any()))
+            .thenReturn(List.of());
     }
 
     @Test
@@ -162,5 +178,66 @@ class ConsultarProductosUseCaseTest {
             true,
             color
         );
+    }
+
+    @Test
+    void deberia_enriquecer_productos_con_promociones_activas() {
+        // Given: un producto con promo activa que lo tiene en su alcance
+        Producto hamburguesa = crearProducto("Hamburguesa", "#FF0000", localId);
+        UUID hamburguesaId = hamburguesa.getId().getValue();
+
+        when(productoRepository.buscarPorLocal(localId))
+            .thenReturn(List.of(hamburguesa));
+
+        // Creamos una promo activa cuyo alcance incluya el productoId
+        Promocion promo = new Promocion(
+            PromocionId.generate(),
+            localId,
+            "Happy Hour 2x1",
+            "Dos hamburguesas por el precio de una",
+            1,
+            EstadoPromocion.ACTIVA,
+            new EstrategiaPromocion.CantidadFija(2, 1),
+            List.of(CriterioActivacion.CriterioTemporal.soloFechas(
+                java.time.LocalDate.of(2025, 1, 1),
+                java.time.LocalDate.of(2030, 12, 31)
+            ))
+        );
+        promo.definirAlcance(new AlcancePromocion(List.of(
+            ItemPromocion.productoTrigger(hamburguesaId)
+        )));
+
+        when(promocionRepository.buscarActivasPorLocal(localId))
+            .thenReturn(List.of(promo));
+
+        // When
+        List<ProductoResponse> resultado = useCase.ejecutar(localId, null);
+
+        // Then
+        assertEquals(1, resultado.size());
+        ProductoResponse response = resultado.get(0);
+        assertNotNull(response.promocionesActivas());
+        assertEquals(1, response.promocionesActivas().size());
+        assertEquals("Happy Hour 2x1", response.promocionesActivas().get(0).nombre());
+        assertEquals("CANTIDAD_FIJA", response.promocionesActivas().get(0).tipoEstrategia());
+    }
+
+    @Test
+    void deberia_retornar_lista_vacia_de_promos_si_producto_no_participa_en_ninguna() {
+        // Given: un producto sin promos
+        Producto pizza = crearProducto("Pizza", "#00FF00", localId);
+
+        when(productoRepository.buscarPorLocal(localId))
+            .thenReturn(List.of(pizza));
+        when(promocionRepository.buscarActivasPorLocal(localId))
+            .thenReturn(List.of());
+
+        // When
+        List<ProductoResponse> resultado = useCase.ejecutar(localId, null);
+
+        // Then
+        assertEquals(1, resultado.size());
+        assertNotNull(resultado.get(0).promocionesActivas());
+        assertTrue(resultado.get(0).promocionesActivas().isEmpty());
     }
 }

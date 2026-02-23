@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.application.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -24,6 +25,23 @@ public record EditarPromocionCommand(
         Integer prioridad,
 
         @Size(min = 1, message = "Debe especificar al menos un trigger")
-        List<CrearPromocionCommand.TriggerParams> triggers
+        List<CrearPromocionCommand.TriggerParams> triggers,
+
+        // ── Campos opcionales de estrategia (si se quiere cambiar el beneficio) ──
+
+        /** Tipo de estrategia. Si es null, se mantiene la estrategia actual. */
+        String tipoEstrategia,
+
+        @Valid
+        CrearPromocionCommand.DescuentoDirectoParams descuentoDirecto,
+
+        @Valid
+        CrearPromocionCommand.CantidadFijaParams cantidadFija,
+
+        @Valid
+        CrearPromocionCommand.ComboCondicionalParams comboCondicional,
+
+        @Valid
+        CrearPromocionCommand.PrecioFijoPorCantidadParams precioFijoPorCantidad
 ) {
 }

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -137,17 +138,44 @@ public class AgregarProductoUseCase {
         Producto productoFinal = normalizacion.getProductoFinal();
         List<ExtraPedido> extrasFiltrados = normalizacion.getExtrasFiltrados();
 
+        // 4.1 MERGE: Si ya existe un ítem con el mismo producto, acumular cantidad y extras.
+        // Esto garantiza que las promociones se calculen sobre la cantidad TOTAL acumulada
+        // y que no se creen líneas duplicadas para el mismo producto.
+        // Regla de dominio: dos productos son iguales si tienen el mismo productoId
+        // (post-normalización), independientemente de observaciones o extras.
+        int cantidadFinal = request.cantidad();
+        String observacionesFinal = request.observaciones();
+        List<ExtraPedido> extrasCombinados = new ArrayList<>(extrasFiltrados);
+
+        Optional<ItemPedido> itemExistente = pedido.buscarItemPorProductoId(productoFinal.getId());
+
+        if (itemExistente.isPresent()) {
+            ItemPedido existente = itemExistente.get();
+            cantidadFinal += existente.getCantidad();
+
+            // Merge observaciones: preservar existentes, concatenar nuevas
+            observacionesFinal = mergeObservaciones(existente.getObservacion(), request.observaciones());
+
+            // Merge extras: acumular los del ítem existente con los nuevos
+            extrasCombinados = new ArrayList<>(existente.getExtras());
+            extrasCombinados.addAll(extrasFiltrados);
+
+            // Remover ítem existente del aggregate (será reemplazado por el nuevo con datos combinados)
+            pedido.eliminarItem(existente.getId());
+        }
+
         // 5. Recuperar promociones activas del local
         List<Promocion> promocionesActivas = promocionRepository.buscarActivasPorLocal(pedido.getLocalId());
 
         // 6. HU-10: Invocar motor de reglas para evaluar promociones
         // CRÍTICO: El motor SOLO descuenta sobre precio base, NO sobre extras
+        // Usa cantidadFinal y extrasCombinados para que las promos calculen sobre el acumulado
         ItemPedido itemConPromocion = motorReglasService.aplicarReglasConExtras(
             pedido,
             productoFinal,
-            request.cantidad(),
-            request.observaciones(),
-            extrasFiltrados,
+            cantidadFinal,
+            observacionesFinal,
+            extrasCombinados,
             promocionesActivas,
             LocalDateTime.now(clock)
         );
@@ -263,5 +291,23 @@ public class AgregarProductoUseCase {
             variantesHermanas,
             discoDeCarne
         );
+    }
+
+    /**
+     * Combina observaciones de un ítem existente con las nuevas del request.
+     * Preserva las existentes y concatena las nuevas si ambas están presentes.
+     * 
+     * @param existente observaciones del ítem existente (puede ser null)
+     * @param nueva observaciones del nuevo request (puede ser null)
+     * @return observaciones combinadas, o null si ambas son null/vacías
+     */
+    private String mergeObservaciones(String existente, String nueva) {
+        boolean tieneExistente = existente != null && !existente.isBlank();
+        boolean tieneNueva = nueva != null && !nueva.isBlank();
+
+        if (tieneExistente && tieneNueva) {
+            return existente + "; " + nueva;
+        }
+        return tieneExistente ? existente : (tieneNueva ? nueva : null);
     }
 }

@@ -15,6 +15,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 import java.util.UUID;
 
 /**
@@ -83,11 +85,20 @@ public class PedidoController {
         PedidoId pedidoIdVO = new PedidoId(UUID.fromString(pedidoId));
         ProductoId productoIdVO = new ProductoId(UUID.fromString(body.productoId()));
 
+        // Convertir extrasIds de String a ProductoId (puede ser null/vacío)
+        List<ProductoId> extrasIdsVO = null;
+        if (body.extrasIds() != null && !body.extrasIds().isEmpty()) {
+            extrasIdsVO = body.extrasIds().stream()
+                .map(id -> new ProductoId(UUID.fromString(id)))
+                .toList();
+        }
+
         AgregarProductoRequest request = new AgregarProductoRequest(
             pedidoIdVO,
             productoIdVO,
             body.cantidad(),
-            body.observaciones()
+            body.observaciones(),
+            extrasIdsVO
         );
 
         AgregarProductoResponse response = agregarProductoUseCase.ejecutar(request);

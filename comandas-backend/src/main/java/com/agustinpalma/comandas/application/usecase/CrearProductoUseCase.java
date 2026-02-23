@@ -55,13 +55,20 @@ public class CrearProductoUseCase {
         // Crear la entidad de dominio
         // El dominio se encarga de validar precio, nombre y normalizar el color
         ProductoId nuevoId = ProductoId.generate();
+        boolean activarStock = request.controlaStock() != null ? request.controlaStock() : false;
+        boolean esExtra = request.esExtra() != null ? request.esExtra() : false;
         Producto nuevoProducto = new Producto(
             nuevoId,
             localId,
             request.nombre(),
             request.precio(),
             request.activo() != null ? request.activo() : true, // Por defecto activo
-            request.colorHex() // Puede ser null, el dominio asigna default
+            request.colorHex(), // Puede ser null, el dominio asigna default
+            null,   // grupoVarianteId
+            esExtra,
+            null,   // cantidadDiscosCarne
+            0,      // stockActual inicial
+            activarStock
         );
 
         // Persistir

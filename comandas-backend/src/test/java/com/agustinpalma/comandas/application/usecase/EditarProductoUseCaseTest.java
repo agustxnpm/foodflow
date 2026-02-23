@@ -66,7 +66,9 @@ class EditarProductoUseCaseTest {
             "Hamburguesa Completa",
             new BigDecimal("1500.00"),
             true,
-            "#FF5500"
+            "#FF5500",
+            null,
+            null
         );
 
         when(productoRepository.buscarPorId(productoId))
@@ -98,7 +100,9 @@ class EditarProductoUseCaseTest {
             "Producto Fantasma",
             new BigDecimal("1000.00"),
             true,
-            "#FFFFFF"
+            "#FFFFFF",
+            null,
+            null
         );
 
         when(productoRepository.buscarPorId(productoId))
@@ -130,7 +134,9 @@ class EditarProductoUseCaseTest {
             "Intento de Hackeo",
             new BigDecimal("1.00"),
             false,
-            "#000000"
+            "#000000",
+            null,
+            null
         );
 
         when(productoRepository.buscarPorId(productoId))
@@ -162,7 +168,9 @@ class EditarProductoUseCaseTest {
             "Pizza Napolitana", // Este nombre ya existe en otro producto
             new BigDecimal("2000.00"),
             true,
-            "#00FF00"
+            "#00FF00",
+            null,
+            null
         );
 
         when(productoRepository.buscarPorId(productoId))
@@ -199,7 +207,9 @@ class EditarProductoUseCaseTest {
             "Milanesa Napolitana", // MISMO nombre (solo cambio precio)
             new BigDecimal("2000.00"),
             true,
-            "#FF0000"
+            "#FF0000",
+            null,
+            null
         );
 
         when(productoRepository.buscarPorId(productoId))
@@ -236,7 +246,9 @@ class EditarProductoUseCaseTest {
             "Hamburguesa Simple", // MISMO nombre, diferente case
             new BigDecimal("1200.00"),
             true,
-            "#FF0000"
+            "#FF0000",
+            null,
+            null
         );
 
         when(productoRepository.buscarPorId(productoId))
@@ -272,7 +284,9 @@ class EditarProductoUseCaseTest {
             "Producto Activo",
             new BigDecimal("1000.00"),
             false, // Desactivar
-            "#FFFFFF"
+            "#FFFFFF",
+            null,
+            null
         );
 
         when(productoRepository.buscarPorId(productoId))
@@ -289,11 +303,135 @@ class EditarProductoUseCaseTest {
     }
 
     @Test
+    void deberia_activar_control_stock_al_editar() {
+        // Given - Producto sin control de stock (menú)
+        Producto productoExistente = new Producto(
+            productoId,
+            localId,
+            "Pan de Hamburguesa",
+            new BigDecimal("300.00"),
+            true,
+            "#FFD700"
+        );
+
+        ProductoRequest request = new ProductoRequest(
+            "Pan de Hamburguesa",
+            new BigDecimal("300.00"),
+            true,
+            "#FFD700",
+            true, // Activar control de stock
+            null
+        );
+
+        when(productoRepository.buscarPorId(productoId))
+            .thenReturn(Optional.of(productoExistente));
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(productoId, localId, request);
+
+        // Then
+        assertTrue(response.controlaStock(), "Debe activar control de stock");
+    }
+
+    @Test
+    void deberia_preservar_control_stock_cuando_no_se_envia() {
+        // Given - Producto YA controla stock
+        Producto productoExistente = new Producto(
+            productoId, localId, "Queso Cheddar",
+            new BigDecimal("200.00"), true, "#FFD700",
+            null, false, null, 50, true // controlaStock=true, stock=50
+        );
+
+        ProductoRequest request = new ProductoRequest(
+            "Queso Cheddar",
+            new BigDecimal("250.00"), // Solo cambia precio
+            true,
+            "#FFD700",
+            null, // No envía controlaStock → se preserva
+            null
+        );
+
+        when(productoRepository.buscarPorId(productoId))
+            .thenReturn(Optional.of(productoExistente));
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(productoId, localId, request);
+
+        // Then
+        assertTrue(response.controlaStock(), "Debe preservar control de stock activo");
+        assertEquals(50, response.stockActual(), "Stock no debe cambiar");
+    }
+
+    @Test
     void deberia_rechazar_parametros_null() {
-        ProductoRequest request = new ProductoRequest("Test", new BigDecimal("1000"), true, "#FFFFFF");
+        ProductoRequest request = new ProductoRequest("Test", new BigDecimal("1000"), true, "#FFFFFF", null, null);
 
         assertThrows(NullPointerException.class, () -> useCase.ejecutar(null, localId, request));
         assertThrows(NullPointerException.class, () -> useCase.ejecutar(productoId, null, request));
         assertThrows(NullPointerException.class, () -> useCase.ejecutar(productoId, localId, null));
+    }
+
+    @Test
+    void deberia_reclasificar_producto_como_extra() {
+        // Given — "huevo" fue creado como producto normal por error (bug pre-fix)
+        Producto productoExistente = new Producto(
+            productoId, localId, "Huevo",
+            new BigDecimal("200.00"), true, "#FFFF00",
+            null, false, null, 0, false  // esExtra = false (dato incorrecto)
+        );
+
+        ProductoRequest request = new ProductoRequest(
+            "Huevo",
+            new BigDecimal("200.00"),
+            true,
+            "#FFFF00",
+            false,
+            true  // Corregir: reclasificar como extra
+        );
+
+        when(productoRepository.buscarPorId(productoId))
+            .thenReturn(Optional.of(productoExistente));
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(productoId, localId, request);
+
+        // Then
+        assertTrue(response.esExtra(), "Debe reclasificarse como extra");
+    }
+
+    @Test
+    void deberia_preservar_esExtra_cuando_no_se_envia() {
+        // Given — producto ya es extra, la edición no envía esExtra
+        Producto productoExistente = new Producto(
+            productoId, localId, "Queso Cheddar",
+            new BigDecimal("200.00"), true, "#FFFF00",
+            null, true, null, 0, false  // esExtra = true
+        );
+
+        ProductoRequest request = new ProductoRequest(
+            "Queso Cheddar",
+            new BigDecimal("250.00"), // Solo cambia precio
+            true,
+            "#FFFF00",
+            null,
+            null  // No envía esExtra → se preserva el valor actual
+        );
+
+        when(productoRepository.buscarPorId(productoId))
+            .thenReturn(Optional.of(productoExistente));
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(productoId, localId, request);
+
+        // Then
+        assertTrue(response.esExtra(), "Debe preservar esExtra = true cuando no se envía");
     }
 }

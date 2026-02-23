@@ -40,7 +40,7 @@ public class Producto {
     
     // HU-05.1 + HU-22: Soporte para variantes y extras
     private final ProductoId grupoVarianteId;      // Identifica productos hermanos (misma variante)
-    private final boolean esExtra;                  // true si es un extra (huevo, queso, disco, etc.)
+    private boolean esExtra;                        // true si es un extra (huevo, queso, disco, etc.) — reclasificable
     private final Integer cantidadDiscosCarne;     // Define jerarquía de variantes (null si no aplica)
 
     // HU-22: Gestión de stock
@@ -196,6 +196,17 @@ public class Producto {
     
     public boolean isEsExtra() {
         return esExtra;
+    }
+
+    /**
+     * Reclasifica el producto como extra o como producto regular.
+     * Un extra es un complemento (ej: huevo, queso, disco de carne)
+     * que se agrega a otros productos.
+     *
+     * Nota: esto NO afecta ítems ya snapshotados en pedidos abiertos.
+     */
+    public void reclasificarExtra(boolean esExtra) {
+        this.esExtra = esExtra;
     }
     
     public Integer getCantidadDiscosCarne() {

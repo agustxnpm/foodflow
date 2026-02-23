@@ -46,6 +46,8 @@ function ProductoCard({
   const sinStock: boolean =
     !!(producto.controlaStock && producto.stockActual !== null && producto.stockActual <= 0);
 
+  const tienePromos = producto.promocionesActivas && producto.promocionesActivas.length > 0;
+
   return (
     <button
       type="button"
@@ -62,6 +64,34 @@ function ProductoCard({
       ].join(' ')}
       aria-label={`Agregar ${producto.nombre} — $${producto.precio}`}
     >
+      {/* Badge de promoción activa */}
+      {tienePromos && (
+        <div className="absolute -top-1.5 -right-1.5 z-10 group/promo">
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/30 ring-2 ring-neutral-900">
+            <Sparkles size={12} className="text-white" />
+          </span>
+          {/* Tooltip on hover */}
+          <div className="
+            invisible group-hover/promo:visible
+            absolute right-0 top-full mt-1.5
+            bg-neutral-800 border border-neutral-700 rounded-lg
+            px-3 py-2 shadow-xl shadow-black/40
+            min-w-[180px] max-w-[240px] z-50
+            pointer-events-none
+          ">
+            <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1">
+              Promo activa
+            </p>
+            {producto.promocionesActivas.map((promo, i) => (
+              <p key={i} className="text-xs text-gray-200 leading-snug">
+                {promo.nombre}
+              </p>
+            ))}
+            <div className="absolute -top-1 right-3 w-2 h-2 bg-neutral-800 border-l border-t border-neutral-700 rotate-45" />
+          </div>
+        </div>
+      )}
+
       {/* Indicador de color + badge "+" */}
       <div className="flex items-start justify-between mb-2">
         <span

@@ -112,6 +112,8 @@ export interface AgregarProductoRequest {
   productoId: string;
   cantidad: number;
   observaciones?: string;
+  /** IDs de productos extra (esExtra=true). Si qty > 1, repetir el ID. */
+  extrasIds?: string[];
 }
 
 /**

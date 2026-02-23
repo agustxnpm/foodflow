@@ -10,6 +10,7 @@ import {
   Plus,
   ChefHat,
   Loader2,
+  Receipt,
 } from 'lucide-react';
 import type { DetallePedidoResponse, ItemDetalle } from '../types';
 
@@ -214,6 +215,7 @@ interface TicketPedidoProps {
   onEliminarItem: (itemId: string) => void;
   onAplicarDescuento: () => void;
   onCerrarMesa: () => void;
+  onControlMesa: () => void;
   onMandarCocina: () => void;
   enviandoCocina: boolean;
   /** IDs de ítems que ya fueron enviados a cocina */
@@ -238,6 +240,7 @@ export default function TicketPedido({
   onEliminarItem,
   onAplicarDescuento,
   onCerrarMesa,
+  onControlMesa,
   onMandarCocina,
   enviandoCocina,
   itemsEnviadosIds,
@@ -413,6 +416,25 @@ export default function TicketPedido({
         >
           <Percent size={16} />
           <span>Descuento Manual</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onControlMesa}
+          disabled={!hayItems}
+          className="
+            w-full flex items-center justify-center gap-2
+            h-11 rounded-xl
+            text-sm font-semibold
+            bg-neutral-800 text-gray-300
+            border border-neutral-700
+            hover:border-neutral-600 hover:text-gray-100
+            disabled:opacity-40 disabled:cursor-not-allowed
+            transition-colors active:scale-[0.98]
+          "
+        >
+          <Receipt size={16} />
+          <span>Control de Mesa</span>
         </button>
 
         <button

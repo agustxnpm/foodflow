@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Aggregate Root del contexto de Pedidos.
@@ -295,6 +296,23 @@ public class Pedido {
                 String.format("No se encontró el ítem con ID %s en el pedido %s",
                     itemId.getValue(), this.id.getValue())
             ));
+    }
+
+    /**
+     * Busca un ítem existente en el pedido por su ProductoId.
+     * 
+     * Usado por el caso de uso AgregarProducto para detectar si el producto
+     * ya fue agregado previamente y acumular cantidad en lugar de duplicar líneas.
+     * Esto permite que las promociones se calculen sobre la cantidad TOTAL acumulada.
+     * 
+     * @param productoId el ID del producto a buscar
+     * @return Optional con el ItemPedido encontrado, o empty si no existe
+     */
+    public Optional<ItemPedido> buscarItemPorProductoId(ProductoId productoId) {
+        Objects.requireNonNull(productoId, "El productoId no puede ser null");
+        return this.items.stream()
+            .filter(item -> item.getProductoId().equals(productoId))
+            .findFirst();
     }
 
     /**

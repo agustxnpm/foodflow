@@ -148,12 +148,18 @@ export interface CrearPromocionCommand {
  * Command para editar una promoción existente.
  * Refleja EditarPromocionCommand del backend.
  * Actualización parcial: solo se modifican los campos presentes.
+ * Incluye campos opcionales de estrategia para permitir cambiar el beneficio.
  */
 export interface EditarPromocionCommand {
   nombre: string;
   descripcion?: string;
   prioridad?: number;
   triggers?: TriggerParams[];
+  tipoEstrategia?: TipoEstrategia;
+  descuentoDirecto?: DescuentoDirectoParams;
+  cantidadFija?: CantidadFijaParams;
+  comboCondicional?: ComboCondicionalParams;
+  precioFijoPorCantidad?: PrecioFijoPorCantidadParams;
 }
 
 // ─── Responses ────────────────────────────────────────────────────────────────

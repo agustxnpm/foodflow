@@ -15,7 +15,7 @@ import java.util.Objects;
  * - El producto debe existir y pertenecer al local (validación multi-tenancy)
  * - El nombre debe seguir siendo único dentro del local
  * - La edición del precio NO afecta ítems en pedidos ya abiertos (garantizado por Snapshot)
- * - Se pueden actualizar: nombre, precio, estado activo/inactivo y color
+ * - Se pueden actualizar: nombre, precio, estado activo/inactivo, color y clasificación como extra
  */
 public class EditarProductoUseCase {
 
@@ -70,6 +70,20 @@ public class EditarProductoUseCase {
         producto.actualizarPrecio(request.precio());
         producto.cambiarEstado(request.activo() != null ? request.activo() : producto.isActivo());
         producto.actualizarColor(request.colorHex());
+
+        // Reclasificación como extra: solo se modifica si el request lo incluye explícitamente
+        if (request.esExtra() != null) {
+            producto.reclasificarExtra(request.esExtra());
+        }
+
+        // Control de stock: solo se modifica si el request lo incluye explícitamente
+        if (request.controlaStock() != null) {
+            if (request.controlaStock()) {
+                producto.activarControlStock();
+            } else {
+                producto.desactivarControlStock();
+            }
+        }
 
         // Persistir cambios
         Producto productoActualizado = productoRepository.guardar(producto);

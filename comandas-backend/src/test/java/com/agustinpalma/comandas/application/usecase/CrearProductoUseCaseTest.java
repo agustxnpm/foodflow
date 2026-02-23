@@ -50,7 +50,9 @@ class CrearProductoUseCaseTest {
             "Hamburguesa Completa",
             new BigDecimal("1500.00"),
             true,
-            "#FF0000"
+            "#FF0000",
+            null,
+            null
         );
 
         when(productoRepository.existePorNombreYLocal("Hamburguesa Completa", localId))
@@ -80,7 +82,9 @@ class CrearProductoUseCaseTest {
             "Pizza Napolitana",
             new BigDecimal("2000.00"),
             true,
-            "#00FF00"
+            "#00FF00",
+            null,
+            null
         );
 
         when(productoRepository.existePorNombreYLocal("Pizza Napolitana", localId))
@@ -106,7 +110,9 @@ class CrearProductoUseCaseTest {
             "Empanada de Carne",
             new BigDecimal("500.00"),
             true,
-            "#FFFF00"
+            "#FFFF00",
+            null,
+            null
         );
 
         // El nombre existe en OTRO local, pero no en el actual
@@ -132,7 +138,9 @@ class CrearProductoUseCaseTest {
             "Milanesa",
             new BigDecimal("1800.00"),
             true,
-            "#abc123" // Minúsculas
+            "#abc123", // Minúsculas
+            null,
+            null
         );
 
         when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
@@ -153,7 +161,9 @@ class CrearProductoUseCaseTest {
             "Papas Fritas",
             new BigDecimal("900.00"),
             true,
-            null // Sin color
+            null, // Sin color
+            null,
+            null
         );
 
         when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
@@ -174,7 +184,9 @@ class CrearProductoUseCaseTest {
             "Ensalada César",
             new BigDecimal("1200.00"),
             null, // Estado no especificado
-            "#00AA00"
+            "#00AA00",
+            null,
+            null
         );
 
         when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
@@ -186,6 +198,54 @@ class CrearProductoUseCaseTest {
 
         // Then
         assertTrue(response.activo(), "Debe ser activo por defecto");
+    }
+
+    @Test
+    void deberia_crear_producto_con_control_stock_activado() {
+        // Given
+        ProductoRequest request = new ProductoRequest(
+            "Pan de Hamburguesa",
+            new BigDecimal("300.00"),
+            true,
+            "#FFD700",
+            true, // Materia prima → controla stock
+            null
+        );
+
+        when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(localId, request);
+
+        // Then
+        assertNotNull(response);
+        assertTrue(response.controlaStock(), "Debe activar control de stock");
+        assertEquals(0, response.stockActual(), "Stock inicial debe ser 0");
+    }
+
+    @Test
+    void deberia_crear_producto_sin_control_stock_por_defecto() {
+        // Given
+        ProductoRequest request = new ProductoRequest(
+            "Hamburguesa Completa",
+            new BigDecimal("1500.00"),
+            true,
+            "#FF0000",
+            null, // No especificado → default false
+            null
+        );
+
+        when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(localId, request);
+
+        // Then
+        assertFalse(response.controlaStock(), "Menú no controla stock por defecto");
     }
 
     @Test
@@ -204,7 +264,9 @@ class CrearProductoUseCaseTest {
             "Producto",
             new BigDecimal("1000.00"),
             true,
-            "#FFFFFF"
+            "#FFFFFF",
+            null,
+            null
         );
 
         // When / Then
@@ -212,5 +274,53 @@ class CrearProductoUseCaseTest {
             NullPointerException.class,
             () -> useCase.ejecutar(null, request)
         );
+    }
+
+    @Test
+    void deberia_crear_producto_como_extra_cuando_esExtra_es_true() {
+        // Given — el operador crea "huevo" como extra
+        ProductoRequest request = new ProductoRequest(
+            "Huevo",
+            new BigDecimal("200.00"),
+            true,
+            "#FFFF00",
+            false,
+            true  // esExtra = true
+        );
+
+        when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(localId, request);
+
+        // Then
+        assertNotNull(response);
+        assertEquals("Huevo", response.nombre());
+        assertTrue(response.esExtra(), "Debe ser marcado como extra");
+    }
+
+    @Test
+    void deberia_crear_producto_sin_ser_extra_por_defecto() {
+        // Given — el operador crea un producto normal sin especificar esExtra
+        ProductoRequest request = new ProductoRequest(
+            "Coca Cola",
+            new BigDecimal("500.00"),
+            true,
+            "#0000FF",
+            null,
+            null  // esExtra = null → default false
+        );
+
+        when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(localId, request);
+
+        // Then
+        assertFalse(response.esExtra(), "Producto normal no es extra por defecto");
     }
 }

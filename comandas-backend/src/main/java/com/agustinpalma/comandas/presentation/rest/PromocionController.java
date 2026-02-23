@@ -40,6 +40,7 @@ public class PromocionController {
     private final EditarPromocionUseCase editarPromocionUseCase;
     private final EliminarPromocionUseCase eliminarPromocionUseCase;
     private final AsociarProductoAPromocionUseCase asociarProductoAPromocionUseCase;
+    private final CambiarEstadoPromocionUseCase cambiarEstadoPromocionUseCase;
 
     public PromocionController(
             LocalContextProvider localContextProvider,
@@ -48,7 +49,8 @@ public class PromocionController {
             ConsultarPromocionUseCase consultarPromocionUseCase,
             EditarPromocionUseCase editarPromocionUseCase,
             EliminarPromocionUseCase eliminarPromocionUseCase,
-            AsociarProductoAPromocionUseCase asociarProductoAPromocionUseCase
+            AsociarProductoAPromocionUseCase asociarProductoAPromocionUseCase,
+            CambiarEstadoPromocionUseCase cambiarEstadoPromocionUseCase
     ) {
         this.localContextProvider = localContextProvider;
         this.crearPromocionUseCase = crearPromocionUseCase;
@@ -57,6 +59,7 @@ public class PromocionController {
         this.editarPromocionUseCase = editarPromocionUseCase;
         this.eliminarPromocionUseCase = eliminarPromocionUseCase;
         this.asociarProductoAPromocionUseCase = asociarProductoAPromocionUseCase;
+        this.cambiarEstadoPromocionUseCase = cambiarEstadoPromocionUseCase;
     }
 
     /**
@@ -187,6 +190,27 @@ public class PromocionController {
                 command
         );
 
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Cambia el estado de una promoción (ACTIVA ↔ INACTIVA).
+     *
+     * Endpoint dedicado para el toggle de estado desde la UI.
+     * Recibe el estado deseado en el body: { "estado": "ACTIVA" } o { "estado": "INACTIVA" }
+     *
+     * Seguridad: Valida que la promoción pertenezca al local autenticado.
+     */
+    @PatchMapping("/{id}/estado")
+    public ResponseEntity<PromocionResponse> cambiarEstado(
+            @PathVariable String id,
+            @RequestBody java.util.Map<String, String> body
+    ) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        PromocionId promocionId = new PromocionId(UUID.fromString(id));
+        EstadoPromocion nuevoEstado = EstadoPromocion.valueOf(body.get("estado"));
+
+        PromocionResponse response = cambiarEstadoPromocionUseCase.ejecutar(localId, promocionId, nuevoEstado);
         return ResponseEntity.ok(response);
     }
 }

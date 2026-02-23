@@ -4,6 +4,7 @@ import { ToastContainer } from '../ui';
 import MainLayout from '../layout/MainLayout';
 import SalonPage from '../features/salon/pages/SalonPage';
 import CajaIndex from '../features/caja/components/CajaIndex';
+import MostradorPantalla from '../pages/MostradorPantalla';
 
 // Configuración de React Query
 const queryClient = new QueryClient({
@@ -39,9 +40,8 @@ export function AppRouter() {
             {/* Caja */}
             <Route path="caja" element={<CajaIndex />} />
 
-            {/* Rutas futuras */}
-            {/* <Route path="catalogo" element={<CatalogoPage />} /> */}
-            {/* <Route path="promociones" element={<PromocionesPage />} /> */}
+            {/* Mostrador: Catálogo + Promociones */}
+            <Route path="mostrador" element={<MostradorPantalla />} />
           </Route>
         </Routes>
       </BrowserRouter>

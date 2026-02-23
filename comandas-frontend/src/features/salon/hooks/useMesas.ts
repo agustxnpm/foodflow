@@ -4,23 +4,29 @@ import type { CerrarMesaRequest, CerrarMesaResponse, PagoRequest } from '../type
 import type { ComandaImpresionResponse, TicketImpresionResponse } from '../../pedido/types-impresion';
 
 /**
- * HU-02: Hook para listar todas las mesas del local
+ * HU-02: Hook para listar todas las mesas del local.
+ * Polling cada 15s para mantener estados de mesa actualizados
+ * en Tauri, donde no hay refetchOnWindowFocus.
  */
 export function useMesas() {
   return useQuery({
     queryKey: ['mesas'],
     queryFn: () => mesasApi.listar(),
+    refetchInterval: 15_000,
   });
 }
 
 /**
- * HU-06: Hook para consultar el pedido actual de una mesa
+ * HU-06: Hook para consultar el pedido actual de una mesa.
+ * Polling cada 10s para mantener totales y estados del pedido
+ * actualizados mientras el modal POS está abierto.
  */
 export function usePedidoMesa(mesaId?: string) {
   return useQuery({
     queryKey: ['pedido', mesaId],
     queryFn: () => mesasApi.consultarPedido(mesaId!),
     enabled: !!mesaId,
+    refetchInterval: 10_000,
   });
 }
 
