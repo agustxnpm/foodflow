@@ -38,6 +38,12 @@ export interface ProductoRequest {
   controlaStock?: boolean;
   /** Indica si el producto es un extra (huevo, queso, disco, etc.). Default: false */
   esExtra?: boolean;
+  /** Etiqueta de categoría libre (ej: "bebida", "hamburguesa"). Nullable */
+  categoria?: string;
+  /** Si el producto admite extras/agregados. Default: true */
+  permiteExtras?: boolean;
+  /** Si el POS debe abrir modal de configuración. Default: true */
+  requiereConfiguracion?: boolean;
 }
 
 /**
@@ -70,6 +76,12 @@ export interface ProductoResponse {
   controlaStock: boolean | null;
   /** true si es un extra (huevo, queso, disco de carne, etc.) */
   esExtra: boolean;
+  /** Etiqueta de categoría libre del backend (ej: "bebida"). Puede ser null/undefined */
+  categoria?: string | null;
+  /** Si el producto admite extras/agregados. Default true. Puede no venir en backends legacy */
+  permiteExtras?: boolean;
+  /** Si true, el POS abre modal de configuración (observaciones + extras) antes de agregar */
+  requiereConfiguracion: boolean;
   /** Promociones activas que aplican a este producto (puede estar vacía) */
   promocionesActivas: PromocionActivaInfo[];
 }

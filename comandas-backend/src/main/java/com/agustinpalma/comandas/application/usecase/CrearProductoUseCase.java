@@ -57,6 +57,8 @@ public class CrearProductoUseCase {
         ProductoId nuevoId = ProductoId.generate();
         boolean activarStock = request.controlaStock() != null ? request.controlaStock() : false;
         boolean esExtra = request.esExtra() != null ? request.esExtra() : false;
+        boolean permiteExtras = request.permiteExtras() != null ? request.permiteExtras() : true;
+        boolean requiereConfig = request.requiereConfiguracion() != null ? request.requiereConfiguracion() : true;
         Producto nuevoProducto = new Producto(
             nuevoId,
             localId,
@@ -67,6 +69,9 @@ public class CrearProductoUseCase {
             null,   // grupoVarianteId
             esExtra,
             null,   // cantidadDiscosCarne
+            request.categoria(),  // Puede ser null
+            permiteExtras,
+            requiereConfig,
             0,      // stockActual inicial
             activarStock
         );

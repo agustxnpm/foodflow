@@ -6,8 +6,8 @@ import type {
 } from '../types';
 
 export const productosApi = {
-  listar: (color?: string | null): Promise<AxiosResponse<ProductoResponse[]>> =>
-    apiClient.get('/productos', { params: { color } }),
+  listar: (color?: string | null, categoria?: string | null): Promise<AxiosResponse<ProductoResponse[]>> =>
+    apiClient.get('/productos', { params: { color, categoria } }),
 
   crear: (data: ProductoRequest): Promise<AxiosResponse<ProductoResponse>> =>
     apiClient.post('/productos', data),

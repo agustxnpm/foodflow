@@ -116,6 +116,14 @@ public class AgregarProductoUseCase {
                 "No se encontró el producto con ID: " + request.productoId().getValue()
             ));
 
+        // Validación: un producto marcado como extra NO puede agregarse como línea independiente
+        if (productoSeleccionado.isEsExtra()) {
+            throw new IllegalArgumentException(
+                String.format("El producto '%s' es un extra y no puede agregarse como línea independiente. " +
+                    "Selecciónelo desde la configuración del ítem.", productoSeleccionado.getNombre())
+            );
+        }
+
         // Validación multi-tenancy temprana
         if (!pedido.getLocalId().equals(productoSeleccionado.getLocalId())) {
             throw new IllegalArgumentException(
@@ -138,29 +146,32 @@ public class AgregarProductoUseCase {
         Producto productoFinal = normalizacion.getProductoFinal();
         List<ExtraPedido> extrasFiltrados = normalizacion.getExtrasFiltrados();
 
-        // 4.1 MERGE: Si ya existe un ítem con el mismo producto, acumular cantidad y extras.
-        // Esto garantiza que las promociones se calculen sobre la cantidad TOTAL acumulada
-        // y que no se creen líneas duplicadas para el mismo producto.
-        // Regla de dominio: dos productos son iguales si tienen el mismo productoId
-        // (post-normalización), independientemente de observaciones o extras.
+        // 4.1 MERGE INTELIGENTE: Solo fusionar si la CONFIGURACIÓN es idéntica.
+        //
+        // Regla de negocio: Cada plato personalizado es una unidad independiente.
+        // Dos ítems son fusionables SOLO si comparten:
+        //   - Mismo productoId (post-normalización)
+        //   - Misma observación
+        //   - Mismos extras
+        //
+        // Si no coinciden → crear nuevo ItemPedido (línea independiente).
+        // Esto evita el bug donde "Hamburguesa" + "Hamburguesa sin cebolla"
+        // se fusionaban incorrectamente en "2x Hamburguesa sin cebolla".
         int cantidadFinal = request.cantidad();
         String observacionesFinal = request.observaciones();
         List<ExtraPedido> extrasCombinados = new ArrayList<>(extrasFiltrados);
 
-        Optional<ItemPedido> itemExistente = pedido.buscarItemPorProductoId(productoFinal.getId());
+        Optional<ItemPedido> itemExistente = pedido.buscarItemConMismaConfiguracion(
+            productoFinal.getId(), observacionesFinal, extrasFiltrados
+        );
 
         if (itemExistente.isPresent()) {
             ItemPedido existente = itemExistente.get();
+            // Configuración idéntica → solo acumular cantidad
             cantidadFinal += existente.getCantidad();
-
-            // Merge observaciones: preservar existentes, concatenar nuevas
-            observacionesFinal = mergeObservaciones(existente.getObservacion(), request.observaciones());
-
-            // Merge extras: acumular los del ítem existente con los nuevos
-            extrasCombinados = new ArrayList<>(existente.getExtras());
-            extrasCombinados.addAll(extrasFiltrados);
-
-            // Remover ítem existente del aggregate (será reemplazado por el nuevo con datos combinados)
+            // Observaciones y extras ya son iguales, no hace falta merge
+            
+            // Remover ítem existente (será reemplazado con cantidad acumulada)
             pedido.eliminarItem(existente.getId());
         }
 
@@ -183,7 +194,14 @@ public class AgregarProductoUseCase {
         // 7. Agregar ítem al pedido (con extras y descuentos aplicados)
         pedido.agregarItem(itemConPromocion);
 
-        // 8. Persistir cambios
+        // 8. Recalcular promociones de TODO el pedido (agregación cross-línea)
+        // Necesario porque ítems del mismo producto en diferentes líneas
+        // (ej: "hamburguesa" y "hamburguesa sin cebolla") deben sumar cantidades
+        // para evaluar promos basadas en cantidad (2x1, PrecioFijo).
+        pedido.limpiarPromocionesItems();
+        motorReglasService.aplicarPromociones(pedido, promocionesActivas, LocalDateTime.now(clock));
+
+        // 9. Persistir cambios
         Pedido pedidoActualizado = pedidoRepository.guardar(pedido);
 
         return AgregarProductoResponse.fromDomain(pedidoActualizado);

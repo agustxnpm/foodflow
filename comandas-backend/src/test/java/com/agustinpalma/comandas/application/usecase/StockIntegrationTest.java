@@ -105,7 +105,7 @@ class StockIntegrationTest {
             ProductoId.generate(), localId,
             "Hamburguesa Completa", new BigDecimal("2500"), true, "#FF0000",
             null, false, null,
-            10, true  // stock=10, controlaStock=true
+            null, true, true, 10, true  // categoria=null, permiteExtras=true, requiereConfiguracion=true, stock=10, controlaStock=true
         );
         productoRepository.guardar(hamburguesaConStock);
 
@@ -349,7 +349,7 @@ class StockIntegrationTest {
                 ProductoId.generate(), localId,
                 "Empanada Escasa", new BigDecimal("500"), true, "#FF5500",
                 null, false, null,
-                1, true  // stock=1, controlaStock=true
+                null, true, true, 1, true  // categoria=null, permiteExtras=true, requiereConfiguracion=true, stock=1, controlaStock=true
             );
             productoRepository.guardar(productoPocoStock);
 

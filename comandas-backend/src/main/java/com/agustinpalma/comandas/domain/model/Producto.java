@@ -43,6 +43,13 @@ public class Producto {
     private boolean esExtra;                        // true si es un extra (huevo, queso, disco, etc.) — reclasificable
     private final Integer cantidadDiscosCarne;     // Define jerarquía de variantes (null si no aplica)
 
+    // Clasificación de catálogo
+    private String categoria;                       // Etiqueta libre ("bebida", "comida", "postre") — nullable
+    private boolean permiteExtras;                  // Si false, el POS oculta la sección de extras
+
+    // Control de flujo POS
+    private boolean requiereConfiguracion;          // Si true, el POS abre modal de configuración antes de agregar al pedido
+
     // HU-22: Gestión de stock
     private int stockActual;                       // Cantidad actual en inventario (puede ser negativo por flexibilidad operativa)
     private boolean controlaStock;                 // Si es false, las operaciones de stock no tienen efecto
@@ -60,6 +67,9 @@ public class Producto {
             ProductoId grupoVarianteId,
             boolean esExtra,
             Integer cantidadDiscosCarne,
+            String categoria,
+            boolean permiteExtras,
+            boolean requiereConfiguracion,
             int stockActual,
             boolean controlaStock
     ) {
@@ -72,6 +82,9 @@ public class Producto {
         this.grupoVarianteId = grupoVarianteId;  // Puede ser null si no tiene variantes
         this.esExtra = esExtra;
         this.cantidadDiscosCarne = cantidadDiscosCarne;  // Puede ser null si no aplica
+        this.categoria = categoria;  // Puede ser null si no se clasifica
+        this.permiteExtras = permiteExtras;
+        this.requiereConfiguracion = requiereConfiguracion;
         this.stockActual = stockActual;
         this.controlaStock = controlaStock;
     }
@@ -81,7 +94,7 @@ public class Producto {
      * Usado por tests y código legacy.
      */
     public Producto(ProductoId id, LocalId localId, String nombre, BigDecimal precio, boolean activo, String colorHex) {
-        this(id, localId, nombre, precio, activo, colorHex, null, false, null, 0, false);
+        this(id, localId, nombre, precio, activo, colorHex, null, false, null, null, true, true, 0, false);
     }
 
     /**
@@ -90,7 +103,7 @@ public class Producto {
      */
     public Producto(ProductoId id, LocalId localId, String nombre, BigDecimal precio, boolean activo, String colorHex,
                     ProductoId grupoVarianteId, boolean esExtra, Integer cantidadDiscosCarne) {
-        this(id, localId, nombre, precio, activo, colorHex, grupoVarianteId, esExtra, cantidadDiscosCarne, 0, false);
+        this(id, localId, nombre, precio, activo, colorHex, grupoVarianteId, esExtra, cantidadDiscosCarne, null, true, true, 0, false);
     }
 
     private String validarNombre(String nombre) {
@@ -225,6 +238,62 @@ public class Producto {
      */
     public boolean esHamburguesa() {
         return cantidadDiscosCarne != null && cantidadDiscosCarne > 0;
+    }
+
+    // ============================================
+    // Clasificación de catálogo
+    // ============================================
+
+    /**
+     * Etiqueta libre de categoría (ej: "bebida", "comida", "postre").
+     * Usada por el frontend para decidir comportamiento de UI.
+     * Puede ser null si el producto no está clasificado.
+     */
+    public String getCategoria() {
+        return categoria;
+    }
+
+    /**
+     * Actualiza la categoría del producto.
+     * Se normaliza a minúsculas y se trimea para consistencia.
+     *
+     * @param categoria nueva categoría (puede ser null para desclasificar)
+     */
+    public void actualizarCategoria(String categoria) {
+        this.categoria = categoria != null ? categoria.trim().toLowerCase() : null;
+    }
+
+    /**
+     * Indica si este producto acepta extras/agregados.
+     * Si es false, el POS oculta la sección de extras en el modal de configuración.
+     * Ejemplo: las bebidas típicamente no aceptan extras.
+     */
+    public boolean isPermiteExtras() {
+        return permiteExtras;
+    }
+
+    /**
+     * Cambia si el producto acepta extras/agregados.
+     */
+    public void cambiarPermiteExtras(boolean permiteExtras) {
+        this.permiteExtras = permiteExtras;
+    }
+
+    /**
+     * Indica si el POS debe abrir el modal de configuración (observaciones + extras)
+     * antes de agregar este producto al pedido.
+     * Si es false, el producto se agrega directamente con un solo toque.
+     */
+    public boolean isRequiereConfiguracion() {
+        return requiereConfiguracion;
+    }
+
+    /**
+     * Cambia si el producto requiere configuración en el POS.
+     * Permite al operador decidir qué productos abren modal de extras/observaciones.
+     */
+    public void cambiarRequiereConfiguracion(boolean requiereConfiguracion) {
+        this.requiereConfiguracion = requiereConfiguracion;
     }
 
     // ============================================

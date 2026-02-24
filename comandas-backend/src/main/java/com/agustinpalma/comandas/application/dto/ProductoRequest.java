@@ -25,6 +25,12 @@ public record ProductoRequest(
     
     Boolean controlaStock,  // Opcional, si es null se preserva el estado actual (edición) o false (creación)
 
-    Boolean esExtra  // Indica si el producto es un extra (huevo, queso, disco, etc.). Default: false en creación
+    Boolean esExtra,  // Indica si el producto es un extra (huevo, queso, disco, etc.). Default: false en creación
+
+    String categoria,  // Etiqueta libre de categoría ("bebida", "comida", "postre"). Nullable.
+
+    Boolean permiteExtras,  // Si el producto acepta extras/agregados. Default: true en creación
+
+    Boolean requiereConfiguracion  // Si el POS debe abrir modal de configuración. Default: true en creación
 ) {
 }

@@ -15,6 +15,8 @@ import {
   useModificarCantidad,
   useEliminarItem,
 } from '../hooks/usePedido';
+import { permiteAbrirModal } from '../utils/productoUtils';
+import { useCategoriasStore } from '../../../lib/categorias-ui/store';
 import useToast from '../../../hooks/useToast';
 
 interface PantallaPedidoProps {
@@ -61,6 +63,9 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   const { data: pedido = null, isLoading: cargandoPedido } =
     usePedidoMesa(mesaId);
 
+  // ── Store de pseudocategorías (fallback si backend no envía categoria) ──
+  const categoriaDeColor = useCategoriasStore((s) => s.categoriaDeColor);
+
   // ── Mutations ──
   const agregarProducto = useAgregarProducto();
   const modificarCantidad = useModificarCantidad();
@@ -75,19 +80,31 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
     };
   }, []);
 
-  // ── Filtrar productos por búsqueda typeahead ──
-  const productosFiltrados = busqueda.trim()
-    ? productos.filter((p) =>
-        p.nombre.toLowerCase().includes(busqueda.trim().toLowerCase())
-      )
-    : productos;
+  // ── Filtrar productos por búsqueda typeahead y excluir extras ──
+  // Los extras (huevo, queso, disco) no se muestran en la grilla del POS
+  // porque no pueden agregarse como líneas independientes. Solo se seleccionan
+  // desde el modal de configuración de otro producto.
+  const productosFiltrados = useMemo(() => {
+    const sinExtras = productos.filter((p) => !p.esExtra);
+    if (!busqueda.trim()) return sinExtras;
+    const termino = busqueda.trim().toLowerCase();
+    return sinExtras.filter((p) => p.nombre.toLowerCase().includes(termino));
+  }, [productos, busqueda]);
 
-  // ── Handlers ──
+  // Total de productos sin extras (para el indicador "N de M" en la grilla)
+  const totalProductosSinExtras = useMemo(
+    () => productos.filter((p) => !p.esExtra).length,
+    [productos]
+  );
 
   /**
-   * Al tocar un producto en la grilla, se abre el modal de configuración
-   * en lugar de agregar directamente. Esto permite al operador definir
-   * observaciones y extras antes de confirmar.
+   * Al tocar un producto en la grilla:
+   * - Si permiteAbrirModal() = true → abre modal de observaciones/extras
+   * - Si permiteAbrirModal() = false → agrega directamente al pedido (cantidad 1, sin extras)
+   *
+   * La decisión integra: requiereConfiguracion, permiteExtras, esExtra,
+   * y categoría resuelta (backend o fallback store local).
+   * Bebidas y extras nunca abren modal.
    */
   const handleAgregarProducto = useCallback(
     (productoId: string) => {
@@ -96,11 +113,30 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
         return;
       }
       const producto = productos.find((p) => p.id === productoId);
-      if (producto) {
+      if (!producto) return;
+
+      if (permiteAbrirModal(producto, categoriaDeColor)) {
+        // Abrir modal de configuración (observaciones + extras)
         setProductoSeleccionado(producto);
+      } else {
+        // Agregar directamente al pedido: cantidad 1, sin extras ni observaciones
+        agregarProducto.mutate(
+          {
+            pedidoId: pedido.pedidoId,
+            productoId: producto.id,
+            cantidad: 1,
+          },
+          {
+            onError: (error: any) => {
+              const msg =
+                error?.response?.data?.message || 'Error al agregar producto';
+              toast.error(msg);
+            },
+          }
+        );
       }
     },
-    [pedido, productos, toast]
+    [pedido, productos, toast, agregarProducto, categoriaDeColor]
   );
 
   /**
@@ -282,7 +318,7 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
               onAgregarProducto={handleAgregarProducto}
               busqueda={busqueda}
               onBusquedaChange={setBusqueda}
-              totalProductos={productos.length}
+              totalProductos={totalProductosSinExtras}
             />
           </main>
 

@@ -20,6 +20,9 @@ public record ProductoResponse(
     Integer stockActual,    // Cantidad actual en inventario
     Boolean controlaStock,  // Si el producto tiene control de inventario activo
     boolean esExtra,        // true si es un extra (huevo, queso, disco de carne, etc.)
+    String categoria,       // Etiqueta libre de categoría ("bebida", "comida", "postre") — puede ser null
+    boolean permiteExtras,  // Si el producto acepta extras/agregados
+    boolean requiereConfiguracion, // Si true, el POS abre modal de configuración antes de agregar
     List<PromocionActivaInfo> promocionesActivas // Promociones vigentes que aplican a este producto
 ) {
 
@@ -57,6 +60,9 @@ public record ProductoResponse(
             producto.getStockActual(),
             producto.isControlaStock(),
             producto.isEsExtra(),
+            producto.getCategoria(),
+            producto.isPermiteExtras(),
+            producto.isRequiereConfiguracion(),
             promociones != null ? List.copyOf(promociones) : List.of()
         );
     }

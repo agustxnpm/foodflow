@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.application.usecase;
 
 import com.agustinpalma.comandas.application.dto.AjusteEconomicoDTO;
 import com.agustinpalma.comandas.application.dto.DetallePedidoResponse;
+import com.agustinpalma.comandas.application.dto.ExtraDetalleDTO;
 import com.agustinpalma.comandas.application.dto.ItemDetalleDTO;
 import com.agustinpalma.comandas.domain.model.AjusteEconomico;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoMesa;
@@ -147,6 +148,7 @@ public class ConsultarDetallePedidoUseCase {
      * Mapea un ítem de dominio a DTO.
      * 
      * HU-10: Incluye información de promoción aplicada.
+     * HU-05.1 + HU-22: Incluye extras como sub-elementos del ítem.
      * 
      * REGLA CRÍTICA:
      * Los cálculos se invocan desde el dominio (calcularSubtotal, calcularPrecioFinal).
@@ -163,6 +165,15 @@ public class ConsultarDetallePedidoUseCase {
         var descuentoTotal = item.getMontoDescuento()
             .add(item.calcularMontoDescuentoManual());
 
+        // Mapear extras de dominio a DTO (sub-elementos del ítem)
+        List<ExtraDetalleDTO> extrasDTO = item.getExtras().stream()
+            .map(extra -> new ExtraDetalleDTO(
+                extra.getProductoId().getValue().toString(),
+                extra.getNombre(),
+                extra.getPrecioSnapshot()
+            ))
+            .toList();
+
         return new ItemDetalleDTO(
             item.getId().getValue().toString(),
             item.getNombreProducto(),
@@ -173,7 +184,8 @@ public class ConsultarDetallePedidoUseCase {
             precioFinal,
             item.getObservacion(),
             item.getNombrePromocion(),
-            item.tienePromocion() || item.tieneDescuentoManual()
+            item.tienePromocion() || item.tieneDescuentoManual(),
+            extrasDTO
         );
     }
 }

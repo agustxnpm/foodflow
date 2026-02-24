@@ -208,8 +208,8 @@ class AgregarProductoUseCaseTest {
     }
 
     @Test
-    @DisplayName("AC1 - Merge: Agregar el mismo producto acumula cantidad y combina observaciones")
-    void deberia_permitir_agregar_mismo_producto_multiples_veces() {
+    @DisplayName("AC1 - Merge: Mismo producto con observaciones distintas crea líneas separadas")
+    void deberia_crear_lineas_separadas_para_misma_producto_con_distinta_configuracion() {
         // Given: Un producto y un pedido abierto
         Producto producto = new Producto(productoId, localId, "Empanada", new BigDecimal("25.00"), true, "#FF00FF");
         Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
@@ -220,18 +220,54 @@ class AgregarProductoUseCaseTest {
         when(pedidoRepository.guardar(any(Pedido.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // When: Se agrega el mismo producto dos veces con observaciones diferentes
+        // When: Se agrega el mismo producto dos veces con observaciones DIFERENTES
         AgregarProductoRequest request1 = new AgregarProductoRequest(pedidoId, productoId, 3, "De carne");
         AgregarProductoRequest request2 = new AgregarProductoRequest(pedidoId, productoId, 2, "De pollo");
         
         useCase.ejecutar(request1);
         AgregarProductoResponse response = useCase.ejecutar(request2);
 
+        // Then: Deben existir 2 líneas independientes porque la configuración difiere
+        // (observaciones distintas = configuraciones distintas → NO se fusionan)
+        assertThat(response.items()).hasSize(2);
+
+        // Línea 1: "De carne" con cantidad 3
+        assertThat(response.items().get(0).cantidad()).isEqualTo(3);
+        assertThat(response.items().get(0).observacion()).isEqualTo("De carne");
+
+        // Línea 2: "De pollo" con cantidad 2
+        assertThat(response.items().get(1).cantidad()).isEqualTo(2);
+        assertThat(response.items().get(1).observacion()).isEqualTo("De pollo");
+        
+        // Subtotal: (3 * 25) + (2 * 25) = 125
+        assertThat(response.subtotal()).isEqualByComparingTo(new BigDecimal("125.00"));
+    }
+
+    @Test
+    @DisplayName("AC1 - Merge: Mismo producto con misma configuración acumula cantidad")
+    void deberia_fusionar_items_con_misma_configuracion() {
+        // Given: Un producto y un pedido abierto
+        Producto producto = new Producto(productoId, localId, "Empanada", new BigDecimal("25.00"), true, "#FF00FF");
+        Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
+        
+        when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
+        when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(producto));
+        when(promocionRepository.buscarActivasPorLocal(localId)).thenReturn(Collections.emptyList());
+        when(pedidoRepository.guardar(any(Pedido.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When: Se agrega el mismo producto dos veces con MISMA observación
+        AgregarProductoRequest request1 = new AgregarProductoRequest(pedidoId, productoId, 3, "De carne");
+        AgregarProductoRequest request2 = new AgregarProductoRequest(pedidoId, productoId, 2, "De carne");
+        
+        useCase.ejecutar(request1);
+        AgregarProductoResponse response = useCase.ejecutar(request2);
+
         // Then: Debe existir 1 sola línea con cantidad acumulada (3+2=5)
-        // y observaciones combinadas con separador ";"
+        // porque productoId + observación + extras coinciden → merge
         assertThat(response.items()).hasSize(1);
         assertThat(response.items().get(0).cantidad()).isEqualTo(5);
-        assertThat(response.items().get(0).observacion()).isEqualTo("De carne; De pollo");
+        assertThat(response.items().get(0).observacion()).isEqualTo("De carne");
         
         // Subtotal: 5 * 25 = 125
         assertThat(response.subtotal()).isEqualByComparingTo(new BigDecimal("125.00"));
@@ -609,5 +645,37 @@ class AgregarProductoUseCaseTest {
         promo.definirAlcance(new AlcancePromocion(List.of(itemTarget)));
         
         return promo;
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Tests de validación: producto extra como línea independiente
+    // ─────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Debe rechazar agregar un producto marcado como extra como línea independiente")
+    void deberia_rechazar_agregar_producto_extra_como_item_independiente() {
+        // Given: Un producto marcado como extra (ej: "Queso Cheddar" que solo se agrega dentro de la config del ítem)
+        Producto productoExtra = new Producto(
+            productoId, localId, "Queso Cheddar",
+            new BigDecimal("200.00"), true, "#FFD700",
+            null, true, null // esExtra = true
+        );
+
+        Pedido pedido = new Pedido(pedidoId, localId, mesaId, 1, EstadoPedido.ABIERTO, LocalDateTime.now());
+
+        when(pedidoRepository.buscarPorId(pedidoId)).thenReturn(Optional.of(pedido));
+        when(productoRepository.buscarPorId(productoId)).thenReturn(Optional.of(productoExtra));
+
+        AgregarProductoRequest request = new AgregarProductoRequest(
+            pedidoId, productoId, 1, null
+        );
+
+        // When / Then: Debe lanzar excepción indicando que un extra no puede agregarse como línea independiente
+        assertThatThrownBy(() -> useCase.ejecutar(request))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("es un extra y no puede agregarse como línea independiente");
+
+        // Verificar que nunca se intentó guardar el pedido
+        verify(pedidoRepository, never()).guardar(any(Pedido.class));
     }
 }

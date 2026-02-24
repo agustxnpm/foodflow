@@ -558,6 +558,440 @@ class MotorReglasServiceTest {
     }
 
     // =================================================
+    // Escenario 7: EXTRAS EXCLUYEN PROMOCIONES
+    // =================================================
+
+    @Nested
+    @DisplayName("Exclusión de promociones por extras")
+    class ExtrasExcluyenPromocionesTests {
+
+        @Test
+        @DisplayName("producto base sin extras DEBE recibir promo normalmente")
+        void producto_base_sin_extras_recibe_promo() {
+            // Given: Promo 2x1 en cervezas
+            Promocion promo2x1 = crearPromocionCantidadFija(
+                "2x1 Cervezas",
+                2, 1,
+                cerveza.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(promo2x1);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // When: 2 cervezas SIN extras
+            ItemPedido item = motorReglas.aplicarReglasConExtras(
+                pedido, cerveza, 2, null,
+                Collections.emptyList(), // sin extras
+                promociones, ahora
+            );
+
+            // Then: Promo debe aplicar (1 cerveza gratis)
+            assertThat(item.tienePromocion()).isTrue();
+            assertThat(item.getNombrePromocion()).isEqualTo("2x1 Cervezas");
+            assertThat(item.getMontoDescuento())
+                .isEqualByComparingTo(cerveza.getPrecio()); // 1 unidad gratis
+        }
+
+        @Test
+        @DisplayName("producto CON extras NO debe recibir promo — regla de producto base puro")
+        void producto_con_extras_no_recibe_promo() {
+            // Given: Promo 2x1 en hamburguesas
+            Producto hamburguesa = crearProducto("Hamburguesa", new BigDecimal("5000"));
+            Promocion promo2x1 = crearPromocionCantidadFija(
+                "2x1 Hamburguesas",
+                2, 1,
+                hamburguesa.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(promo2x1);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // Extra: Cheddar
+            Producto cheddarProducto = new Producto(
+                ProductoId.generate(), localId, "Queso Cheddar",
+                new BigDecimal("500"), true, "#FFD700",
+                null, true, null // esExtra = true
+            );
+            ExtraPedido cheddar = ExtraPedido.crearDesdeProducto(cheddarProducto);
+
+            // When: 2 hamburguesas CON cheddar
+            ItemPedido item = motorReglas.aplicarReglasConExtras(
+                pedido, hamburguesa, 2, null,
+                List.of(cheddar, cheddar), // 2 extras
+                promociones, ahora
+            );
+
+            // Then: promo NO debe aplicar (producto personalizado con extras)
+            assertThat(item.tienePromocion()).isFalse();
+            assertThat(item.getMontoDescuento()).isEqualByComparingTo(BigDecimal.ZERO);
+        }
+
+        @Test
+        @DisplayName("descuento porcentual NO aplica a producto con extras")
+        void descuento_porcentual_no_aplica_con_extras() {
+            // Given: Happy Hour 20% en café
+            Promocion happyHour = crearPromocionDescuentoPorcentaje(
+                "Happy Hour",
+                new BigDecimal("20"),
+                cafe.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(happyHour);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // Extra: un shot de crema
+            ExtraPedido cremaExtra = new ExtraPedido(
+                ProductoId.generate(), "Crema", new BigDecimal("200")
+            );
+
+            // When: 1 café CON crema
+            ItemPedido item = motorReglas.aplicarReglasConExtras(
+                pedido, cafe, 1, null,
+                List.of(cremaExtra),
+                promociones, ahora
+            );
+
+            // Then: sin promo — producto con extras no califica
+            assertThat(item.tienePromocion()).isFalse();
+            assertThat(item.getMontoDescuento()).isEqualByComparingTo(BigDecimal.ZERO);
+            // Pero el extra sí debe estar presente
+            assertThat(item.getExtras()).hasSize(1);
+            assertThat(item.getExtras().get(0).getNombre()).isEqualTo("Crema");
+        }
+
+        @Test
+        @DisplayName("observaciones diferentes SIN extras SÍ califican para promo — solo el producto base importa")
+        void observaciones_diferentes_sin_extras_si_califican_para_promo() {
+            // Given: Promo 20% en cerveza
+            Promocion happyHour = crearPromocionDescuentoPorcentaje(
+                "Happy Hour",
+                new BigDecimal("20"),
+                cerveza.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(happyHour);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // When: Cerveza con observación pero SIN extras
+            ItemPedido item = motorReglas.aplicarReglasConExtras(
+                pedido, cerveza, 1, "Bien fría por favor",
+                Collections.emptyList(),
+                promociones, ahora
+            );
+
+            // Then: Promo DEBE aplicar (la observación no afecta elegibilidad)
+            assertThat(item.tienePromocion()).isTrue();
+            assertThat(item.getNombrePromocion()).isEqualTo("Happy Hour");
+            assertThat(item.getMontoDescuento())
+                .isEqualByComparingTo(new BigDecimal("500")); // 2500 * 20%
+        }
+
+        @Test
+        @DisplayName("recálculo de promos (HU-20/21) debe excluir ítems con extras")
+        void recalculo_promos_excluye_items_con_extras() {
+            // Given: Promo 20% en hamburguesa
+            Producto hamburguesa = crearProducto("Hamburguesa", new BigDecimal("5000"));
+            Promocion promo = crearPromocionDescuentoPorcentaje(
+                "Promo Hamburguesa",
+                new BigDecimal("20"),
+                hamburguesa.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(promo);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // Crear ítem CON extras (ya en el pedido)
+            ExtraPedido cheddar = new ExtraPedido(
+                ProductoId.generate(), "Cheddar", new BigDecimal("500")
+            );
+            ItemPedido itemConExtras = ItemPedido.crearConExtras(
+                ItemPedidoId.generate(), pedido.getId(),
+                hamburguesa, 1, "sin cebolla",
+                List.of(cheddar)
+            );
+            pedido.agregarItem(itemConExtras);
+
+            // Crear ítem SIN extras (también en el pedido)
+            ItemPedido itemSinExtras = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                hamburguesa, 1, null
+            );
+            pedido.agregarItem(itemSinExtras);
+
+            // Limpiar promos existentes (precondición del recálculo)
+            pedido.limpiarPromocionesItems();
+
+            // When: Recalcular promos de todo el pedido
+            motorReglas.aplicarPromociones(pedido, promociones, ahora);
+
+            // Then:
+            // - Ítem CON extras: NO debe tener promo
+            assertThat(itemConExtras.tienePromocion()).isFalse();
+            assertThat(itemConExtras.getMontoDescuento()).isEqualByComparingTo(BigDecimal.ZERO);
+
+            // - Ítem SIN extras: SÍ debe tener promo (20%)
+            assertThat(itemSinExtras.tienePromocion()).isTrue();
+            assertThat(itemSinExtras.getNombrePromocion()).isEqualTo("Promo Hamburguesa");
+            assertThat(itemSinExtras.getMontoDescuento())
+                .isEqualByComparingTo(new BigDecimal("1000")); // 5000 * 20%
+        }
+    }
+
+    // =================================================
+    // Escenario 8: AGREGACIÓN CROSS-LÍNEA DE PROMOS
+    // =================================================
+
+    @Nested
+    @DisplayName("Agregación cross-línea: promos consideran cantidad total del producto")
+    class AgregacionCrossLineaTests {
+
+        @Test
+        @DisplayName("PrecioFijo: 3+1 cheeseburgers en líneas separadas → 2 ciclos de promo")
+        void precio_fijo_agrega_cantidades_cross_linea() {
+            // Given: Promo "2 Cheeseburgers por $24.000" (cada una $13.500)
+            Producto cheeseburger = crearProducto("Cheeseburger", new BigDecimal("13500"));
+            Promocion promo = crearPromocionPrecioFijoCantidad(
+                "2x Cheeseburger $24.000",
+                2,
+                new BigDecimal("24000"),
+                cheeseburger.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(promo);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // Crear 2 líneas: 3x cheeseburger + 1x cheeseburger "sin cebolla"
+            ItemPedido linea1 = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cheeseburger, 3, null
+            );
+            ItemPedido linea2 = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cheeseburger, 1, "sin cebolla"
+            );
+            pedido.agregarItem(linea1);
+            pedido.agregarItem(linea2);
+            pedido.limpiarPromocionesItems();
+
+            // When: Recalcular promos
+            motorReglas.aplicarPromociones(pedido, promociones, ahora);
+
+            // Then: 4 unidades total → 2 ciclos de "2 por $24.000"
+            // cantidadEnCiclos = 4 (todos participan)
+            // Descuento total: 2 × (2×13500 - 24000) = 2 × 3000 = $6.000
+            // Línea 1 aporta 3 de 4 unidades → $6.000 × 3/4 = $4.500
+            // Línea 2 aporta 1 de 4 unidades → $6.000 × 1/4 = $1.500
+            assertThat(linea1.tienePromocion()).isTrue();
+            assertThat(linea1.getMontoDescuento()).isEqualByComparingTo(new BigDecimal("4500"));
+
+            assertThat(linea2.tienePromocion()).isTrue();
+            assertThat(linea2.getNombrePromocion()).isEqualTo("2x Cheeseburger $24.000");
+            assertThat(linea2.getMontoDescuento()).isEqualByComparingTo(new BigDecimal("1500"));
+
+            // Total: (3×13500 - 4500) + (1×13500 - 1500) = 36000 + 12000 = $48.000 = 2 × $24.000
+            BigDecimal totalEsperado = new BigDecimal("48000");
+            BigDecimal totalReal = linea1.calcularPrecioFinal().add(linea2.calcularPrecioFinal());
+            assertThat(totalReal).isEqualByComparingTo(totalEsperado);
+        }
+
+        @Test
+        @DisplayName("PrecioFijo: 2+1 cheeseburgers → solo 1 ciclo, sobrante SIN promo (bug visual fix)")
+        void precio_fijo_sobrante_no_muestra_promo() {
+            // Given: Promo "2 Cheeseburgers por $24.000" (cada una $13.500)
+            Producto cheeseburger = crearProducto("Cheeseburger", new BigDecimal("13500"));
+            Promocion promo = crearPromocionPrecioFijoCantidad(
+                "2x Cheeseburger $24.000",
+                2,
+                new BigDecimal("24000"),
+                cheeseburger.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(promo);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // 2 líneas: 2x cheeseburger + 1x cheeseburger "sin cebolla" (sobrante)
+            ItemPedido linea1 = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cheeseburger, 2, null
+            );
+            ItemPedido linea2 = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cheeseburger, 1, "sin cebolla"
+            );
+            pedido.agregarItem(linea1);
+            pedido.agregarItem(linea2);
+            pedido.limpiarPromocionesItems();
+
+            // When
+            motorReglas.aplicarPromociones(pedido, promociones, ahora);
+
+            // Then: 3 total → 1 ciclo (2 unidades), 1 sobrante
+            // cantidadEnCiclos = 2
+            // Línea 1 (2 unidades) llena el ciclo → descuento $3.000 completo
+            assertThat(linea1.tienePromocion()).isTrue();
+            assertThat(linea1.getNombrePromocion()).isEqualTo("2x Cheeseburger $24.000");
+            assertThat(linea1.getMontoDescuento()).isEqualByComparingTo(new BigDecimal("3000"));
+
+            // Línea 2 (1 unidad) es sobrante → SIN promo, SIN descuento, SIN label
+            assertThat(linea2.tienePromocion()).isFalse();
+            assertThat(linea2.getMontoDescuento()).isEqualByComparingTo(BigDecimal.ZERO);
+
+            // Total: (2×13500 - 3000) + (1×13500) = 24000 + 13500 = $37.500
+            BigDecimal totalEsperado = new BigDecimal("37500");
+            BigDecimal totalReal = linea1.calcularPrecioFinal().add(linea2.calcularPrecioFinal());
+            assertThat(totalReal).isEqualByComparingTo(totalEsperado);
+        }
+
+        @Test
+        @DisplayName("CantidadFija (2x1): ítems del mismo producto en líneas separadas suman para promo")
+        void cantidad_fija_agrega_cantidades_cross_linea() {
+            // Given: Promo 2x1 en cerveza
+            Promocion promo2x1 = crearPromocionCantidadFija(
+                "2x1 Cerveza",
+                2, 1,
+                cerveza.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(promo2x1);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // 2 líneas: 1x cerveza + 1x cerveza "bien fría"
+            ItemPedido linea1 = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cerveza, 1, null
+            );
+            ItemPedido linea2 = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cerveza, 1, "bien fría"
+            );
+            pedido.agregarItem(linea1);
+            pedido.agregarItem(linea2);
+            pedido.limpiarPromocionesItems();
+
+            // When
+            motorReglas.aplicarPromociones(pedido, promociones, ahora);
+
+            // Then: 1+1=2 total → 1 ciclo 2x1 → 1 gratis → descuento $2.500
+            // Distribuido 50/50 (1/2 cada uno)
+            BigDecimal descuentoTotal = linea1.getMontoDescuento().add(linea2.getMontoDescuento());
+            assertThat(descuentoTotal).isEqualByComparingTo(cerveza.getPrecio()); // $2.500
+
+            assertThat(linea1.tienePromocion()).isTrue();
+            assertThat(linea2.tienePromocion()).isTrue();
+        }
+
+        @Test
+        @DisplayName("Línea única: sin cambio de comportamiento (regresión)")
+        void linea_unica_sin_cambio_de_comportamiento() {
+            // Given: Promo "2 Cheeseburgers por $24.000"
+            Producto cheeseburger = crearProducto("Cheeseburger", new BigDecimal("13500"));
+            Promocion promo = crearPromocionPrecioFijoCantidad(
+                "2x Cheeseburger $24.000",
+                2,
+                new BigDecimal("24000"),
+                cheeseburger.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(promo);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // Una sola línea con 3 unidades
+            ItemPedido item = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cheeseburger, 3, null
+            );
+            pedido.agregarItem(item);
+            pedido.limpiarPromocionesItems();
+
+            // When
+            motorReglas.aplicarPromociones(pedido, promociones, ahora);
+
+            // Then: 3 unidades → 1 ciclo → descuento $3.000 (idéntico al comportamiento previo)
+            assertThat(item.tienePromocion()).isTrue();
+            assertThat(item.getMontoDescuento()).isEqualByComparingTo(new BigDecimal("3000"));
+        }
+
+        @Test
+        @DisplayName("Ítem con extras NO suma al grupo cross-línea")
+        void items_con_extras_no_suman_al_grupo() {
+            // Given: Promo 2x1 en hamburguesa
+            Producto hamburguesa = crearProducto("Hamburguesa", new BigDecimal("5000"));
+            Promocion promo2x1 = crearPromocionCantidadFija(
+                "2x1 Hamburguesa",
+                2, 1,
+                hamburguesa.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(promo2x1);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // Línea 1: 1x hamburguesa normal
+            ItemPedido lineaBase = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                hamburguesa, 1, null
+            );
+            // Línea 2: 1x hamburguesa CON cheddar (extra)
+            ExtraPedido cheddar = new ExtraPedido(
+                ProductoId.generate(), "Cheddar", new BigDecimal("500")
+            );
+            ItemPedido lineaConExtras = ItemPedido.crearConExtras(
+                ItemPedidoId.generate(), pedido.getId(),
+                hamburguesa, 1, null,
+                List.of(cheddar)
+            );
+            pedido.agregarItem(lineaBase);
+            pedido.agregarItem(lineaConExtras);
+            pedido.limpiarPromocionesItems();
+
+            // When
+            motorReglas.aplicarPromociones(pedido, promociones, ahora);
+
+            // Then: Solo 1 unidad base (la con extras NO cuenta) → no alcanza para 2x1
+            assertThat(lineaBase.tienePromocion()).isFalse();
+            assertThat(lineaConExtras.tienePromocion()).isFalse();
+        }
+
+        @Test
+        @DisplayName("Descuento porcentual funciona independiente de líneas (sin cambio de resultado)")
+        void descuento_porcentual_cross_linea_mismo_resultado() {
+            // Given: Happy Hour 20% en café
+            Promocion happyHour = crearPromocionDescuentoPorcentaje(
+                "Happy Hour",
+                new BigDecimal("20"),
+                cafe.getId().getValue(),
+                10
+            );
+            List<Promocion> promociones = List.of(happyHour);
+            LocalDateTime ahora = LocalDateTime.now();
+
+            // 2 líneas: 2x café + 1x café "con leche"
+            ItemPedido linea1 = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cafe, 2, null
+            );
+            ItemPedido linea2 = ItemPedido.crearDesdeProducto(
+                ItemPedidoId.generate(), pedido.getId(),
+                cafe, 1, "con leche"
+            );
+            pedido.agregarItem(linea1);
+            pedido.agregarItem(linea2);
+            pedido.limpiarPromocionesItems();
+
+            // When
+            motorReglas.aplicarPromociones(pedido, promociones, ahora);
+
+            // Then: 3 cafés total × $1.500 × 20% = $900 de descuento total
+            // Línea 1 (2/3): $900 × 2/3 = $600
+            // Línea 2 (1/3): $900 × 1/3 = $300
+            assertThat(linea1.tienePromocion()).isTrue();
+            assertThat(linea2.tienePromocion()).isTrue();
+
+            BigDecimal descuentoTotal = linea1.getMontoDescuento().add(linea2.getMontoDescuento());
+            assertThat(descuentoTotal).isEqualByComparingTo(new BigDecimal("900"));
+        }
+    }
+
+    // =================================================
     // HELPERS: Métodos de construcción
     // =================================================
 
@@ -776,6 +1210,37 @@ class MotorReglasServiceTest {
             localId,
             nombre,
             "Promo NxM",
+            prioridad,
+            EstadoPromocion.ACTIVA,
+            estrategia,
+            List.of(trigger)
+        );
+        
+        ItemPromocion itemTarget = ItemPromocion.productoTarget(productoTargetId);
+        promo.definirAlcance(new AlcancePromocion(List.of(itemTarget)));
+        
+        return promo;
+    }
+
+    private Promocion crearPromocionPrecioFijoCantidad(
+            String nombre,
+            int cantidadActivacion,
+            BigDecimal precioPaquete,
+            UUID productoTargetId,
+            int prioridad
+    ) {
+        EstrategiaPromocion estrategia = new PrecioFijoPorCantidad(cantidadActivacion, precioPaquete);
+        
+        CriterioActivacion trigger = CriterioTemporal.soloFechas(
+            LocalDate.now().minusDays(1),
+            LocalDate.now().plusDays(30)
+        );
+        
+        Promocion promo = new Promocion(
+            PromocionId.generate(),
+            localId,
+            nombre,
+            "Promo PrecioFijo",
             prioridad,
             EstadoPromocion.ACTIVA,
             estrategia,

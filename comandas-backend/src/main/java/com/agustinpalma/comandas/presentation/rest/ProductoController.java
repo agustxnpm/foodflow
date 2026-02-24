@@ -66,24 +66,27 @@ public class ProductoController {
 
     /**
      * Obtiene todos los productos del local actual.
-     * Soporta filtrado opcional por color hexadecimal.
+     * Soporta filtrado opcional por color hexadecimal y/o categoría.
      *
      * GET /api/productos
      * GET /api/productos?color=%23FF0000
+     * GET /api/productos?categoria=bebida
      *
      * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
      *       Por ahora se usa un localId hardcodeado para permitir testing del endpoint.
      *
      * @param color código hexadecimal de color para filtrar (opcional)
+     * @param categoria etiqueta de categoría para filtrar (opcional)
      * @return lista de productos (puede estar vacía)
      */
     @GetMapping
     public ResponseEntity<List<ProductoResponse>> listarProductos(
-        @RequestParam(required = false) String color
+        @RequestParam(required = false) String color,
+        @RequestParam(required = false) String categoria
     ) {
         LocalId localId = localContextProvider.getCurrentLocalId();
 
-        List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localId, color);
+        List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localId, color, categoria);
 
         return ResponseEntity.ok(productos);
     }

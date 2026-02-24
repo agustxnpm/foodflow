@@ -62,6 +62,15 @@ public interface SpringDataProductoRepository extends JpaRepository<ProductoEnti
     List<ProductoEntity> findByLocalIdAndColorHex(UUID localId, String colorHex);
 
     /**
+     * Busca productos de un local filtrados por categoría (case-insensitive).
+     *
+     * @param localId UUID del local
+     * @param categoria etiqueta de categoría
+     * @return lista de productos que coinciden (puede estar vacía)
+     */
+    List<ProductoEntity> findByLocalIdAndCategoriaIgnoreCase(UUID localId, String categoria);
+
+    /**
      * HU-05.1: Busca variantes hermanas del mismo grupo.
      *
      * @param localId UUID del local

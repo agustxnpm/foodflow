@@ -603,6 +603,76 @@ public class ItemPedido {
         return remanenteFinal.add(precioExtrasTotal);
     }
 
+    // ============================================
+    // Identidad de configuración para fusión
+    // ============================================
+
+    /**
+     * Determina si otro ItemPedido tiene la misma configuración.
+     * 
+     * Dos ítems son fusionables SOLO si comparten:
+     * - Mismo productoId
+     * - Misma observación (null-safe, case-sensitive)
+     * - Mismos extras (mismo conjunto de productoId + nombre + precio)
+     * 
+     * Si cualquiera de estos difiere, son platos personalizados distintos
+     * y NO deben fusionarse.
+     * 
+     * Ejemplo:
+     *   "Hamburguesa" vs "Hamburguesa sin cebolla" → false (distinta observación)
+     *   "Hamburguesa + huevo" vs "Hamburguesa" → false (distintos extras)
+     *   "Hamburguesa" vs "Hamburguesa" → true (fusionable)
+     * 
+     * @param otro el ítem contra el cual comparar configuración
+     * @return true si la configuración es idéntica y pueden fusionarse
+     */
+    public boolean esMismaConfiguracion(ItemPedido otro) {
+        if (otro == null) return false;
+        
+        // 1. Mismo producto
+        if (!this.productoId.equals(otro.productoId)) return false;
+        
+        // 2. Misma observación (null-safe)
+        if (!Objects.equals(this.observacion, otro.observacion)) return false;
+        
+        // 3. Mismos extras (comparación por valor — ExtraPedido implementa equals por valor)
+        if (this.extras.size() != otro.extras.size()) return false;
+        
+        // Comparar como multiset: cada extra debe tener la misma frecuencia
+        List<ExtraPedido> copiaOtro = new ArrayList<>(otro.extras);
+        for (ExtraPedido extra : this.extras) {
+            if (!copiaOtro.remove(extra)) {
+                return false;  // Extra no encontrado en el otro
+            }
+        }
+        return copiaOtro.isEmpty();
+    }
+
+    /**
+     * Determina si este ítem tiene la misma configuración que los parámetros dados.
+     * 
+     * Usado por el Aggregate Root (Pedido) para buscar ítems fusionables
+     * ANTES de crear un nuevo ItemPedido.
+     * 
+     * @param productoId el productoId a comparar
+     * @param observacion la observación a comparar (null-safe)
+     * @param extras los extras a comparar
+     * @return true si la configuración coincide
+     */
+    public boolean coincideConfiguracion(ProductoId productoId, String observacion, List<ExtraPedido> extras) {
+        if (!this.productoId.equals(productoId)) return false;
+        if (!Objects.equals(this.observacion, observacion)) return false;
+        
+        List<ExtraPedido> otrosExtras = extras != null ? extras : Collections.emptyList();
+        if (this.extras.size() != otrosExtras.size()) return false;
+        
+        List<ExtraPedido> copia = new ArrayList<>(otrosExtras);
+        for (ExtraPedido extra : this.extras) {
+            if (!copia.remove(extra)) return false;
+        }
+        return copia.isEmpty();
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

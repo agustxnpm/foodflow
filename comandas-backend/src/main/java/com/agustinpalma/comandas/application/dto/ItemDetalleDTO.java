@@ -1,6 +1,7 @@
 package com.agustinpalma.comandas.application.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * DTO que representa un ítem individual dentro del detalle del pedido.
@@ -12,6 +13,9 @@ import java.math.BigDecimal;
  * - precioFinal: lo que paga el cliente
  * - nombrePromocion: etiqueta a mostrar
  * 
+ * HU-05.1 + HU-22: Incluye lista de extras como sub-elementos.
+ * Los extras se muestran debajo del producto principal, NO como líneas independientes.
+ * 
  * Se usa como parte de la respuesta en la consulta de detalle de pedido.
  */
 public record ItemDetalleDTO(
@@ -19,12 +23,13 @@ public record ItemDetalleDTO(
     String nombreProducto,
     int cantidad,
     BigDecimal precioUnitarioBase,   // Precio de lista (para tachar en UI)
-    BigDecimal subtotal,              // precioBase * cantidad
+    BigDecimal subtotal,              // precioBase * cantidad (incluye extras)
     BigDecimal descuentoTotal,        // Monto de descuento aplicado
     BigDecimal precioFinal,           // Lo que paga el cliente
     String observacion,
     String nombrePromocion,           // Nombre de la promo aplicada (puede ser null)
-    boolean tienePromocion            // Flag para condicionales en UI
+    boolean tienePromocion,           // Flag para condicionales en UI
+    List<ExtraDetalleDTO> extras      // Extras aplicados como sub-elementos
 ) {
     /**
      * Valida que los campos obligatorios no sean nulos.
@@ -51,6 +56,9 @@ public record ItemDetalleDTO(
         }
         if (precioFinal == null || precioFinal.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("El precio final no puede ser nulo ni negativo");
+        }
+        if (extras == null) {
+            throw new IllegalArgumentException("La lista de extras no puede ser nula");
         }
     }
 }

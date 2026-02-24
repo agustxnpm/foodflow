@@ -43,18 +43,26 @@ public class ConsultarProductosUseCase {
     }
 
     /**
+     * Sobrecarga de retrocompatibilidad: consulta sin filtro de categoría.
+     */
+    public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro) {
+        return ejecutar(localId, colorHexFiltro, null);
+    }
+
+    /**
      * Ejecuta el caso de uso: consulta productos del local.
-     * Si se provee un filtro de color, solo retorna productos con ese color.
-     * Si no, retorna todos los productos del local.
+     * Soporta filtros opcionales por color y/o categoría.
+     * Si no se proveen filtros, retorna todos los productos del local.
      * 
      * Enriquece cada producto con las promociones activas cuyo alcance incluya
      * al producto como TRIGGER o TARGET.
      * 
      * @param localId identificador del local
      * @param colorHexFiltro color hexadecimal para filtrar (opcional, puede ser null)
+     * @param categoriaFiltro categoría para filtrar (opcional, puede ser null)
      * @return lista de productos que cumplen el criterio (puede estar vacía)
      */
-    public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro) {
+    public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro, String categoriaFiltro) {
         Objects.requireNonNull(localId, "El localId es obligatorio");
         
         List<Producto> productos;
@@ -62,6 +70,8 @@ public class ConsultarProductosUseCase {
         if (colorHexFiltro != null && !colorHexFiltro.isBlank()) {
             String colorNormalizado = colorHexFiltro.trim().toUpperCase();
             productos = productoRepository.buscarPorLocalYColor(localId, colorNormalizado);
+        } else if (categoriaFiltro != null && !categoriaFiltro.isBlank()) {
+            productos = productoRepository.buscarPorLocalYCategoria(localId, categoriaFiltro.trim());
         } else {
             productos = productoRepository.buscarPorLocal(localId);
         }

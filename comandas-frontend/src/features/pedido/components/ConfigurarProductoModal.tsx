@@ -157,6 +157,10 @@ export default function ConfigurarProductoModal({
   const [extrasSeleccionados, setExtrasSeleccionados] = useState<Record<string, number>>({});
 
   // ── Datos: extras disponibles ──
+  // Los extras solo se muestran si:
+  // 1. El producto NO es un extra en sí mismo (un extra no puede tener sub-extras)
+  // 2. El producto permite extras (permiteExtras !== false; undefined → default true)
+  const mostrarExtras = !producto.esExtra && producto.permiteExtras !== false;
   const { data: extras = [], isLoading: cargandoExtras } = useExtras();
 
   // ── Handlers ──
@@ -296,6 +300,7 @@ export default function ConfigurarProductoModal({
             </section>
 
             {/* ── Sección 2: Extras / Agregados ── */}
+            {mostrarExtras ? (
             <section>
               <div className="flex items-center gap-2 mb-2.5">
                 <ChefHat size={16} className="text-gray-500" />
@@ -331,6 +336,16 @@ export default function ConfigurarProductoModal({
                 </div>
               )}
             </section>
+            ) : !producto.esExtra && producto.permiteExtras === false ? (
+              <section>
+                <div className="flex items-center gap-2 mb-2">
+                  <ChefHat size={16} className="text-gray-600" />
+                  <p className="text-sm text-gray-500 italic">
+                    Este producto no admite extras
+                  </p>
+                </div>
+              </section>
+            ) : null}
           </div>
 
           {/* ── Footer fijo: Cantidad principal + Botón Agregar ── */}

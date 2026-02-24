@@ -15,6 +15,18 @@ import type { EstadoPedido } from '../salon/types';
 // ─── Items del pedido ─────────────────────────────────────────────────────────
 
 /**
+ * Extra (agregado) asociado a un ítem del pedido.
+ * Refleja ExtraDetalleDTO del backend.
+ * Es un snapshot inmutable: guarda el precio al momento de agregar.
+ */
+export interface ExtraDetalle {
+  productoId: string;
+  nombre: string;
+  /** Precio unitario del extra al momento del snapshot */
+  precio: number;
+}
+
+/**
  * Ítem de un pedido (snapshot inmutable).
  * Refleja ItemPedidoDTO anidado en AgregarProductoResponse.
  *
@@ -65,6 +77,8 @@ export interface ItemDetalle {
   nombrePromocion?: string;
   /** Flag para condicionales en UI */
   tienePromocion: boolean;
+  /** Extras/agregados asociados a este ítem (snapshot inmutable) */
+  extras: ExtraDetalle[];
 }
 
 /**

@@ -40,6 +40,17 @@ public class ProductoEntity {
     @Column(name = "cantidad_discos_carne")
     private Integer cantidadDiscosCarne;
 
+    // Clasificación de catálogo
+    @Column(name = "categoria", length = 100)
+    private String categoria;
+
+    @Column(name = "permite_extras", nullable = false)
+    private boolean permiteExtras = true;
+
+    // Control de flujo POS
+    @Column(name = "requiere_configuracion", nullable = false)
+    private boolean requiereConfiguracion = true;
+
     // HU-22: Gestión de stock
     @Column(name = "stock_actual", nullable = false)
     private int stockActual = 0;
@@ -53,7 +64,8 @@ public class ProductoEntity {
     // Constructor con parámetros
     public ProductoEntity(UUID id, UUID localId, String nombre, BigDecimal precio, boolean activo, String colorHex,
                          UUID grupoVarianteId, boolean esExtra, Integer cantidadDiscosCarne,
-                         int stockActual, boolean controlaStock) {
+                         String categoria, boolean permiteExtras,
+                         boolean requiereConfiguracion, int stockActual, boolean controlaStock) {
         this.id = id;
         this.localId = localId;
         this.nombre = nombre;
@@ -63,6 +75,9 @@ public class ProductoEntity {
         this.grupoVarianteId = grupoVarianteId;
         this.esExtra = esExtra;
         this.cantidadDiscosCarne = cantidadDiscosCarne;
+        this.categoria = categoria;
+        this.permiteExtras = permiteExtras;
+        this.requiereConfiguracion = requiereConfiguracion;
         this.stockActual = stockActual;
         this.controlaStock = controlaStock;
     }
@@ -138,6 +153,30 @@ public class ProductoEntity {
 
     public void setCantidadDiscosCarne(Integer cantidadDiscosCarne) {
         this.cantidadDiscosCarne = cantidadDiscosCarne;
+    }
+
+    public String getCategoria() {
+        return categoria;
+    }
+
+    public void setCategoria(String categoria) {
+        this.categoria = categoria;
+    }
+
+    public boolean isPermiteExtras() {
+        return permiteExtras;
+    }
+
+    public void setPermiteExtras(boolean permiteExtras) {
+        this.permiteExtras = permiteExtras;
+    }
+
+    public boolean isRequiereConfiguracion() {
+        return requiereConfiguracion;
+    }
+
+    public void setRequiereConfiguracion(boolean requiereConfiguracion) {
+        this.requiereConfiguracion = requiereConfiguracion;
     }
 
     public int getStockActual() {

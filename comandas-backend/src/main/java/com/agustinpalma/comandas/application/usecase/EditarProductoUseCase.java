@@ -76,6 +76,22 @@ public class EditarProductoUseCase {
             producto.reclasificarExtra(request.esExtra());
         }
 
+        // Categoría: se actualiza si viene en el request (null = desclasificar)
+        // Se envía siempre porque null es un valor válido (quitar categoría)
+        if (request.categoria() != null) {
+            producto.actualizarCategoria(request.categoria());
+        }
+
+        // Permite extras: solo se modifica si el request lo incluye explícitamente
+        if (request.permiteExtras() != null) {
+            producto.cambiarPermiteExtras(request.permiteExtras());
+        }
+
+        // Configuración POS: solo se modifica si el request lo incluye explícitamente
+        if (request.requiereConfiguracion() != null) {
+            producto.cambiarRequiereConfiguracion(request.requiereConfiguracion());
+        }
+
         // Control de stock: solo se modifica si el request lo incluye explícitamente
         if (request.controlaStock() != null) {
             if (request.controlaStock()) {

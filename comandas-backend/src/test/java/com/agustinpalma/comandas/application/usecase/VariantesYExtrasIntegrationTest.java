@@ -227,13 +227,13 @@ class VariantesYExtrasIntegrationTest {
     // ==========================================================================
 
     @Test
-    @DisplayName("TEST D: 2x1 en Doble + Huevo extra → Descuento SOLO sobre base, extras intactos (total 2900)")
+    @DisplayName("TEST D: 2x1 NO aplica a producto con extras — extras personalizan el producto")
     void promocion_2x1_no_debe_descontar_extras() {
         // Given: Promoción 2x1 para Hamburguesa Doble
         Promocion promo2x1 = crearPromocion2x1ParaDoble();
         promocionRepository.guardar(promo2x1);
 
-        // Agregar 2 unidades de Hamburguesa Doble, cada una con 1 Huevo
+        // Agregar 2 unidades de Hamburguesa Doble, cada una con 1 Huevo (extra)
         AgregarProductoRequest request = new AgregarProductoRequest(
             pedidoId,
             hamburguesaDoble.getId(),
@@ -245,28 +245,28 @@ class VariantesYExtrasIntegrationTest {
         // When: Se agrega el producto con la promoción activa
         AgregarProductoResponse response = agregarProductoUseCase.ejecutar(request);
 
-        // Then: Cálculo esperado
+        // Then: Regla de negocio: producto con extras NO califica para promo.
+        // Un producto personalizado con extras no es el "producto base" que la promo busca.
+        //
+        // Cálculo esperado SIN promo:
         // Precio base: 2 × 2500 = 5000
         // Extras: 2 × 200 = 400 (cada unidad lleva 1 huevo)
-        // Subtotal bruto (base + extras): 5000 + 400 = 5400
-        // Descuento 2x1 sobre BASE: -2500 (1 unidad gratis de las 2)
-        // Total a pagar: 5400 - 2500 = 2900
+        // Total: 5000 + 400 = 5400 (sin descuento)
 
         assertThat(response.items()).hasSize(1);
         var item = response.items().get(0);
 
-        // Verificar que el descuento es SOLO sobre la base
         assertThat(item.precioUnitarioBase()).isEqualByComparingTo(new BigDecimal("2500"));
         assertThat(item.cantidad()).isEqualTo(2);
 
         // Subtotal ítems: base (5000) + extras (400) = 5400
         assertThat(response.subtotal()).isEqualByComparingTo(new BigDecimal("5400"));
 
-        // Total descuentos: 2500 (1 hamburguesa gratis)
-        assertThat(response.totalDescuentos()).isEqualByComparingTo(new BigDecimal("2500"));
+        // SIN descuento — producto con extras excluido de promo
+        assertThat(response.totalDescuentos()).isEqualByComparingTo(BigDecimal.ZERO);
 
-        // Total a pagar: 5400 - 2500 = 2900
-        assertThat(response.total()).isEqualByComparingTo(new BigDecimal("2900"));
+        // Total a pagar: 5400 completo
+        assertThat(response.total()).isEqualByComparingTo(new BigDecimal("5400"));
 
         // Verificar persistencia y rehidratación
         entityManager.flush();
@@ -275,17 +275,16 @@ class VariantesYExtrasIntegrationTest {
         Pedido pedidoRehidratado = pedidoRepository.buscarPorId(pedidoId).orElseThrow();
         ItemPedido itemPersistido = pedidoRehidratado.getItems().get(0);
 
-        // Los extras NO deben haber sido descontados
+        // Los extras están presentes
         assertThat(itemPersistido.getExtras()).hasSize(1);
         assertThat(itemPersistido.getExtras().get(0).getPrecioSnapshot()).isEqualByComparingTo(new BigDecimal("200"));
 
-        // El descuento persistido es SOLO sobre base
-        assertThat(itemPersistido.getMontoDescuento()).isEqualByComparingTo(new BigDecimal("2500"));
-        assertThat(itemPersistido.tienePromocion()).isTrue();
-        assertThat(itemPersistido.getNombrePromocion()).isEqualTo("2x1 Hamburguesa Doble");
+        // Sin promo aplicada
+        assertThat(itemPersistido.getMontoDescuento()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(itemPersistido.tienePromocion()).isFalse();
 
-        // Precio final recalculado desde persistencia
-        assertThat(itemPersistido.calcularPrecioFinal()).isEqualByComparingTo(new BigDecimal("2900"));
+        // Precio final: base + extras, sin descuento
+        assertThat(itemPersistido.calcularPrecioFinal()).isEqualByComparingTo(new BigDecimal("5400"));
     }
 
     // ==========================================================================

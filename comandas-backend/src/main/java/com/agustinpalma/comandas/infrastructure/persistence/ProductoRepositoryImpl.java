@@ -83,6 +83,14 @@ public class ProductoRepositoryImpl implements ProductoRepository {
     }
 
     @Override
+    public List<Producto> buscarPorLocalYCategoria(LocalId localId, String categoria) {
+        return springDataRepository.findByLocalIdAndCategoriaIgnoreCase(localId.getValue(), categoria)
+            .stream()
+            .map(mapper::toDomain)
+            .toList();
+    }
+
+    @Override
     @Transactional
     public void eliminar(ProductoId id) {
         springDataRepository.deleteById(id.getValue());

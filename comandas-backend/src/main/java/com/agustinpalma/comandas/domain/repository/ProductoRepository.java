@@ -79,6 +79,16 @@ public interface ProductoRepository {
     List<Producto> buscarPorLocalYColor(LocalId localId, String colorHex);
 
     /**
+     * Busca productos de un local filtrados por categoría.
+     * La comparación es case-insensitive.
+     *
+     * @param localId identificador del local
+     * @param categoria etiqueta de categoría (ej: "bebida", "comida")
+     * @return lista de productos que coinciden con la categoría (puede estar vacía)
+     */
+    List<Producto> buscarPorLocalYCategoria(LocalId localId, String categoria);
+
+    /**
      * Elimina un producto del repositorio.
      * 
      * @param id identificador del producto a eliminar

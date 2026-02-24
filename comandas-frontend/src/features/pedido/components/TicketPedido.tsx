@@ -12,7 +12,39 @@ import {
   Loader2,
   Receipt,
 } from 'lucide-react';
-import type { DetallePedidoResponse, ItemDetalle } from '../types';
+import type { DetallePedidoResponse, ItemDetalle, ExtraDetalle } from '../types';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Extra agrupado por productoId para mostrar "2x Disco de carne" en vez de 2 líneas */
+interface ExtraAgrupado {
+  productoId: string;
+  nombre: string;
+  precio: number;
+  cantidad: number;
+}
+
+/**
+ * Agrupa extras repetidos (mismo productoId) en una sola línea con cantidad.
+ * El backend envía extras individuales: [disco, disco] → [{disco, qty: 2}]
+ */
+function agruparExtras(extras: ExtraDetalle[]): ExtraAgrupado[] {
+  const mapa = new Map<string, ExtraAgrupado>();
+  for (const extra of extras) {
+    const existente = mapa.get(extra.productoId);
+    if (existente) {
+      existente.cantidad += 1;
+    } else {
+      mapa.set(extra.productoId, {
+        productoId: extra.productoId,
+        nombre: extra.nombre,
+        precio: extra.precio,
+        cantidad: 1,
+      });
+    }
+  }
+  return Array.from(mapa.values());
+}
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -112,6 +144,27 @@ function TicketItem({ item, onModificarCantidad, onEliminar, enviadoACocina = fa
             <p className="text-[11px] text-gray-500 mt-0.5 italic truncate">
               &ldquo;{item.observacion}&rdquo;
             </p>
+          )}
+
+          {/* Extras / Agregados como sub-elementos */}
+          {item.extras && item.extras.length > 0 && (
+            <div className="mt-1 space-y-0.5 pl-2 border-l-2 border-neutral-800">
+              {agruparExtras(item.extras).map((grupo) => (
+                <p
+                  key={grupo.productoId}
+                  className="text-[11px] text-gray-500 font-mono"
+                >
+                  <span className="text-gray-600">+</span>{' '}
+                  {grupo.cantidad > 1 && (
+                    <span className="text-red-400/70 font-bold">{grupo.cantidad}x </span>
+                  )}
+                  {grupo.nombre}{' '}
+                  <span className="text-gray-600 tabular-nums">
+                    $ {(grupo.precio * grupo.cantidad).toLocaleString('es-AR')}
+                  </span>
+                </p>
+              ))}
+            </div>
           )}
 
           {item.tienePromocion && item.nombrePromocion && (

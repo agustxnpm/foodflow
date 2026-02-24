@@ -52,6 +52,9 @@ class CrearProductoUseCaseTest {
             true,
             "#FF0000",
             null,
+            null,
+            null,
+            null,
             null
         );
 
@@ -84,6 +87,9 @@ class CrearProductoUseCaseTest {
             true,
             "#00FF00",
             null,
+            null,
+            null,
+            null,
             null
         );
 
@@ -111,6 +117,9 @@ class CrearProductoUseCaseTest {
             new BigDecimal("500.00"),
             true,
             "#FFFF00",
+            null,
+            null,
+            null,
             null,
             null
         );
@@ -140,6 +149,9 @@ class CrearProductoUseCaseTest {
             true,
             "#abc123", // Minúsculas
             null,
+            null,
+            null,
+            null,
             null
         );
 
@@ -162,6 +174,9 @@ class CrearProductoUseCaseTest {
             new BigDecimal("900.00"),
             true,
             null, // Sin color
+            null,
+            null,
+            null,
             null,
             null
         );
@@ -186,6 +201,9 @@ class CrearProductoUseCaseTest {
             null, // Estado no especificado
             "#00AA00",
             null,
+            null,
+            null,
+            null,
             null
         );
 
@@ -209,6 +227,9 @@ class CrearProductoUseCaseTest {
             true,
             "#FFD700",
             true, // Materia prima → controla stock
+            null,
+            null,
+            null,
             null
         );
 
@@ -234,6 +255,9 @@ class CrearProductoUseCaseTest {
             true,
             "#FF0000",
             null, // No especificado → default false
+            null,
+            null,
+            null,
             null
         );
 
@@ -266,6 +290,9 @@ class CrearProductoUseCaseTest {
             true,
             "#FFFFFF",
             null,
+            null,
+            null,
+            null,
             null
         );
 
@@ -285,7 +312,10 @@ class CrearProductoUseCaseTest {
             true,
             "#FFFF00",
             false,
-            true  // esExtra = true
+            true,  // esExtra = true
+            null,  // categoria
+            null,  // permiteExtras
+            null   // requiereConfiguracion
         );
 
         when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
@@ -310,7 +340,10 @@ class CrearProductoUseCaseTest {
             true,
             "#0000FF",
             null,
-            null  // esExtra = null → default false
+            null,  // esExtra = null → default false
+            null,  // categoria
+            null,  // permiteExtras
+            null   // requiereConfiguracion
         );
 
         when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
@@ -322,5 +355,63 @@ class CrearProductoUseCaseTest {
 
         // Then
         assertFalse(response.esExtra(), "Producto normal no es extra por defecto");
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Tests de categoria y permiteExtras en ProductoResponse
+    // ─────────────────────────────────────────────────────────────────
+
+    @Test
+    void deberia_crear_producto_con_categoria_y_permiteExtras_en_response() {
+        // Given — el operador crea un producto especificando categoría y permiteExtras=false
+        ProductoRequest request = new ProductoRequest(
+            "Coca Cola 500ml",
+            new BigDecimal("800.00"),
+            true,
+            "#CC0000",
+            null,
+            null,    // esExtra
+            "bebida", // categoria
+            false,   // permiteExtras = false (las bebidas no llevan extras)
+            null     // requiereConfiguracion
+        );
+
+        when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(localId, request);
+
+        // Then — el response debe exponer categoria y permiteExtras
+        assertEquals("bebida", response.categoria());
+        assertFalse(response.permiteExtras(), "Bebida no debe permitir extras");
+    }
+
+    @Test
+    void deberia_usar_permiteExtras_true_por_defecto_cuando_no_se_envia() {
+        // Given — el operador no especifica permiteExtras ni categoria
+        ProductoRequest request = new ProductoRequest(
+            "Hamburguesa Doble",
+            new BigDecimal("2500.00"),
+            true,
+            "#FF5500",
+            null,
+            null,  // esExtra
+            null,  // categoria = null
+            null,  // permiteExtras = null → default true
+            null   // requiereConfiguracion
+        );
+
+        when(productoRepository.existePorNombreYLocal(any(), any())).thenReturn(false);
+        when(productoRepository.guardar(any(Producto.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // When
+        ProductoResponse response = useCase.ejecutar(localId, request);
+
+        // Then — por defecto permiteExtras debe ser true y categoria null
+        assertTrue(response.permiteExtras(), "Producto debe permitir extras por defecto");
+        assertNull(response.categoria(), "Categoria debe ser null si no se especifica");
     }
 }

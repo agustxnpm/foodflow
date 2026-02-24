@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Servicio de Dominio que orquesta la evaluación y aplicación de promociones.
@@ -116,6 +117,17 @@ public class MotorReglasService {
         Objects.requireNonNull(promocionesActivas, "La lista de promociones no puede ser null");
         Objects.requireNonNull(fechaHora, "La fecha/hora no puede ser null");
 
+        // ─── REGLA DE NEGOCIO: Las promociones solo aplican al producto base ───
+        // Un producto con extras es una personalización. Las promos son para el producto
+        // tal cual está en el catálogo, sin agregados. Dos hamburguesas con cheddar
+        // NO entran en un 2×1 de hamburguesas; solo las hamburguesas base.
+        boolean tieneExtras = extras != null && !extras.isEmpty();
+
+        if (tieneExtras) {
+            // Producto personalizado → sin evaluación de promos, directo sin descuento
+            return crearItemConExtras(pedido.getId(), producto, cantidad, observacion, extras);
+        }
+
         // Construir contexto de validación desde el pedido actual
         ContextoValidacion contexto = construirContexto(pedido, fechaHora);
 
@@ -127,7 +139,7 @@ public class MotorReglasService {
                 .filter(evaluada -> evaluada.montoDescuento().compareTo(BigDecimal.ZERO) > 0)
                 .max(Comparator.comparingInt(evaluada -> evaluada.promocion().getPrioridad()));
 
-        // Generar el ItemPedido CON extras (con o sin descuento)
+        // Producto base (sin extras) → evaluar promo normalmente
         return promoGanadora
                 .map(evaluada -> crearItemConDescuentoYExtras(pedido.getId(), producto, cantidad, observacion, extras, evaluada))
                 .orElseGet(() -> crearItemConExtras(pedido.getId(), producto, cantidad, observacion, extras));
@@ -485,39 +497,158 @@ public class MotorReglasService {
         // Construir contexto de validación
         ContextoValidacion contexto = construirContexto(pedido, fechaHora);
 
-        // Re-evaluar cada ítem
-        for (ItemPedido item : pedido.getItems()) {
-            evaluarYAplicarPromocionAItem(item, pedido, promocionesActivas, contexto);
+        // ─── AGREGACIÓN CROSS-LÍNEA ───
+        // Las promociones basadas en cantidad (NxM, PrecioFijo) deben considerar la cantidad
+        // TOTAL del producto en el pedido, no la cantidad de cada línea por separado.
+        //
+        // Ejemplo: 3x hamburguesa + 1x hamburguesa "sin cebolla" = 4 unidades para la promo.
+        // Las observaciones NO afectan elegibilidad — solo existen para la cocina/ticket.
+        //
+        // Los ítems con extras quedan excluidos (regla: producto personalizado ≠ producto base).
+        Map<UUID, List<ItemPedido>> gruposPorProducto = pedido.getItems().stream()
+                .filter(item -> !item.tieneExtras())
+                .collect(Collectors.groupingBy(item -> item.getProductoId().getValue()));
+
+        for (List<ItemPedido> grupo : gruposPorProducto.values()) {
+            evaluarYAplicarPromocionAGrupo(grupo, pedido, promocionesActivas, contexto);
         }
     }
 
     /**
-     * Evalúa y aplica la mejor promoción posible a un ítem existente.
+     * Evalúa y aplica la mejor promoción a un GRUPO de ítems del mismo producto.
      * 
-     * Usa el productoId y precioUnitario snapshot del ítem para la evaluación,
-     * sin necesidad de recuperar el Producto del catálogo.
+     * REGLA DE NEGOCIO CLAVE: Las observaciones no afectan la elegibilidad para promociones.
+     * "Hamburguesa" y "Hamburguesa sin cebolla" son el mismo producto base para la promo.
+     * Las diferentes líneas existen solo para la visualización en comanda/ticket.
+     * 
+     * La cantidad total del grupo se usa para calcular el descuento,
+     * que luego se distribuye proporcionalmente entre las líneas.
      */
-    private void evaluarYAplicarPromocionAItem(
-            ItemPedido item,
+    private void evaluarYAplicarPromocionAGrupo(
+            List<ItemPedido> items,
             Pedido pedido,
             List<Promocion> promocionesActivas,
             ContextoValidacion contexto
     ) {
-        UUID productoUUID = item.getProductoId().getValue();
-        BigDecimal precioBase = item.getPrecioUnitario();
-        int cantidad = item.getCantidad();
+        if (items.isEmpty()) return;
 
+        // Todos los ítems del grupo comparten productoId y precioUnitario (snapshot)
+        ItemPedido referencia = items.get(0);
+        UUID productoUUID = referencia.getProductoId().getValue();
+        BigDecimal precioBase = referencia.getPrecioUnitario();
+
+        // Cantidad TOTAL del producto en el pedido (sumando todas las líneas)
+        int cantidadTotal = items.stream().mapToInt(ItemPedido::getCantidad).sum();
+
+        // Buscar la mejor promoción usando la cantidad TOTAL
         Optional<PromocionEvaluada> promoGanadora = promocionesActivas.stream()
                 .filter(promo -> evaluarPromocionParaItem(promo, productoUUID, pedido, contexto))
-                .map(promo -> new PromocionEvaluada(promo, calcularDescuentoParaItem(promo, precioBase, cantidad)))
+                .map(promo -> new PromocionEvaluada(promo, calcularDescuentoParaItem(promo, precioBase, cantidadTotal)))
                 .filter(evaluada -> evaluada.montoDescuento().compareTo(BigDecimal.ZERO) > 0)
                 .max(Comparator.comparingInt(evaluada -> evaluada.promocion().getPrioridad()));
 
-        promoGanadora.ifPresent(evaluada -> item.aplicarPromocion(
-                evaluada.montoDescuento(),
-                evaluada.promocion().getNombre(),
-                evaluada.promocion().getId().getValue()
-        ));
+        if (promoGanadora.isEmpty()) return;
+
+        PromocionEvaluada evaluada = promoGanadora.get();
+        BigDecimal descuentoTotal = evaluada.montoDescuento();
+
+        if (items.size() == 1) {
+            // Caso simple: una sola línea → descuento completo
+            items.get(0).aplicarPromocion(
+                    descuentoTotal,
+                    evaluada.promocion().getNombre(),
+                    evaluada.promocion().getId().getValue()
+            );
+        } else {
+            // Múltiples líneas → distribuir solo entre unidades que forman ciclos completos
+            int cantidadEnCiclos = calcularCantidadEnCiclos(
+                    evaluada.promocion().getEstrategia(), cantidadTotal
+            );
+            distribuirDescuentoProporcional(items, cantidadEnCiclos, descuentoTotal, evaluada);
+        }
+    }
+
+    /**
+     * Calcula cuántas unidades participan en ciclos completos de la promoción.
+     * 
+     * Solo las unidades dentro de ciclos completos reciben descuento.
+     * Las unidades sobrantes se cobran a precio completo y NO muestran promo.
+     * 
+     * Ejemplo: promo "2 por $24.000" con 3 unidades → 2 en ciclo, 1 sobrante.
+     */
+    private int calcularCantidadEnCiclos(EstrategiaPromocion estrategia, int cantidadTotal) {
+        return switch (estrategia) {
+            case CantidadFija cf ->
+                    (cantidadTotal / cf.cantidadLlevas()) * cf.cantidadLlevas();
+            case PrecioFijoPorCantidad pf ->
+                    (cantidadTotal / pf.cantidadActivacion()) * pf.cantidadActivacion();
+            // Descuento directo y combo aplican a TODAS las unidades
+            case DescuentoDirecto ignored -> cantidadTotal;
+            case ComboCondicional ignored -> cantidadTotal;
+        };
+    }
+
+    /**
+     * Distribuye el descuento total entre múltiples líneas del mismo producto,
+     * asignando solo a unidades que participan en ciclos completos de promo.
+     * 
+     * Algoritmo:
+     * 1. Ordena líneas por cantidad descendente (las más grandes llenan ciclos primero)
+     * 2. Asigna greedy: cada línea aporta min(suCantidad, unidadesRestantesDelCiclo)
+     * 3. Líneas con 0 unidades participantes NO reciben promo (quedan limpias)
+     * 4. Distribuye el descuento proporcionalmente entre las unidades participantes
+     * 
+     * Ejemplo: 3 cheeseburgers (línea 2 + línea 1), promo pack-de-2:
+     * - cantidadEnCiclos=2 → línea1(2) llena el ciclo → $3.000
+     * - línea2(1) sobrante → $0, sin label de promo
+     */
+    private void distribuirDescuentoProporcional(
+            List<ItemPedido> items,
+            int cantidadEnCiclos,
+            BigDecimal descuentoTotal,
+            PromocionEvaluada evaluada
+    ) {
+        // Ordenar por cantidad descendente: las líneas más grandes llenan ciclos primero
+        List<ItemPedido> ordenados = new ArrayList<>(items);
+        ordenados.sort(Comparator.comparingInt(ItemPedido::getCantidad).reversed());
+
+        // Fase 1: Determinar cuántas unidades de cada línea participan en ciclos
+        record Participacion(ItemPedido item, int unidades) {}
+        List<Participacion> participantes = new ArrayList<>();
+        int unidadesRestantes = cantidadEnCiclos;
+
+        for (ItemPedido item : ordenados) {
+            int contribucion = Math.min(item.getCantidad(), unidadesRestantes);
+            unidadesRestantes -= contribucion;
+            if (contribucion > 0) {
+                participantes.add(new Participacion(item, contribucion));
+            }
+            // Líneas con contribucion=0 no reciben promo (quedan con limpiarPromocion)
+        }
+
+        // Fase 2: Distribuir descuento proporcionalmente entre participantes
+        BigDecimal descuentoAsignado = BigDecimal.ZERO;
+
+        for (int i = 0; i < participantes.size(); i++) {
+            Participacion p = participantes.get(i);
+            BigDecimal descuentoItem;
+
+            if (i == participantes.size() - 1) {
+                // Última línea participante: asignar residuo (evita pérdida por redondeo)
+                descuentoItem = descuentoTotal.subtract(descuentoAsignado);
+            } else {
+                descuentoItem = descuentoTotal
+                        .multiply(BigDecimal.valueOf(p.unidades()))
+                        .divide(BigDecimal.valueOf(cantidadEnCiclos), 2, RoundingMode.HALF_UP);
+                descuentoAsignado = descuentoAsignado.add(descuentoItem);
+            }
+
+            p.item().aplicarPromocion(
+                    descuentoItem,
+                    evaluada.promocion().getNombre(),
+                    evaluada.promocion().getId().getValue()
+            );
+        }
     }
 
     /**

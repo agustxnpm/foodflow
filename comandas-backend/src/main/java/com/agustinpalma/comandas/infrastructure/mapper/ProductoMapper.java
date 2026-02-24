@@ -30,6 +30,9 @@ public class ProductoMapper {
             entity.getGrupoVarianteId() != null ? new ProductoId(entity.getGrupoVarianteId()) : null,
             entity.isEsExtra(),
             entity.getCantidadDiscosCarne(),
+            entity.getCategoria(),
+            entity.isPermiteExtras(),
+            entity.isRequiereConfiguracion(),
             entity.getStockActual(),
             entity.isControlaStock()
         );
@@ -52,6 +55,9 @@ public class ProductoMapper {
             domain.getGrupoVarianteId() != null ? domain.getGrupoVarianteId().getValue() : null,
             domain.isEsExtra(),
             domain.getCantidadDiscosCarne(),
+            domain.getCategoria(),
+            domain.isPermiteExtras(),
+            domain.isRequiereConfiguracion(),
             domain.getStockActual(),
             domain.isControlaStock()
         );

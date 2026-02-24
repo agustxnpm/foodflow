@@ -301,17 +301,42 @@ public class Pedido {
     /**
      * Busca un ítem existente en el pedido por su ProductoId.
      * 
-     * Usado por el caso de uso AgregarProducto para detectar si el producto
-     * ya fue agregado previamente y acumular cantidad en lugar de duplicar líneas.
-     * Esto permite que las promociones se calculen sobre la cantidad TOTAL acumulada.
+     * @deprecated Usar {@link #buscarItemConMismaConfiguracion(ProductoId, String, List)} en su lugar.
+     * Este método no considera observaciones ni extras, lo cual causa fusiones incorrectas.
      * 
      * @param productoId el ID del producto a buscar
      * @return Optional con el ItemPedido encontrado, o empty si no existe
      */
+    @Deprecated
     public Optional<ItemPedido> buscarItemPorProductoId(ProductoId productoId) {
         Objects.requireNonNull(productoId, "El productoId no puede ser null");
         return this.items.stream()
             .filter(item -> item.getProductoId().equals(productoId))
+            .findFirst();
+    }
+
+    /**
+     * Busca un ítem existente con la misma configuración exacta.
+     * 
+     * La identidad de configuración considera:
+     * - Mismo productoId
+     * - Misma observación
+     * - Mismos extras (como multiset)
+     * 
+     * Si no se encuentra un ítem idéntico, se debe crear uno nuevo.
+     * Esto evita el bug de fusión incorrecta donde "Hamburguesa" y
+     * "Hamburguesa sin cebolla" se combinaban erróneamente.
+     * 
+     * @param productoId el ID del producto
+     * @param observacion la observación del ítem (puede ser null)
+     * @param extras los extras del ítem (puede ser vacía)
+     * @return Optional con el ItemPedido que tiene la misma configuración
+     */
+    public Optional<ItemPedido> buscarItemConMismaConfiguracion(
+            ProductoId productoId, String observacion, List<ExtraPedido> extras) {
+        Objects.requireNonNull(productoId, "El productoId no puede ser null");
+        return this.items.stream()
+            .filter(item -> item.coincideConfiguracion(productoId, observacion, extras))
             .findFirst();
     }
 
