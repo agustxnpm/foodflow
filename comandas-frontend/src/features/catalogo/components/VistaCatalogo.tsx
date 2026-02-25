@@ -16,13 +16,16 @@ import {
   ChevronDown,
   Palette,
   Sparkles,
+  Layers,
 } from 'lucide-react';
 import { useProductos, useEditarProducto } from '../hooks/useProductos';
 import type { ProductoResponse } from '../types';
 import ProductoModal from './ProductoModal';
 import AjusteStockModal from './AjusteStockModal';
 import CategoriasModal from './CategoriasModal';
-import { useCategoriasUI, useOrdenProductos } from '../../../lib/categorias-ui';
+import VariantesProductoModal from './VariantesProductoModal';
+import { useCategorias } from '../../categorias/hooks/useCategorias';
+import type { CategoriaResponse } from '../../categorias/types';
 
 // ── Tipos de ordenamiento ──
 
@@ -50,7 +53,7 @@ function ordenarProductos(
   productos: ProductoResponse[],
   criterio: CriterioOrden,
   direccion: DireccionOrden,
-  nombreCategoria: (colorHex: string) => string
+  nombreCategoria: (categoriaId: string | null | undefined) => string
 ): ProductoResponse[] {
   const sorted = [...productos].sort((a, b) => {
     switch (criterio) {
@@ -64,8 +67,8 @@ function ordenarProductos(
         return sa - sb;
       }
       case 'categoria':
-        return nombreCategoria(a.colorHex).localeCompare(
-          nombreCategoria(b.colorHex),
+        return nombreCategoria(a.categoriaId).localeCompare(
+          nombreCategoria(b.categoriaId),
           'es'
         );
       default:
@@ -88,7 +91,25 @@ function ordenarProductos(
 export default function VistaCatalogo() {
   const { data: productos = [], isLoading } = useProductos();
   const editarProducto = useEditarProducto();
-  const { categoriasConTodos, nombreCategoria } = useCategoriasUI();
+  const { data: categorias = [] } = useCategorias();
+
+  // ── Helpers derivados de categorías del backend ──
+  const nombreCategoria = (categoriaId: string | null | undefined): string => {
+    if (!categoriaId) return 'Sin categoría';
+    return categorias.find((c) => c.id === categoriaId)?.nombre ?? 'Sin categoría';
+  };
+
+  const categoriasConTodos = useMemo(() => {
+    const todosVirtual: CategoriaResponse = {
+      id: '__todos__',
+      nombre: 'Todos',
+      colorHex: '#FFFFFF',
+      admiteVariantes: false,
+      esCategoriaExtra: false,
+      orden: -1,
+    };
+    return [todosVirtual, ...categorias];
+  }, [categorias]);
 
   // ── Estado de UI ──
   const [busqueda, setBusqueda] = useState('');
@@ -102,6 +123,7 @@ export default function VistaCatalogo() {
   // ── Modales ──
   const [productoModal, setProductoModal] = useState<ProductoResponse | null | 'nuevo'>(null);
   const [stockModal, setStockModal] = useState<ProductoResponse | null>(null);
+  const [variantesModal, setVariantesModal] = useState<ProductoResponse | null>(null);
   const [showCategoriasModal, setShowCategoriasModal] = useState(false);
 
   // ── Métricas rápidas ──
@@ -121,7 +143,7 @@ export default function VistaCatalogo() {
   const conteoPorCategoria = useMemo(() => {
     const mapa: Record<string, number> = {};
     productos.forEach((p) => {
-      const key = (p.colorHex || '_sin').toUpperCase();
+      const key = p.categoriaId ?? '_sin';
       mapa[key] = (mapa[key] || 0) + 1;
     });
     return mapa;
@@ -131,10 +153,9 @@ export default function VistaCatalogo() {
   const productosFiltrados = useMemo(() => {
     let resultado = productos;
 
-    // 1. Filtro por categoría (color) — case-insensitive para robustez
+    // 1. Filtro por categoría (categoriaId)
     if (categoriaActiva !== null) {
-      const catUpper = categoriaActiva.toUpperCase();
-      resultado = resultado.filter((p) => p.colorHex?.toUpperCase() === catUpper);
+      resultado = resultado.filter((p) => p.categoriaId === categoriaActiva);
     }
 
     // 2. Filtro por estado
@@ -159,20 +180,51 @@ export default function VistaCatalogo() {
   }, [productos, categoriaActiva, filtroEstado, busqueda, criterioOrden, direccionOrden, nombreCategoria]);
 
   // ── Productos agrupados por categoría (para vista grid) ──
-  const { grupos: productosAgrupadosFull } = useOrdenProductos(productosFiltrados);
-
   const productosAgrupados = useMemo(() => {
     if (categoriaActiva !== null) {
       // Si hay una categoría seleccionada, un solo grupo
-      return [{ label: nombreCategoria(categoriaActiva), hex: categoriaActiva, productos: productosFiltrados }];
+      return [{ label: nombreCategoria(categoriaActiva), hex: categorias.find(c => c.id === categoriaActiva)?.colorHex ?? '#FFFFFF', productos: productosFiltrados }];
     }
-    // Usar agrupamiento del hook (respeta orden de categorías y de productos)
-    return productosAgrupadosFull.map((g) => ({
-      label: g.label,
-      hex: g.hex,
-      productos: g.productos,
-    }));
-  }, [productosFiltrados, categoriaActiva, productosAgrupadosFull, nombreCategoria]);
+
+    // Agrupar por categoriaId respetando orden de categorías
+    const porCategoria = new Map<string, ProductoResponse[]>();
+    const sinCategoria: ProductoResponse[] = [];
+
+    productosFiltrados.forEach((p) => {
+      if (p.categoriaId) {
+        const arr = porCategoria.get(p.categoriaId) ?? [];
+        arr.push(p);
+        porCategoria.set(p.categoriaId, arr);
+      } else {
+        sinCategoria.push(p);
+      }
+    });
+
+    const resultado = categorias
+      .filter((c) => porCategoria.has(c.id))
+      .map((c) => ({
+        label: c.nombre,
+        hex: c.colorHex,
+        productos: porCategoria.get(c.id)!.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+      }));
+
+    if (sinCategoria.length > 0) {
+      resultado.push({
+        label: 'Sin categoría',
+        hex: '#6B7280',
+        productos: sinCategoria.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
+      });
+    }
+
+    return resultado;
+  }, [productosFiltrados, categoriaActiva, categorias, nombreCategoria]);
+
+  // ── Helpers de categoría ──
+
+  const categoriaAdmiteVariantes = (categoriaId: string | null | undefined): boolean => {
+    if (!categoriaId) return false;
+    return categorias.find((c) => c.id === categoriaId)?.admiteVariantes ?? false;
+  };
 
   // ── Acciones ──
 
@@ -299,7 +351,7 @@ export default function VistaCatalogo() {
 
             {/* Categoría mini-label */}
             <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">
-              {nombreCategoria(producto.colorHex)}
+              {nombreCategoria(producto.categoriaId)}
             </span>
           </div>
 
@@ -323,6 +375,17 @@ export default function VistaCatalogo() {
               >
                 <PackagePlus size={13} />
                 Stock
+              </button>
+            )}
+            {categoriaAdmiteVariantes(producto.categoriaId) && (
+              <button
+                onClick={() => setVariantesModal(producto)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg
+                  text-xs font-medium text-gray-400
+                  hover:bg-gray-800 hover:text-white transition-all"
+              >
+                <Layers size={13} />
+                Variantes
               </button>
             )}
           </div>
@@ -390,7 +453,7 @@ export default function VistaCatalogo() {
 
         {/* Categoría */}
         <span className="hidden md:block text-xs text-gray-500 w-24 truncate">
-          {nombreCategoria(producto.colorHex)}
+          {nombreCategoria(producto.categoriaId)}
         </span>
 
         {/* Precio */}
@@ -447,6 +510,15 @@ export default function VistaCatalogo() {
               title="Ajustar stock"
             >
               <PackagePlus size={15} />
+            </button>
+          )}
+          {categoriaAdmiteVariantes(producto.categoriaId) && (
+            <button
+              onClick={() => setVariantesModal(producto)}
+              className="p-2 rounded-lg hover:bg-gray-700 text-gray-500 hover:text-white transition-colors"
+              title="Gestionar variantes"
+            >
+              <Layers size={15} />
             </button>
           )}
         </div>
@@ -513,19 +585,19 @@ export default function VistaCatalogo() {
       {/* ── Filtros por categoría (pills horizontales) ── */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {categoriasConTodos.map((cat) => {
-          const colorFiltro = cat.colorBase || null;
-          const isActiva = categoriaActiva === colorFiltro;
+          const categoriaId = cat.id === '__todos__' ? null : cat.id;
+          const isActiva = categoriaActiva === categoriaId;
           const count =
-            colorFiltro === null
+            categoriaId === null
               ? productos.length
-              : conteoPorCategoria[colorFiltro.toUpperCase()] ?? 0;
+              : conteoPorCategoria[categoriaId] ?? 0;
 
           return (
             <button
               key={cat.id}
               type="button"
               onClick={() =>
-                setCategoriaActiva(isActiva ? null : colorFiltro)
+                setCategoriaActiva(isActiva ? null : categoriaId)
               }
               className={[
                 'inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold',
@@ -535,13 +607,13 @@ export default function VistaCatalogo() {
                   : 'bg-transparent text-gray-500 border-gray-800 hover:border-gray-600 hover:text-gray-300',
               ].join(' ')}
             >
-              {cat.colorBase ? (
+              {cat.id === '__todos__' ? (
+                <Tag size={12} />
+              ) : (
                 <span
                   className="w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: cat.colorDisplay }}
+                  style={{ backgroundColor: cat.colorHex }}
                 />
-              ) : (
-                <Tag size={12} />
               )}
               {cat.nombre}
               <span
@@ -749,6 +821,13 @@ export default function VistaCatalogo() {
 
       {showCategoriasModal && (
         <CategoriasModal onClose={() => setShowCategoriasModal(false)} />
+      )}
+
+      {variantesModal && (
+        <VariantesProductoModal
+          producto={variantesModal}
+          onClose={() => setVariantesModal(null)}
+        />
       )}
     </div>
   );

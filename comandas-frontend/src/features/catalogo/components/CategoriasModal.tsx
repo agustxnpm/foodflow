@@ -5,19 +5,22 @@ import {
   Pencil,
   Trash2,
   Check,
-  GripVertical,
   Palette,
   AlertTriangle,
   ArrowLeft,
 } from 'lucide-react';
-import { useCategoriasUI } from '../../../lib/categorias-ui';
-import type { CategoriaUI } from '../../../lib/categorias-ui';
+import {
+  useCategorias,
+  useCrearCategoria,
+  useEditarCategoria,
+  useEliminarCategoria,
+} from '../../categorias/hooks/useCategorias';
+import type { CategoriaResponse } from '../../categorias/types';
 
 // ─── Colores predefinidos ──────────────────────────────────────────────────────
 
 /**
  * Paleta de colores para elegir al crear/editar una categoría.
- * Cada entrada tiene un hex canónico (colorBase) y un display más legible.
  *
  * Nota: si un color ya está en uso, se muestra deshabilitado.
  */
@@ -47,15 +50,15 @@ type ModoFormulario = 'lista' | 'crear' | 'editar';
 interface FormState {
   nombre: string;
   colorHex: string;
-  colorDisplay: string;
-  esExtra: boolean;
+  admiteVariantes: boolean;
+  esCategoriaExtra: boolean;
 }
 
 const FORM_VACIO: FormState = {
   nombre: '',
   colorHex: '',
-  colorDisplay: '',
-  esExtra: false,
+  admiteVariantes: false,
+  esCategoriaExtra: false,
 };
 
 // ─── Componente ────────────────────────────────────────────────────────────────
@@ -71,13 +74,10 @@ const FORM_VACIO: FormState = {
  * - Reordenar arrastrando (drag visual simple con botones ▲▼)
  */
 export default function CategoriasModal({ onClose }: CategoriasModalProps) {
-  const {
-    categorias,
-    crearCategoria,
-    editarCategoria,
-    eliminarCategoria,
-    reordenarCategorias,
-  } = useCategoriasUI();
+  const { data: categorias = [] } = useCategorias();
+  const crearCategoriaMutation = useCrearCategoria();
+  const editarCategoriaMutation = useEditarCategoria();
+  const eliminarCategoriaMutation = useEliminarCategoria();
 
   const [modo, setModo] = useState<ModoFormulario>('lista');
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -91,7 +91,7 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
   const coloresEnUso = new Set(
     categorias
       .filter((c) => c.id !== editandoId)
-      .map((c) => c.colorBase.toUpperCase())
+      .map((c) => c.colorHex.toUpperCase())
   );
 
   // ── Handlers ──
@@ -102,13 +102,13 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
     setModo('crear');
   };
 
-  const iniciarEditar = (cat: CategoriaUI) => {
+  const iniciarEditar = (cat: CategoriaResponse) => {
     setEditandoId(cat.id);
     setForm({
       nombre: cat.nombre,
-      colorHex: cat.colorBase,
-      colorDisplay: cat.colorDisplay,
-      esExtra: cat.esExtra,
+      colorHex: cat.colorHex,
+      admiteVariantes: cat.admiteVariantes,
+      esCategoriaExtra: cat.esCategoriaExtra,
     });
     setError(null);
     setModo('editar');
@@ -151,18 +151,19 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
     setSaving(true);
     try {
       if (modo === 'crear') {
-        await crearCategoria({
+        await crearCategoriaMutation.mutateAsync({
           nombre: form.nombre.trim(),
-          colorBase: form.colorHex,
-          colorDisplay: form.colorDisplay || form.colorHex,
-          esExtra: form.esExtra,
+          colorHex: form.colorHex,
+          admiteVariantes: form.admiteVariantes,
+          esCategoriaExtra: form.esCategoriaExtra,
         });
       } else if (modo === 'editar' && editandoId) {
-        await editarCategoria(editandoId, {
+        await editarCategoriaMutation.mutateAsync({
+          id: editandoId,
           nombre: form.nombre.trim(),
-          colorBase: form.colorHex,
-          colorDisplay: form.colorDisplay || form.colorHex,
-          esExtra: form.esExtra,
+          colorHex: form.colorHex,
+          admiteVariantes: form.admiteVariantes,
+          esCategoriaExtra: form.esCategoriaExtra,
         });
       }
       cancelarFormulario();
@@ -175,20 +176,11 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
 
   const handleEliminar = async (id: string) => {
     try {
-      await eliminarCategoria(id);
+      await eliminarCategoriaMutation.mutateAsync(id);
       setConfirmDelete(null);
     } catch (e) {
       console.error('Error al eliminar categoría:', e);
     }
-  };
-
-  const moverCategoria = async (index: number, dir: -1 | 1) => {
-    const newIndex = index + dir;
-    if (newIndex < 0 || newIndex >= categorias.length) return;
-
-    const ids = categorias.map((c) => c.id);
-    [ids[index], ids[newIndex]] = [ids[newIndex], ids[index]];
-    await reordenarCategorias(ids);
   };
 
   // ── Seleccionar color de la paleta ──
@@ -197,7 +189,6 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
     setForm((f) => ({
       ...f,
       colorHex: color.hex,
-      colorDisplay: color.display,
     }));
   };
 
@@ -282,7 +273,7 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
                 value={form.colorHex || '#FF0000'}
                 onChange={(e) => {
                   const hex = e.target.value.toUpperCase();
-                  setForm((f) => ({ ...f, colorHex: hex, colorDisplay: hex }));
+                  setForm((f) => ({ ...f, colorHex: hex }));
                 }}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
@@ -302,7 +293,7 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
                   let val = e.target.value;
                   if (!val.startsWith('#')) val = '#' + val;
                   val = val.slice(0, 7).toUpperCase();
-                  setForm((f) => ({ ...f, colorHex: val, colorDisplay: val }));
+                  setForm((f) => ({ ...f, colorHex: val }));
                 }}
                 placeholder="#FF0000"
                 maxLength={7}
@@ -337,16 +328,28 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
         )}
       </div>
 
-      {/* Es Extra */}
+      {/* Es Categoría Extra */}
       <label className="flex items-center gap-3 cursor-pointer select-none">
         <input
           type="checkbox"
-          checked={form.esExtra}
-          onChange={(e) => setForm((f) => ({ ...f, esExtra: e.target.checked }))}
+          checked={form.esCategoriaExtra}
+          onChange={(e) => setForm((f) => ({ ...f, esCategoriaExtra: e.target.checked }))}
           className="w-5 h-5 rounded border-gray-600 bg-background-card text-primary focus:ring-primary focus:ring-offset-0"
         />
         <span className="text-sm text-text-primary">Es un extra</span>
-        <span className="text-xs text-text-secondary">(huevo, queso, medallon, etc.)</span>
+        <span className="text-xs text-text-secondary">(huevo, queso, medallón, etc.)</span>
+      </label>
+
+      {/* Admite Variantes */}
+      <label className="flex items-center gap-3 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={form.admiteVariantes}
+          onChange={(e) => setForm((f) => ({ ...f, admiteVariantes: e.target.checked }))}
+          className="w-5 h-5 rounded border-gray-600 bg-background-card text-primary focus:ring-primary focus:ring-offset-0"
+        />
+        <span className="text-sm text-text-primary">Admite variantes</span>
+        <span className="text-xs text-text-secondary">(simple, doble, triple, etc.)</span>
       </label>
 
       {/* Error */}
@@ -377,38 +380,15 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
           </p>
         </div>
       ) : (
-        categorias.map((cat, index) => (
+        categorias.map((cat) => (
           <div
             key={cat.id}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-800 bg-background-card hover:border-gray-700 transition-all group"
           >
-            {/* Grip + flechas de orden */}
-            <div className="flex flex-col items-center gap-0.5 text-gray-600">
-              <button
-                onClick={() => moverCategoria(index, -1)}
-                disabled={index === 0}
-                className="p-0.5 rounded hover:bg-gray-700 hover:text-gray-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                title="Subir"
-              >
-                <GripVertical size={10} className="rotate-90" />
-              </button>
-              <span className="text-[10px] text-gray-700 font-mono leading-none">
-                {index + 1}
-              </span>
-              <button
-                onClick={() => moverCategoria(index, 1)}
-                disabled={index === categorias.length - 1}
-                className="p-0.5 rounded hover:bg-gray-700 hover:text-gray-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-                title="Bajar"
-              >
-                <GripVertical size={10} className="rotate-90" />
-              </button>
-            </div>
-
             {/* Color dot */}
             <span
               className="w-5 h-5 rounded-full shrink-0 border border-white/10"
-              style={{ backgroundColor: cat.colorDisplay }}
+              style={{ backgroundColor: cat.colorHex }}
             />
 
             {/* Nombre + info */}
@@ -416,11 +396,14 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
               <p className="text-sm font-semibold text-text-primary truncate">
                 {cat.nombre}
               </p>
-              <p className="text-[11px] text-gray-600">
-                {cat.esExtra && (
-                  <span className="text-yellow-500/70 mr-2">Extra</span>
+              <p className="text-[11px] text-gray-600 flex items-center gap-2">
+                {cat.esCategoriaExtra && (
+                  <span className="text-yellow-500/70">Extra</span>
                 )}
-                <span className="font-mono">{cat.colorBase}</span>
+                {cat.admiteVariantes && (
+                  <span className="text-blue-400/70">Variantes</span>
+                )}
+                <span className="font-mono">{cat.colorHex}</span>
               </p>
             </div>
 

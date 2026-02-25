@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, Check } from 'lucide-react';
 import { useCrearProducto, useEditarProducto } from '../hooks/useProductos';
 import type { ProductoResponse, ProductoRequest } from '../types';
-import { useCategoriasUI } from '../../../lib/categorias-ui';
+import { useCategorias } from '../../categorias/hooks/useCategorias';
 
 interface ProductoModalProps {
   /** null = crear nuevo, objeto = editar existente */
@@ -24,12 +24,15 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
 
   const crearProducto = useCrearProducto();
   const editarProducto = useEditarProducto();
-  const { categoriasAsignables } = useCategoriasUI();
+  const { data: categorias = [] } = useCategorias();
+
+  // Solo categorías asignables (no "Todos")
+  const categoriasAsignables = categorias;
 
   const [nombre, setNombre] = useState(producto?.nombre ?? '');
   const [precio, setPrecio] = useState(producto?.precio?.toString() ?? '');
   const [controlaStock, setControlaStock] = useState(producto?.controlaStock ?? false);
-  const [colorHex, setColorHex] = useState(producto?.colorHex ?? '#FF0000');
+  const [categoriaId, setCategoriaId] = useState<string | null>(producto?.categoriaId ?? null);
   const [error, setError] = useState<string | null>(null);
 
   const handleGuardarProducto = () => {
@@ -47,17 +50,18 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
       return;
     }
 
-    // Derivar esExtra de la categoría seleccionada
-    const categoriaSeleccionada = categoriasAsignables.find(
-      (c) => c.colorBase.toUpperCase() === colorHex?.toUpperCase()
-    );
+    // Derivar esExtra y colorHex de la categoría seleccionada
+    const categoriaSeleccionada = categoriaId
+      ? categoriasAsignables.find((c) => c.id === categoriaId)
+      : null;
 
     const data: ProductoRequest = {
       nombre: nombre.trim(),
       precio: precioNum,
-      colorHex,
+      colorHex: categoriaSeleccionada?.colorHex ?? '#FFFFFF',
       controlaStock,
-      esExtra: categoriaSeleccionada?.esExtra ?? false,
+      esExtra: categoriaSeleccionada?.esCategoriaExtra ?? false,
+      categoriaId: categoriaId ?? undefined,
     };
 
     if (esEdicion) {
@@ -148,12 +152,12 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
               <label className="text-sm text-text-secondary">Categoría</label>
               <div className="grid grid-cols-2 gap-2">
                 {categoriasAsignables.map((cat) => {
-                  const isSelected = colorHex?.toUpperCase() === cat.colorBase.toUpperCase();
+                  const isSelected = categoriaId === cat.id;
                   return (
                     <button
                       key={cat.id}
                       type="button"
-                      onClick={() => setColorHex(cat.colorBase)}
+                      onClick={() => setCategoriaId(cat.id)}
                       className={[
                         'flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all text-left',
                         isSelected
@@ -163,7 +167,7 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
                     >
                       <span
                         className="w-4 h-4 rounded-full shrink-0 border border-white/10"
-                        style={{ backgroundColor: cat.colorDisplay }}
+                        style={{ backgroundColor: cat.colorHex }}
                       />
                       <span className="text-sm font-medium truncate">{cat.nombre}</span>
                       {isSelected && (
