@@ -245,12 +245,10 @@ Su foco es **la operación diaria en el mostrador o salón**.
 
 ## Explícitamente fuera del MVP
 
-❌ Stock  
 ❌ Facturación fiscal / AFIP  
 ❌ Integración automática con PedidosYa / Rappi  
 ❌ Roles múltiples  
 ❌ Permisos avanzados  
-❌ Reportes administrativos complejos  
 
 Cualquier intento de modelar estos conceptos **debe rechazarse** salvo indicación explícita.
 
