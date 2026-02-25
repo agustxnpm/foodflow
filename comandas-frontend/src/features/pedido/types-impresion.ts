@@ -54,12 +54,22 @@ export interface HeaderTicket {
   numeroMesa: number;
 }
 
-/** Ítem del ticket con precios */
+/** Extra agrupado para mostrar en el ticket (ej: 2x Disco de carne) */
+export interface ExtraTicket {
+  nombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+}
+
+/** Ítem del ticket con precios y extras */
 export interface ItemTicket {
   cantidad: number;
   descripcion: string;
   precioUnitario: number;
   importe: number;
+  /** Extras agrupados asociados a este ítem (puede estar vacío) */
+  extras: ExtraTicket[];
 }
 
 /**

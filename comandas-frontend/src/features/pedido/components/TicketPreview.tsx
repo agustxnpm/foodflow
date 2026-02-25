@@ -1,6 +1,7 @@
 import type {
   TicketImpresionResponse,
   ItemTicket,
+  ExtraTicket,
   DesgloseAjuste,
 } from '../types-impresion';
 
@@ -114,15 +115,33 @@ export default function TicketPreview({ ticket }: TicketPreviewProps) {
 
       {/* ── Ítems ── */}
       {items.map((item: ItemTicket, idx: number) => (
-        <div key={idx} className="flex justify-between py-0.5">
-          <span className="w-6 text-right tabular-nums">{item.cantidad}</span>
-          <span className="flex-1 ml-2 truncate">{item.descripcion}</span>
-          <span className="w-16 text-right tabular-nums">
-            {formatMoney(item.precioUnitario)}
-          </span>
-          <span className="w-16 text-right tabular-nums font-semibold">
-            {formatMoney(item.importe)}
-          </span>
+        <div key={idx}>
+          {/* Línea principal del ítem */}
+          <div className="flex justify-between py-0.5">
+            <span className="w-6 text-right tabular-nums">{item.cantidad}</span>
+            <span className="flex-1 ml-2 truncate">{item.descripcion}</span>
+            <span className="w-16 text-right tabular-nums">
+              {formatMoney(item.precioUnitario)}
+            </span>
+            <span className="w-16 text-right tabular-nums font-semibold">
+              {formatMoney(item.importe)}
+            </span>
+          </div>
+          {/* Sub-líneas de extras (indentadas) */}
+          {item.extras && item.extras.length > 0 && (
+            <div className="pl-8 space-y-0">
+              {item.extras.map((extra: ExtraTicket, eidx: number) => (
+                <div key={eidx} className="flex justify-between text-[10px] text-neutral-500">
+                  <span className="flex-1 truncate">
+                    + {extra.cantidad > 1 ? `${extra.cantidad}x ` : ''}{extra.nombre}
+                  </span>
+                  <span className="w-16 text-right tabular-nums">
+                    {formatMoney(extra.subtotal)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
 

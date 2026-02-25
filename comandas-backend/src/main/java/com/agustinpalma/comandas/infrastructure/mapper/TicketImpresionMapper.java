@@ -18,7 +18,9 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -92,13 +94,52 @@ public class TicketImpresionMapper {
     }
 
     private ItemTicket toItemTicket(ItemDetalleDTO item) {
+        // Agrupar extras repetidos (mismo productoId) → "2x Disco de carne" en vez de 2 líneas
+        List<TicketImpresionResponse.ExtraTicket> extrasAgrupados = agruparExtras(item.extras());
+
         return new ItemTicket(
                 item.cantidad(),
                 item.nombreProducto(),
                 item.precioUnitarioBase(),
-                item.subtotal()
+                item.subtotal(),
+                extrasAgrupados
         );
     }
+
+    /**
+     * Agrupa extras repetidos (mismo productoId) en una sola línea con cantidad.
+     * El backend envía extras individuales: [disco, disco] → [{disco, qty: 2}]
+     * Mantiene el orden de aparición original.
+     */
+    private List<TicketImpresionResponse.ExtraTicket> agruparExtras(List<com.agustinpalma.comandas.application.dto.ExtraDetalleDTO> extras) {
+        if (extras == null || extras.isEmpty()) {
+            return List.of();
+        }
+
+        // LinkedHashMap para mantener orden de inserción
+        Map<String, ExtraAcumulador> mapa = new LinkedHashMap<>();
+        for (var extra : extras) {
+            mapa.merge(
+                    extra.productoId(),
+                    new ExtraAcumulador(extra.nombre(), 1, extra.precio()),
+                    (existente, nuevo) -> new ExtraAcumulador(
+                            existente.nombre, existente.cantidad + 1, existente.precioUnitario
+                    )
+            );
+        }
+
+        return mapa.values().stream()
+                .map(acc -> new TicketImpresionResponse.ExtraTicket(
+                        acc.nombre,
+                        acc.cantidad,
+                        acc.precioUnitario,
+                        acc.precioUnitario.multiply(BigDecimal.valueOf(acc.cantidad))
+                ))
+                .toList();
+    }
+
+    /** Acumulador interno para agrupar extras por productoId */
+    private record ExtraAcumulador(String nombre, int cantidad, BigDecimal precioUnitario) {}
 
     private ItemComanda toItemComanda(ItemDetalleDTO item) {
         return new ItemComanda(

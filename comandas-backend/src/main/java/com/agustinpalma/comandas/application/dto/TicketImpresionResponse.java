@@ -59,7 +59,8 @@ public record TicketImpresionResponse(
             int cantidad,
             String descripcion,
             BigDecimal precioUnitario,
-            BigDecimal importe
+            BigDecimal importe,
+            List<ExtraTicket> extras
     ) {
         public ItemTicket {
             if (cantidad <= 0) {
@@ -73,6 +74,35 @@ public record TicketImpresionResponse(
             }
             if (importe == null || importe.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalArgumentException("El importe no puede ser nulo ni negativo");
+            }
+            if (extras == null) {
+                throw new IllegalArgumentException("La lista de extras no puede ser nula");
+            }
+        }
+    }
+
+    /**
+     * Extra agrupado para mostrar en el ticket.
+     * Ej: 2x Disco de carne → nombre="Disco de carne", cantidad=2, precioUnitario=X, subtotal=X*2
+     */
+    public record ExtraTicket(
+            String nombre,
+            int cantidad,
+            BigDecimal precioUnitario,
+            BigDecimal subtotal
+    ) {
+        public ExtraTicket {
+            if (nombre == null || nombre.isBlank()) {
+                throw new IllegalArgumentException("El nombre del extra no puede ser nulo o vacío");
+            }
+            if (cantidad <= 0) {
+                throw new IllegalArgumentException("La cantidad del extra debe ser mayor a cero");
+            }
+            if (precioUnitario == null || precioUnitario.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("El precio unitario del extra no puede ser nulo ni negativo");
+            }
+            if (subtotal == null || subtotal.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("El subtotal del extra no puede ser nulo ni negativo");
             }
         }
     }
