@@ -11,6 +11,8 @@ import com.agustinpalma.comandas.infrastructure.persistence.entity.ItemPedidoEnt
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PagoEntity;
 import com.agustinpalma.comandas.infrastructure.persistence.entity.PedidoEntity;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Component;
@@ -54,49 +56,48 @@ public class PedidoMapper {
             return null;
         }
 
-        // Reconstruimos el pedido con sus datos base
-        Pedido pedido = new Pedido(
-            new PedidoId(entity.getId()),
-            new LocalId(entity.getLocalId()),
-            new MesaId(entity.getMesaId()),
-            entity.getNumero(),
-            entity.getEstado(),
-            entity.getFechaApertura()
-        );
-
-        // HU-07: Cargar ítems desde la relación @OneToMany
+        // Reconstruir ítems desde la relación @OneToMany
+        List<ItemPedido> items = new ArrayList<>();
         for (ItemPedidoEntity itemEntity : entity.getItems()) {
-            ItemPedido item = itemPedidoMapper.toDomain(itemEntity);
-            pedido.agregarItemDesdePersistencia(item);
+            items.add(itemPedidoMapper.toDomain(itemEntity));
         }
 
-        // HU-14: Reconstruir descuento global si existe en la BD
+        // Reconstruir pagos
+        List<Pago> pagos = new ArrayList<>();
+        for (PagoEntity pagoEntity : entity.getPagos()) {
+            pagos.add(new Pago(
+                pagoEntity.getMedioPago(),
+                pagoEntity.getMonto(),
+                pagoEntity.getFecha()
+            ));
+        }
+
+        // Reconstruir descuento global si existe
+        DescuentoManual descuentoGlobal = null;
         if (entity.getDescGlobalPorcentaje() != null) {
-            DescuentoManual descuentoGlobal = new DescuentoManual(
+            descuentoGlobal = new DescuentoManual(
                 entity.getDescGlobalPorcentaje(),
                 entity.getDescGlobalRazon(),
                 entity.getDescGlobalUsuarioId(),
                 entity.getDescGlobalFecha()
             );
-            pedido.aplicarDescuentoGlobal(descuentoGlobal);
         }
 
-        // Reconstruir pagos desde la relación @OneToMany
-        for (PagoEntity pagoEntity : entity.getPagos()) {
-            Pago pago = new Pago(
-                pagoEntity.getMedioPago(),
-                pagoEntity.getMonto(),
-                pagoEntity.getFecha()
-            );
-            pedido.agregarPagoDesdePersistencia(pago);
-        }
-
-        // Reconstruir snapshot contable
-        pedido.setMontoSubtotalFinalDesdePersistencia(entity.getMontoSubtotalFinal());
-        pedido.setMontoDescuentosFinalDesdePersistencia(entity.getMontoDescuentosFinal());
-        pedido.setMontoTotalFinalDesdePersistencia(entity.getMontoTotalFinal());
-
-        return pedido;
+        // Usar factory method de reconstrucción: único punto de entrada al aggregate
+        return Pedido.reconstruirDesdePersistencia(
+            new PedidoId(entity.getId()),
+            new LocalId(entity.getLocalId()),
+            new MesaId(entity.getMesaId()),
+            entity.getNumero(),
+            entity.getEstado(),
+            entity.getFechaApertura(),
+            items,
+            pagos,
+            descuentoGlobal,
+            entity.getMontoSubtotalFinal(),
+            entity.getMontoDescuentosFinal(),
+            entity.getMontoTotalFinal()
+        );
     }
 
     /**

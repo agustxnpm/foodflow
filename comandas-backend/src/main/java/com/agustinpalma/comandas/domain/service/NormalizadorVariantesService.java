@@ -7,75 +7,82 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Domain Service para normalización automática de variantes de hamburguesas.
- * 
- * HU-05.1 + HU-22: Implementa la lógica de negocio crítica de conversión automática.
+ * Domain Service para normalización automática de variantes.
  * 
  * Regla de negocio fundamental:
- * El disco de carne SOLO puede agregarse como extra a la variante máxima.
- * Si se intenta agregar a una variante menor, el sistema convierte automáticamente
- * al siguiente nivel (ej: Simple + Disco → Doble).
+ * Un modificador estructural (ej: disco de carne) SOLO puede agregarse como extra 
+ * a la variante máxima de un grupo. Si se intenta agregar a una variante menor, 
+ * el sistema convierte automáticamente al siguiente nivel (ej: Simple + Disco → Doble).
+ * 
+ * Los modificadores estructurales se identifican por el flag esModificadorEstructural = true,
+ * NO por nombre literal.
  * 
  * Responsabilidades:
- * 1. Detectar si un extra es "disco de carne"
+ * 1. Detectar si algún extra es un modificador estructural
  * 2. Buscar variantes hermanas del mismo grupo
- * 3. Determinar la variante máxima por cantidad de discos
+ * 3. Determinar la variante adecuada por cantidad de discos
  * 4. Convertir automáticamente si es necesario
- * 5. Filtrar extras de disco que fueron convertidos en variante
+ * 5. Filtrar extras de modificadores que fueron absorbidos por la conversión
  * 
  * Este servicio NO tiene estado. Es puro (dado un input, siempre retorna el mismo output).
  */
 public class NormalizadorVariantesService {
 
     /**
-     * Normaliza el producto seleccionado y los extras según la regla de discos de carne.
+     * Normaliza el producto seleccionado y los extras según la regla de modificadores estructurales.
      * 
      * Lógica:
-     * 1. Cuenta cuántos discos de carne hay en los extras solicitados
-     * 2. Si el producto NO es hamburguesa → devuelve todo sin cambios
-     * 3. Si es hamburguesa:
-     *    a. Determina cuántos discos TOTALES hay (producto + extras)
+     * 1. Cuenta cuántos modificadores estructurales hay en los extras solicitados
+     * 2. Si el producto NO es variante estructural → devuelve todo sin cambios
+     * 3. Si es variante estructural:
+     *    a. Determina cuántos discos TOTALES hay (producto + extras modificadores)
      *    b. Busca la variante adecuada para esa cantidad
      *    c. Si existe una variante con exactamente esa cantidad → la usa
-     *    d. Si no existe → usa la variante máxima + los discos sobrantes como extras
-     * 4. Filtra los discos que fueron absorbidos por la conversión
+     *    d. Si no existe → usa la variante máxima + los modificadores sobrantes como extras
+     * 4. Filtra los modificadores que fueron absorbidos por la conversión
      * 
      * @param productoSeleccionado producto inicial seleccionado por el usuario
      * @param extrasOriginal lista original de extras solicitados
      * @param variantesHermanas lista de todas las variantes del mismo grupo (incluye productoSeleccionado)
-     * @param discoDeCarne producto catalogado como "disco de carne" (extra especial)
+     * @param idsModificadoresEstructurales IDs de productos que son modificadores estructurales
      * @return ResultadoNormalizacion con el producto final y extras finales
      */
     public ResultadoNormalizacion normalizarVariante(
             Producto productoSeleccionado,
             List<ExtraPedido> extrasOriginal,
             List<Producto> variantesHermanas,
-            Producto discoDeCarne
+            Set<ProductoId> idsModificadoresEstructurales
     ) {
         Objects.requireNonNull(productoSeleccionado, "El producto seleccionado no puede ser null");
         Objects.requireNonNull(extrasOriginal, "La lista de extras no puede ser null");
-        Objects.requireNonNull(discoDeCarne, "El producto disco de carne no puede ser null");
+        Objects.requireNonNull(idsModificadoresEstructurales, "Los IDs de modificadores estructurales no pueden ser null");
         
-        // Si el producto NO es hamburguesa, no hay nada que normalizar
-        if (!productoSeleccionado.esHamburguesa()) {
+        // Si el producto NO tiene variantes estructurales, no hay nada que normalizar
+        if (!productoSeleccionado.tieneVariantesEstructurales()) {
+            return new ResultadoNormalizacion(productoSeleccionado, extrasOriginal, false);
+        }
+
+        // Si no hay modificadores estructurales catalogados, no hay normalización posible
+        if (idsModificadoresEstructurales.isEmpty()) {
             return new ResultadoNormalizacion(productoSeleccionado, extrasOriginal, false);
         }
         
-        // Contar cuántos discos de carne hay en los extras
-        long discosEnExtras = extrasOriginal.stream()
-            .filter(extra -> extra.getProductoId().equals(discoDeCarne.getId()))
+        // Contar cuántos modificadores estructurales hay en los extras
+        long modificadoresEnExtras = extrasOriginal.stream()
+            .filter(extra -> idsModificadoresEstructurales.contains(extra.getProductoId()))
             .count();
         
-        // Si no hay discos en extras, no hay conversión necesaria
-        if (discosEnExtras == 0) {
+        // Si no hay modificadores en extras, no hay conversión necesaria
+        if (modificadoresEnExtras == 0) {
             return new ResultadoNormalizacion(productoSeleccionado, extrasOriginal, false);
         }
         
-        // Cantidad total de discos = discos base del producto + discos en extras
-        int discosTotales = productoSeleccionado.getCantidadDiscosCarne() + (int) discosEnExtras;
+        // Cantidad total de discos = discos base del producto + modificadores en extras
+        int discosTotales = productoSeleccionado.getCantidadDiscosCarne() + (int) modificadoresEnExtras;
         
         // Buscar la variante adecuada para esa cantidad de discos
         Producto varianteFinal = buscarVarianteParaCantidad(
@@ -87,10 +94,10 @@ public class NormalizadorVariantesService {
         // Determinar cuántos discos fueron absorbidos por la variante final
         int discosAbsorbidos = varianteFinal.getCantidadDiscosCarne() - productoSeleccionado.getCantidadDiscosCarne();
         
-        // Filtrar los extras: eliminar los discos absorbidos, mantener el resto
-        List<ExtraPedido> extrasFiltrados = filtrarDiscosAbsorbidos(
+        // Filtrar los extras: eliminar los modificadores absorbidos, mantener el resto
+        List<ExtraPedido> extrasFiltrados = filtrarModificadoresAbsorbidos(
             extrasOriginal, 
-            discoDeCarne.getId(), 
+            idsModificadoresEstructurales, 
             discosAbsorbidos
         );
         
@@ -122,17 +129,17 @@ public class NormalizadorVariantesService {
             return productoOriginal;
         }
         
-        // Filtrar solo hamburguesas válidas
-        List<Producto> hamburguesasValidas = variantes.stream()
-            .filter(Producto::esHamburguesa)
+        // Filtrar solo variantes estructurales válidas
+        List<Producto> variantesValidas = variantes.stream()
+            .filter(Producto::tieneVariantesEstructurales)
             .collect(Collectors.toList());
         
-        if (hamburguesasValidas.isEmpty()) {
+        if (variantesValidas.isEmpty()) {
             return productoOriginal;
         }
         
         // Intentar match exacto
-        Producto varianteExacta = hamburguesasValidas.stream()
+        Producto varianteExacta = variantesValidas.stream()
             .filter(v -> v.getCantidadDiscosCarne() == discosSolicitados)
             .findFirst()
             .orElse(null);
@@ -142,27 +149,27 @@ public class NormalizadorVariantesService {
         }
         
         // No hay match exacto: buscar la variante máxima
-        return hamburguesasValidas.stream()
+        return variantesValidas.stream()
             .max(Comparator.comparingInt(Producto::getCantidadDiscosCarne))
             .orElse(productoOriginal);
     }
 
     /**
-     * Filtra los discos de carne que fueron absorbidos por la conversión de variante.
+     * Filtra los modificadores estructurales que fueron absorbidos por la conversión de variante.
      * 
      * Ejemplo:
      * - Extras originales: [Disco, Disco, Huevo, Queso]
-     * - Discos absorbidos: 2
+     * - Modificadores absorbidos: 2
      * - Resultado: [Huevo, Queso]
      * 
      * @param extrasOriginales lista original de extras
-     * @param discoDeCarneId ID del producto "disco de carne"
-     * @param cantidadAEliminar cuántos discos fueron absorbidos
-     * @return nueva lista con los discos absorbidos eliminados
+     * @param idsModificadores IDs de productos que son modificadores estructurales
+     * @param cantidadAEliminar cuántos modificadores fueron absorbidos
+     * @return nueva lista con los modificadores absorbidos eliminados
      */
-    private List<ExtraPedido> filtrarDiscosAbsorbidos(
+    private List<ExtraPedido> filtrarModificadoresAbsorbidos(
             List<ExtraPedido> extrasOriginales,
-            ProductoId discoDeCarneId,
+            Set<ProductoId> idsModificadores,
             int cantidadAEliminar
     ) {
         if (cantidadAEliminar == 0) {
@@ -170,16 +177,16 @@ public class NormalizadorVariantesService {
         }
         
         List<ExtraPedido> resultado = new ArrayList<>();
-        int discosEliminados = 0;
+        int modificadoresEliminados = 0;
         
         for (ExtraPedido extra : extrasOriginales) {
-            boolean esDisco = extra.getProductoId().equals(discoDeCarneId);
+            boolean esModificador = idsModificadores.contains(extra.getProductoId());
             
-            if (esDisco && discosEliminados < cantidadAEliminar) {
-                // Este disco fue absorbido por la conversión → NO agregarlo
-                discosEliminados++;
+            if (esModificador && modificadoresEliminados < cantidadAEliminar) {
+                // Este modificador fue absorbido por la conversión → NO agregarlo
+                modificadoresEliminados++;
             } else {
-                // Extra normal o disco excedente → agregarlo
+                // Extra normal o modificador excedente → agregarlo
                 resultado.add(extra);
             }
         }

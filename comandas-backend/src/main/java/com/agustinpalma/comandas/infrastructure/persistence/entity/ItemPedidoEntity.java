@@ -48,6 +48,31 @@ public class ItemPedidoEntity {
     private String observacion;
 
     // ============================================
+    // Snapshot de clasificación del producto
+    // ============================================
+
+    /**
+     * Grupo de variantes del producto al momento de la venta.
+     * Null si el producto no pertenecía a un grupo de variantes.
+     */
+    @Column(name = "grupo_variante_id_snapshot")
+    private UUID grupoVarianteIdSnapshot;
+
+    /**
+     * Jerarquía de variante (ej: discos de carne) al momento de la venta.
+     * Null si no aplica.
+     */
+    @Column(name = "cantidad_discos_snapshot")
+    private Integer cantidadDiscosSnapshot;
+
+    /**
+     * Categoría del producto al momento de la venta.
+     * Null si el producto no estaba clasificado.
+     */
+    @Column(name = "categoria_id_snapshot")
+    private UUID categoriaIdSnapshot;
+
+    // ============================================
     // HU-10: Campos de snapshot de promoción
     // ============================================
 
@@ -295,5 +320,33 @@ public class ItemPedidoEntity {
 
     public void setExtras(java.util.List<ExtraPedidoEmbeddable> extras) {
         this.extras = extras;
+    }
+
+    // ============================================
+    // Snapshot de clasificación: Getters y Setters
+    // ============================================
+
+    public UUID getGrupoVarianteIdSnapshot() {
+        return grupoVarianteIdSnapshot;
+    }
+
+    public void setGrupoVarianteIdSnapshot(UUID grupoVarianteIdSnapshot) {
+        this.grupoVarianteIdSnapshot = grupoVarianteIdSnapshot;
+    }
+
+    public Integer getCantidadDiscosSnapshot() {
+        return cantidadDiscosSnapshot;
+    }
+
+    public void setCantidadDiscosSnapshot(Integer cantidadDiscosSnapshot) {
+        this.cantidadDiscosSnapshot = cantidadDiscosSnapshot;
+    }
+
+    public UUID getCategoriaIdSnapshot() {
+        return categoriaIdSnapshot;
+    }
+
+    public void setCategoriaIdSnapshot(UUID categoriaIdSnapshot) {
+        this.categoriaIdSnapshot = categoriaIdSnapshot;
     }
 }

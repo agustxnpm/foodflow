@@ -64,7 +64,10 @@ public class ItemPedidoMapper {
             entity.getNombrePromocion(),
             entity.getPromocionId(),
             descuentoManual,
-            extras
+            extras,
+            entity.getGrupoVarianteIdSnapshot() != null ? new ProductoId(entity.getGrupoVarianteIdSnapshot()) : null,
+            entity.getCantidadDiscosSnapshot(),
+            entity.getCategoriaIdSnapshot() != null ? new CategoriaId(entity.getCategoriaIdSnapshot()) : null
         );
     }
 
@@ -112,6 +115,15 @@ public class ItemPedidoMapper {
             .map(this::extraDomainToEmbeddable)
             .collect(Collectors.toList());
         entity.setExtras(extrasEmbeddables);
+
+        // Snapshot de clasificación del producto
+        entity.setGrupoVarianteIdSnapshot(
+            domain.getGrupoVarianteIdSnapshot() != null ? domain.getGrupoVarianteIdSnapshot().getValue() : null
+        );
+        entity.setCantidadDiscosSnapshot(domain.getCantidadDiscosSnapshot());
+        entity.setCategoriaIdSnapshot(
+            domain.getCategoriaIdSnapshot() != null ? domain.getCategoriaIdSnapshot().getValue() : null
+        );
 
         return entity;
     }

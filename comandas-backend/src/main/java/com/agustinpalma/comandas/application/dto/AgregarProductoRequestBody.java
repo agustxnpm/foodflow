@@ -14,5 +14,7 @@ public record AgregarProductoRequestBody(
     int cantidad,
     String observaciones,
     /** IDs de productos extra (esExtra=true). Si qty > 1 del mismo extra, repetir el ID. Puede ser null. */
-    List<String> extrasIds
+    List<String> extrasIds,
+    /** ID de la variante seleccionada explícitamente. Si es null, se usa auto-normalización. */
+    String varianteId
 ) {}

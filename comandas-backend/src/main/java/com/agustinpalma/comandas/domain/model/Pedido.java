@@ -51,6 +51,53 @@ public class Pedido {
         this.pagos = new ArrayList<>();
     }
 
+    /**
+     * Factory method para reconstrucción completa desde persistencia.
+     * 
+     * Este es el ÚNICO punto de entrada para rehidratar un aggregate Pedido
+     * con todo su estado interno (ítems, pagos, descuentos, snapshot contable).
+     * Solo debe ser invocado por la capa de infraestructura (mappers).
+     * 
+     * Al centralizar la reconstrucción aquí, impedimos que capas externas
+     * inyecten estado arbitrario en el aggregate vía setters individuales.
+     * 
+     * @param id identificador del pedido
+     * @param localId local al que pertenece
+     * @param mesaId mesa asociada
+     * @param numero número secuencial
+     * @param estado estado actual
+     * @param fechaApertura fecha de apertura
+     * @param items ítems del pedido (ya reconstruidos)
+     * @param pagos pagos registrados (vacío si está abierto)
+     * @param descuentoGlobal descuento global aplicado (null si no tiene)
+     * @param montoSubtotalFinal snapshot contable (null si está abierto)
+     * @param montoDescuentosFinal snapshot contable (null si está abierto)
+     * @param montoTotalFinal snapshot contable (null si está abierto)
+     * @return Pedido completamente reconstruido
+     */
+    public static Pedido reconstruirDesdePersistencia(
+            PedidoId id, LocalId localId, MesaId mesaId, int numero,
+            EstadoPedido estado, LocalDateTime fechaApertura,
+            List<ItemPedido> items, List<Pago> pagos,
+            DescuentoManual descuentoGlobal,
+            BigDecimal montoSubtotalFinal, BigDecimal montoDescuentosFinal, BigDecimal montoTotalFinal
+    ) {
+        Pedido pedido = new Pedido(id, localId, mesaId, numero, estado, fechaApertura);
+        
+        if (items != null) {
+            pedido.items.addAll(items);
+        }
+        if (pagos != null) {
+            pedido.pagos.addAll(pagos);
+        }
+        pedido.descuentoGlobal = descuentoGlobal;
+        pedido.montoSubtotalFinal = montoSubtotalFinal;
+        pedido.montoDescuentosFinal = montoDescuentosFinal;
+        pedido.montoTotalFinal = montoTotalFinal;
+        
+        return pedido;
+    }
+
     private int validarNumero(int numero) {
         if (numero <= 0) {
             throw new IllegalArgumentException("El número de pedido debe ser mayor a 0");
@@ -92,19 +139,6 @@ public class Pedido {
 
     public List<ItemPedido> getItems() {
         return Collections.unmodifiableList(items);
-    }
-
-    /**
-     * Método público SOLO para reconstrucción desde persistencia.
-     * 
-     * ADVERTENCIA: Este método NO ejecuta validaciones de negocio.
-     * Solo debe ser usado por la capa de infraestructura (mappers) al hidratar el aggregate desde BD.
-     * Para agregar items con lógica de negocio, usar agregarProducto() en su lugar.
-     * 
-     * @param item el item a agregar directamente (sin validaciones)
-     */
-    public void agregarItemDesdePersistencia(ItemPedido item) {
-        this.items.add(item);
     }
 
     /**
@@ -662,32 +696,12 @@ public class Pedido {
     }
 
     /**
-     * Método público SOLO para reconstrucción desde persistencia.
-     * 
-     * ADVERTENCIA: Este método NO ejecuta validaciones de negocio.
-     * Solo debe ser usado por la capa de infraestructura (mappers).
-     * 
-     * @param pago el pago a agregar directamente
-     */
-    public void agregarPagoDesdePersistencia(Pago pago) {
-        this.pagos.add(pago);
-    }
-
-    /**
      * Retorna el subtotal final congelado al cierre.
      * 
      * @return montoSubtotalFinal o null si el pedido está abierto
      */
     public BigDecimal getMontoSubtotalFinal() {
         return montoSubtotalFinal;
-    }
-
-    /**
-     * Asigna el subtotal final desde persistencia.
-     * Solo para reconstrucción por la capa de infraestructura.
-     */
-    public void setMontoSubtotalFinalDesdePersistencia(BigDecimal monto) {
-        this.montoSubtotalFinal = monto;
     }
 
     /**
@@ -700,28 +714,12 @@ public class Pedido {
     }
 
     /**
-     * Asigna el monto de descuentos desde persistencia.
-     * Solo para reconstrucción por la capa de infraestructura.
-     */
-    public void setMontoDescuentosFinalDesdePersistencia(BigDecimal monto) {
-        this.montoDescuentosFinal = monto;
-    }
-
-    /**
      * Retorna el total final congelado al cierre.
      * 
      * @return montoTotalFinal o null si el pedido está abierto
      */
     public BigDecimal getMontoTotalFinal() {
         return montoTotalFinal;
-    }
-
-    /**
-     * Asigna el total final desde persistencia.
-     * Solo para reconstrucción por la capa de infraestructura.
-     */
-    public void setMontoTotalFinalDesdePersistencia(BigDecimal monto) {
-        this.montoTotalFinal = monto;
     }
 
     @Override

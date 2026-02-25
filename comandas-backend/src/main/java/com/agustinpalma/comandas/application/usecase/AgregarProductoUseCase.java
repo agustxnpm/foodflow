@@ -116,6 +116,36 @@ public class AgregarProductoUseCase {
                 "No se encontró el producto con ID: " + request.productoId().getValue()
             ));
 
+        // 2.1 Selección explícita de variante: si varianteId viene informado,
+        // el cliente ya eligió la variante concreta → se usa directamente.
+        // Esto cortocircuita la auto-normalización posterior.
+        boolean varianteExplicita = false;
+        if (request.varianteId() != null) {
+            Producto variante = productoRepository.buscarPorId(request.varianteId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "No se encontró la variante con ID: " + request.varianteId().getValue()
+                ));
+
+            // Validar que la variante pertenece al mismo grupo que el producto base
+            if (variante.getGrupoVarianteId() == null) {
+                throw new IllegalArgumentException(
+                    "El producto '" + variante.getNombre() + "' no es una variante (no tiene grupoVarianteId)"
+                );
+            }
+            ProductoId grupoEsperado = productoSeleccionado.getGrupoVarianteId() != null
+                ? productoSeleccionado.getGrupoVarianteId()
+                : productoSeleccionado.getId();
+            if (!variante.getGrupoVarianteId().equals(grupoEsperado)) {
+                throw new IllegalArgumentException(
+                    String.format("La variante '%s' no pertenece al grupo del producto '%s'",
+                        variante.getNombre(), productoSeleccionado.getNombre())
+                );
+            }
+
+            productoSeleccionado = variante;
+            varianteExplicita = true;
+        }
+
         // Validación: un producto marcado como extra NO puede agregarse como línea independiente
         if (productoSeleccionado.isEsExtra()) {
             throw new IllegalArgumentException(
@@ -137,11 +167,21 @@ public class AgregarProductoUseCase {
         List<ExtraPedido> extrasOriginales = procesarExtras(request.extrasIds(), pedido.getLocalId());
 
         // 4. HU-22: Normalizar variantes (conversión automática de discos de carne)
-        NormalizadorVariantesService.ResultadoNormalizacion normalizacion = normalizarVariantes(
-            productoSeleccionado,
-            extrasOriginales,
-            pedido.getLocalId()
-        );
+        // Si el cliente ya seleccionó una variante explícita, se salta la normalización.
+        NormalizadorVariantesService.ResultadoNormalizacion normalizacion;
+        if (varianteExplicita) {
+            normalizacion = new NormalizadorVariantesService.ResultadoNormalizacion(
+                productoSeleccionado,
+                extrasOriginales,
+                false
+            );
+        } else {
+            normalizacion = normalizarVariantes(
+                productoSeleccionado,
+                extrasOriginales,
+                pedido.getLocalId()
+            );
+        }
 
         Producto productoFinal = normalizacion.getProductoFinal();
         List<ExtraPedido> extrasFiltrados = normalizacion.getExtrasFiltrados();
@@ -255,12 +295,12 @@ public class AgregarProductoUseCase {
     }
 
     /**
-     * Normaliza las variantes según la regla de discos de carne.
+     * Normaliza las variantes según la regla de modificadores estructurales.
      * 
-     * HU-22: Si el producto es hamburguesa y hay discos de carne en los extras,
-     * convierte automáticamente a la variante adecuada.
+     * Si el producto tiene grupo de variantes y algún extra es un modificador estructural,
+     * el NormalizadorVariantesService convierte automáticamente a la variante adecuada.
      * 
-     * Lógica delegada al NormalizadorVariantesService (Domain Service).
+     * Los modificadores estructurales se identifican por su flag, NO por nombre literal.
      * 
      * @param productoSeleccionado producto inicial seleccionado
      * @param extrasOriginales extras solicitados
@@ -287,14 +327,12 @@ public class AgregarProductoUseCase {
             productoSeleccionado.getGrupoVarianteId()
         );
 
-        // Buscar el producto "disco de carne" del local
-        // NOTA: Esto asume que existe un producto catalogado como "disco de carne extra"
-        // con esExtra = true. Si no existe, la normalización no se aplicará.
-        Producto discoDeCarne = productoRepository.buscarExtraDiscoDeCarne(localId)
-            .orElse(null);
+        // Buscar modificadores estructurales del local (ej: disco de carne)
+        // Se identifican por flag esModificadorEstructural = true, NO por nombre.
+        List<Producto> modificadores = productoRepository.buscarModificadoresEstructurales(localId);
 
-        // Si no hay disco de carne catalogado, no hay normalización posible
-        if (discoDeCarne == null) {
+        // Si no hay modificadores estructurales catalogados, no hay normalización posible
+        if (modificadores.isEmpty()) {
             return new NormalizadorVariantesService.ResultadoNormalizacion(
                 productoSeleccionado, 
                 extrasOriginales, 
@@ -302,12 +340,17 @@ public class AgregarProductoUseCase {
             );
         }
 
+        // Extraer IDs para delegar al Domain Service
+        java.util.Set<ProductoId> idsModificadores = modificadores.stream()
+            .map(Producto::getId)
+            .collect(Collectors.toSet());
+
         // Delegar normalización al Domain Service
         return normalizadorVariantesService.normalizarVariante(
             productoSeleccionado,
             extrasOriginales,
             variantesHermanas,
-            discoDeCarne
+            idsModificadores
         );
     }
 

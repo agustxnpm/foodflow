@@ -93,12 +93,19 @@ public class PedidoController {
                 .toList();
         }
 
+        // Convertir varianteId de String a ProductoId (puede ser null)
+        ProductoId varianteIdVO = null;
+        if (body.varianteId() != null && !body.varianteId().isBlank()) {
+            varianteIdVO = new ProductoId(UUID.fromString(body.varianteId()));
+        }
+
         AgregarProductoRequest request = new AgregarProductoRequest(
             pedidoIdVO,
             productoIdVO,
             body.cantidad(),
             body.observaciones(),
-            extrasIdsVO
+            extrasIdsVO,
+            varianteIdVO
         );
 
         AgregarProductoResponse response = agregarProductoUseCase.ejecutar(request);

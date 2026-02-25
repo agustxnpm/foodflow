@@ -35,6 +35,12 @@ public class ItemPedido {
     private final BigDecimal precioUnitario;  // Snapshot del precio BASE del producto
     private String observacion;
     
+    // Snapshot de clasificación del producto al momento de la venta
+    // Estos campos son inmutables y NO dependen del Producto vivo en catálogo.
+    private final ProductoId grupoVarianteIdSnapshot;  // Grupo de variantes al momento de la venta (nullable)
+    private final Integer cantidadDiscosSnapshot;       // Jerarquía de variante capturada (nullable)
+    private final CategoriaId categoriaIdSnapshot;      // Categoría al momento de la venta (nullable)
+    
     // HU-10: Campos de snapshot de promoción
     // HU-20/HU-21: Ya no son final — se resetean al recalcular promociones tras cambios en ítems
     private BigDecimal montoDescuento;             // Valor monetario descontado (ej: $250)
@@ -54,6 +60,7 @@ public class ItemPedido {
      * HU-10: Incluye campos de promoción para snapshot completo.
      * HU-14: Incluye descuento manual dinámico (opcional).
      * HU-05.1 + HU-22: Incluye lista de extras con snapshot.
+     * Snapshot de clasificación: grupoVarianteId, cantidadDiscos, categoriaId.
      */
     public ItemPedido(
             ItemPedidoId id, 
@@ -67,7 +74,10 @@ public class ItemPedido {
             String nombrePromocion,
             UUID promocionId,
             DescuentoManual descuentoManual,
-            List<ExtraPedido> extras
+            List<ExtraPedido> extras,
+            ProductoId grupoVarianteIdSnapshot,
+            Integer cantidadDiscosSnapshot,
+            CategoriaId categoriaIdSnapshot
     ) {
         this.id = Objects.requireNonNull(id, "El id del item no puede ser null");
         this.pedidoId = Objects.requireNonNull(pedidoId, "El pedidoId no puede ser null");
@@ -76,6 +86,11 @@ public class ItemPedido {
         this.cantidad = validarCantidad(cantidad);
         this.precioUnitario = validarPrecioUnitario(precioUnitario);
         this.observacion = observacion; // Puede ser null
+        
+        // Snapshot de clasificación (inmutables, pueden ser null)
+        this.grupoVarianteIdSnapshot = grupoVarianteIdSnapshot;
+        this.cantidadDiscosSnapshot = cantidadDiscosSnapshot;
+        this.categoriaIdSnapshot = categoriaIdSnapshot;
         
         // HU-10: Campos de promoción (pueden ser null si no hay promo)
         this.montoDescuento = montoDescuento != null ? montoDescuento : BigDecimal.ZERO;
@@ -103,7 +118,8 @@ public class ItemPedido {
             String observacion
     ) {
         this(id, pedidoId, productoId, nombreProducto, cantidad, precioUnitario, 
-             observacion, BigDecimal.ZERO, null, null, null, Collections.emptyList());
+             observacion, BigDecimal.ZERO, null, null, null, Collections.emptyList(),
+             null, null, null);
     }
 
     /**
@@ -143,7 +159,10 @@ public class ItemPedido {
             null,              // Sin nombre de promoción
             null,              // Sin ID de promoción
             null,              // Sin descuento manual
-            Collections.emptyList()  // Sin extras
+            Collections.emptyList(),  // Sin extras
+            producto.getGrupoVarianteId(),      // Snapshot grupoVarianteId
+            producto.getCantidadDiscosCarne(),   // Snapshot cantidadDiscos
+            producto.getCategoriaId()            // Snapshot categoriaId
         );
     }
 
@@ -184,7 +203,10 @@ public class ItemPedido {
             null,              // Sin nombre de promoción
             null,              // Sin ID de promoción
             null,              // Sin descuento manual
-            extras != null ? new ArrayList<>(extras) : Collections.emptyList()
+            extras != null ? new ArrayList<>(extras) : Collections.emptyList(),
+            producto.getGrupoVarianteId(),
+            producto.getCantidadDiscosCarne(),
+            producto.getCategoriaId()
         );
     }
 
@@ -232,7 +254,10 @@ public class ItemPedido {
             nombrePromocion,
             promocionId,
             null,              // Sin descuento manual por defecto
-            Collections.emptyList()  // Sin extras
+            Collections.emptyList(),  // Sin extras
+            producto.getGrupoVarianteId(),
+            producto.getCantidadDiscosCarne(),
+            producto.getCategoriaId()
         );
     }
 
@@ -284,7 +309,10 @@ public class ItemPedido {
             nombrePromocion,
             promocionId,
             null,              // Sin descuento manual por defecto
-            extras != null ? new ArrayList<>(extras) : Collections.emptyList()
+            extras != null ? new ArrayList<>(extras) : Collections.emptyList(),
+            producto.getGrupoVarianteId(),
+            producto.getCantidadDiscosCarne(),
+            producto.getCategoriaId()
         );
     }
 
@@ -331,6 +359,40 @@ public class ItemPedido {
 
     public String getObservacion() {
         return observacion;
+    }
+    
+    // ============================================
+    // Snapshot de clasificación del producto
+    // ============================================
+
+    /**
+     * Grupo de variantes del producto al momento de la venta.
+     * Inmutable: no cambia aunque el catálogo se actualice.
+     * 
+     * @return ProductoId del grupo de variantes, o null si no aplica
+     */
+    public ProductoId getGrupoVarianteIdSnapshot() {
+        return grupoVarianteIdSnapshot;
+    }
+
+    /**
+     * Cantidad de discos (jerarquía de variante) al momento de la venta.
+     * Inmutable: no cambia aunque el catálogo se actualice.
+     * 
+     * @return cantidad de discos capturada, o null si no aplica
+     */
+    public Integer getCantidadDiscosSnapshot() {
+        return cantidadDiscosSnapshot;
+    }
+
+    /**
+     * Categoría del producto al momento de la venta.
+     * Inmutable: no cambia aunque el catálogo se actualice.
+     * 
+     * @return CategoriaId capturada, o null si no estaba clasificado
+     */
+    public CategoriaId getCategoriaIdSnapshot() {
+        return categoriaIdSnapshot;
     }
     
     // ============================================
