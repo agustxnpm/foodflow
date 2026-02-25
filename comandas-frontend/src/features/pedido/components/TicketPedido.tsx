@@ -14,6 +14,11 @@ import {
 } from 'lucide-react';
 import type { DetallePedidoResponse, ItemDetalle, ExtraDetalle } from '../types';
 
+// ─── Límites operativos ───────────────────────────────────────────────────────
+
+/** Cantidad máxima permitida por ítem en el ticket */
+const MAX_CANTIDAD_ITEM = 20;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Extra agrupado por productoId para mostrar "2x Disco de carne" en vez de 2 líneas */
@@ -94,6 +99,8 @@ interface TicketItemProps {
   onEliminar: (itemId: string) => void;
   /** Si el ítem ya fue enviado a cocina */
   enviadoACocina?: boolean;
+  /** Si el pedido permite modificaciones (ABIERTO) */
+  pedidoModificable: boolean;
 }
 
 /**
@@ -107,8 +114,9 @@ interface TicketItemProps {
  * - Controles +/- para modificar cantidad
  * - Botón eliminar
  */
-function TicketItem({ item, onModificarCantidad, onEliminar, enviadoACocina = false }: TicketItemProps) {
+function TicketItem({ item, onModificarCantidad, onEliminar, enviadoACocina = false, pedidoModificable }: TicketItemProps) {
   const hayDescuento = item.descuentoTotal > 0;
+  const enMaximo = item.cantidad >= MAX_CANTIDAD_ITEM;
 
   return (
     <div className="group py-3 border-b border-neutral-800/60 last:border-b-0">
@@ -197,6 +205,7 @@ function TicketItem({ item, onModificarCantidad, onEliminar, enviadoACocina = fa
       </div>
 
       {/* Controles de cantidad + eliminar */}
+      {pedidoModificable && (
       <div className="flex items-center justify-between mt-2">
         <div className="flex items-center gap-1">
           <button
@@ -225,11 +234,13 @@ function TicketItem({ item, onModificarCantidad, onEliminar, enviadoACocina = fa
           <button
             type="button"
             onClick={() => onModificarCantidad(item.id, item.cantidad + 1)}
+            disabled={enMaximo}
             className="
               w-7 h-7 rounded-md
               flex items-center justify-center
               bg-neutral-800 text-gray-500
               hover:bg-neutral-700 hover:text-gray-300
+              disabled:opacity-30 disabled:cursor-not-allowed
               transition-colors
             "
             aria-label="Aumentar cantidad"
@@ -253,6 +264,7 @@ function TicketItem({ item, onModificarCantidad, onEliminar, enviadoACocina = fa
           <Trash2 size={14} />
         </button>
       </div>
+      )}
     </div>
   );
 }
@@ -303,6 +315,9 @@ export default function TicketPedido({
   const hayItemsNuevos = pedido
     ? pedido.items.some((i) => !itemsEnviadosIds.has(i.id))
     : false;
+
+  /** El pedido solo se puede modificar si está ABIERTO */
+  const pedidoModificable = pedido?.estado === 'ABIERTO';
 
   const formatHora = (fecha: string) => {
     const d = new Date(fecha);
@@ -382,6 +397,7 @@ export default function TicketPedido({
                 onModificarCantidad={onModificarCantidad}
                 onEliminar={onEliminarItem}
                 enviadoACocina={itemsEnviadosIds.has(item.id)}
+                pedidoModificable={pedidoModificable}
               />
             ))}
 
@@ -427,7 +443,7 @@ export default function TicketPedido({
         <button
           type="button"
           onClick={onMandarCocina}
-          disabled={!hayItemsNuevos || enviandoCocina}
+          disabled={!hayItemsNuevos || enviandoCocina || !pedidoModificable}
           className="
             w-full flex items-center justify-center gap-2
             h-11 rounded-xl
@@ -455,7 +471,7 @@ export default function TicketPedido({
         <button
           type="button"
           onClick={onAplicarDescuento}
-          disabled={!hayItems}
+          disabled={!hayItems || !pedidoModificable}
           className="
             w-full flex items-center justify-center gap-2
             h-11 rounded-xl
@@ -493,7 +509,7 @@ export default function TicketPedido({
         <button
           type="button"
           onClick={onCerrarMesa}
-          disabled={!hayItems}
+          disabled={!hayItems || !pedidoModificable}
           className="
             w-full flex items-center justify-center gap-2
             h-12 rounded-xl

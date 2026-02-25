@@ -38,8 +38,8 @@ export interface ProductoRequest {
   controlaStock?: boolean;
   /** Indica si el producto es un extra (huevo, queso, disco, etc.). Default: false */
   esExtra?: boolean;
-  /** Etiqueta de categoría libre (ej: "bebida", "hamburguesa"). Nullable */
-  categoria?: string;
+  /** UUID de la categoría a la que pertenece el producto. Nullable */
+  categoriaId?: string;
   /** Si el producto admite extras/agregados. Default: true */
   permiteExtras?: boolean;
   /** Si el POS debe abrir modal de configuración. Default: true */
@@ -76,12 +76,16 @@ export interface ProductoResponse {
   controlaStock: boolean | null;
   /** true si es un extra (huevo, queso, disco de carne, etc.) */
   esExtra: boolean;
-  /** Etiqueta de categoría libre del backend (ej: "bebida"). Puede ser null/undefined */
-  categoria?: string | null;
-  /** Si el producto admite extras/agregados. Default true. Puede no venir en backends legacy */
+  /** UUID de la categoría a la que pertenece. Puede ser null */
+  categoriaId?: string | null;
+  /** Si el producto admite extras/agregados. Default true */
   permiteExtras?: boolean;
   /** Si true, el POS abre modal de configuración (observaciones + extras) antes de agregar */
   requiereConfiguracion: boolean;
+  /** UUID del grupo de variantes (ej: todas las hamburguesas simples/dobles/triples) */
+  grupoVarianteId?: string | null;
+  /** Cantidad de discos de carne del producto (para ordenar variantes). Puede ser null */
+  cantidadDiscosCarne?: number | null;
   /** Promociones activas que aplican a este producto (puede estar vacía) */
   promocionesActivas: PromocionActivaInfo[];
 }
@@ -114,4 +118,38 @@ export interface AjustarStockResponse {
   motivo: string;
   /** ISO 8601 datetime */
   fecha: string;
+}
+
+// ─── Variantes ────────────────────────────────────────────────────────────────
+
+/**
+ * DTO de entrada para crear una variante de un producto base.
+ * Refleja VarianteProductoRequest del backend.
+ *
+ * El productoBaseId viaja como path param.
+ * El grupoVarianteId se determina automáticamente en el use case.
+ */
+export interface VarianteRequest {
+  nombre: string;
+  /** Debe ser > 0 */
+  precio: number;
+  /** Jerarquía de la variante (1 = simple, 2 = doble, etc.) */
+  cantidadDiscosCarne: number;
+  activo?: boolean;
+  colorHex?: string;
+  categoriaId?: string;
+  permiteExtras?: boolean;
+  requiereConfiguracion?: boolean;
+  controlaStock?: boolean;
+}
+
+/**
+ * DTO de salida al crear una variante.
+ * Refleja VarianteProductoResponse del backend.
+ *
+ * Incluye la variante recién creada y todas las hermanas del grupo.
+ */
+export interface VarianteResponse {
+  varianteCreada: ProductoResponse;
+  variantesDelGrupo: ProductoResponse[];
 }

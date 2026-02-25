@@ -3,11 +3,13 @@ import apiClient from '../../../lib/apiClient';
 import type {
   ProductoResponse,
   ProductoRequest,
+  VarianteRequest,
+  VarianteResponse,
 } from '../types';
 
 export const productosApi = {
-  listar: (color?: string | null, categoria?: string | null): Promise<AxiosResponse<ProductoResponse[]>> =>
-    apiClient.get('/productos', { params: { color, categoria } }),
+  listar: (categoriaId?: string | null): Promise<AxiosResponse<ProductoResponse[]>> =>
+    apiClient.get('/productos', { params: { categoriaId } }),
 
   crear: (data: ProductoRequest): Promise<AxiosResponse<ProductoResponse>> =>
     apiClient.post('/productos', data),
@@ -23,4 +25,20 @@ export const productosApi = {
 
   ajustarStock: (id: string, data: { cantidad: number; tipo: string; motivo: string }): Promise<AxiosResponse<unknown>> =>
     apiClient.patch(`/productos/${id}/stock`, data),
+
+  /**
+   * Lista todas las variantes de un producto (hermanas del mismo grupo).
+   * GET /api/productos/{productoId}/variantes
+   * Retorna lista vacía si el producto no tiene variantes.
+   */
+  listarVariantes: (productoId: string): Promise<AxiosResponse<ProductoResponse[]>> =>
+    apiClient.get(`/productos/${productoId}/variantes`),
+
+  /**
+   * Crea una variante de un producto base existente.
+   * POST /api/productos/{productoBaseId}/variantes
+   * Si el base no tiene grupo todavía, se crea automáticamente.
+   */
+  crearVariante: (productoBaseId: string, data: VarianteRequest): Promise<AxiosResponse<VarianteResponse>> =>
+    apiClient.post(`/productos/${productoBaseId}/variantes`, data),
 };

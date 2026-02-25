@@ -1,5 +1,5 @@
 import { useMemo, useRef, useEffect } from 'react';
-import { Plus, Search, X, PackageOpen, Sparkles } from 'lucide-react';
+import { Plus, Search, X, PackageOpen, Sparkles, Layers } from 'lucide-react';
 import type { ProductoResponse } from '../../catalogo/types';
 
 interface GrillaProductosProps {
@@ -12,6 +12,21 @@ interface GrillaProductosProps {
   onBusquedaChange: (valor: string) => void;
   /** Total de productos antes de filtrar (para mostrar "N de M") */
   totalProductos: number;
+}
+
+// ─── Tipos internos ───────────────────────────────────────────────────────────
+
+/**
+ * Elemento renderizable en la grilla: puede ser un producto individual
+ * o un representante de un grupo de variantes.
+ */
+interface ElementoGrilla {
+  /** Producto que se muestra como tarjeta (representante del grupo o producto suelto) */
+  producto: ProductoResponse;
+  /** Cantidad de variantes en el grupo (1 = producto individual, >1 = grupo) */
+  cantidadVariantes: number;
+  /** Precio mínimo del grupo (para mostrar "desde $X" si hay variantes) */
+  precioMinimo: number;
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -39,14 +54,19 @@ function ProductoCardSkeleton() {
 function ProductoCard({
   producto,
   onAgregar,
+  cantidadVariantes,
+  precioMinimo,
 }: {
   producto: ProductoResponse;
   onAgregar: () => void;
+  cantidadVariantes: number;
+  precioMinimo: number;
 }) {
   const sinStock: boolean =
     !!(producto.controlaStock && producto.stockActual !== null && producto.stockActual <= 0);
 
   const tienePromos = producto.promocionesActivas && producto.promocionesActivas.length > 0;
+  const esGrupo = cantidadVariantes > 1;
 
   return (
     <button
@@ -92,12 +112,20 @@ function ProductoCard({
         </div>
       )}
 
-      {/* Indicador de color + badge "+" */}
+      {/* Badge variantes + badge "+" */}
       <div className="flex items-start justify-between mb-2">
-        <span
-          className="w-3 h-3 rounded-full shrink-0 mt-0.5 border border-white/10"
-          style={{ backgroundColor: producto.colorHex || '#FFFFFF' }}
-        />
+        {/* Badge de variantes (reemplaza el dot de color) */}
+        {esGrupo ? (
+          <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-neutral-800 border border-neutral-700">
+            <Layers size={10} className="text-gray-500" />
+            <span className="text-[10px] font-semibold text-gray-500">{cantidadVariantes}</span>
+          </span>
+        ) : (
+          <span
+            className="w-3 h-3 rounded-full shrink-0 mt-0.5 border border-white/10"
+            style={{ backgroundColor: producto.colorHex || '#FFFFFF' }}
+          />
+        )}
         <span
           className={[
             'w-7 h-7 rounded-lg flex items-center justify-center',
@@ -116,9 +144,16 @@ function ProductoCard({
         {producto.nombre}
       </p>
 
-      {/* Precio */}
+      {/* Precio — "desde $X" si es grupo con precios distintos */}
       <p className="text-base font-bold text-gray-100 font-mono tabular-nums">
-        $ {producto.precio.toLocaleString('es-AR')}
+        {esGrupo && precioMinimo < producto.precio ? (
+          <>
+            <span className="text-[10px] font-semibold text-gray-500 mr-1">desde</span>
+            $ {precioMinimo.toLocaleString('es-AR')}
+          </>
+        ) : (
+          <>$ {producto.precio.toLocaleString('es-AR')}</>
+        )}
       </p>
 
       {/* Badge sin stock */}
@@ -160,11 +195,57 @@ export default function GrillaProductos({
     return () => clearTimeout(timer);
   }, []);
 
-  // Productos ordenados alfabéticamente para escaneo rápido
-  const productosOrdenados = useMemo(
-    () => [...productos].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
-    [productos]
-  );
+  /**
+   * Agrupar productos por grupoVarianteId.
+   *
+   * Los productos que comparten grupoVarianteId se colapsan en una sola tarjeta.
+   * Se muestra el representante del grupo (menor cantidadDiscosCarne = producto base).
+   * 
+   * Si hay búsqueda activa, un grupo se muestra si CUALQUIER variante del grupo
+   * coincide con el término de búsqueda.
+   */
+  const elementosGrilla = useMemo((): ElementoGrilla[] => {
+    const sinGrupo: ProductoResponse[] = [];
+    const grupos = new Map<string, ProductoResponse[]>();
+
+    for (const p of productos) {
+      if (p.grupoVarianteId) {
+        const arr = grupos.get(p.grupoVarianteId) || [];
+        arr.push(p);
+        grupos.set(p.grupoVarianteId, arr);
+      } else {
+        sinGrupo.push(p);
+      }
+    }
+
+    const elementos: ElementoGrilla[] = [];
+
+    // Productos individuales (sin grupo)
+    for (const p of sinGrupo) {
+      elementos.push({ producto: p, cantidadVariantes: 1, precioMinimo: p.precio });
+    }
+
+    // Grupos de variantes → 1 tarjeta por grupo
+    for (const variantes of grupos.values()) {
+      // Ordenar por cantidadDiscosCarne ascendente: el primero es el representante
+      const sorted = [...variantes].sort(
+        (a, b) => (a.cantidadDiscosCarne ?? 0) - (b.cantidadDiscosCarne ?? 0)
+      );
+      const representante = sorted[0];
+      const precioMinimo = Math.min(...sorted.map((v) => v.precio));
+
+      elementos.push({
+        producto: representante,
+        cantidadVariantes: sorted.length,
+        precioMinimo,
+      });
+    }
+
+    // Ordenar todo alfabéticamente por nombre
+    return elementos.sort((a, b) =>
+      a.producto.nombre.localeCompare(b.producto.nombre, 'es')
+    );
+  }, [productos]);
 
   const hayBusqueda = busqueda.trim().length > 0;
 
@@ -239,7 +320,7 @@ export default function GrillaProductos({
               <ProductoCardSkeleton key={i} />
             ))}
           </div>
-        ) : productosOrdenados.length === 0 ? (
+        ) : elementosGrilla.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-6 gap-3">
             <div className="w-14 h-14 rounded-full bg-neutral-800 flex items-center justify-center">
               <PackageOpen size={24} className="text-gray-600" />
@@ -266,11 +347,13 @@ export default function GrillaProductos({
           </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 p-4">
-            {productosOrdenados.map((producto) => (
+            {elementosGrilla.map((elem) => (
               <ProductoCard
-                key={producto.id}
-                producto={producto}
-                onAgregar={() => onAgregarProducto(producto.id)}
+                key={elem.producto.id}
+                producto={elem.producto}
+                onAgregar={() => onAgregarProducto(elem.producto.id)}
+                cantidadVariantes={elem.cantidadVariantes}
+                precioMinimo={elem.precioMinimo}
               />
             ))}
           </div>

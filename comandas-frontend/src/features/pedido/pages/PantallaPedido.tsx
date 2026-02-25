@@ -7,6 +7,7 @@ import CerrarMesaModal from '../components/CerrarMesaModal';
 import TicketPreviewModal from '../components/TicketPreviewModal';
 import ConfigurarProductoModal from '../components/ConfigurarProductoModal';
 import type { ConfigurarProductoPayload } from '../components/ConfigurarProductoModal';
+import VarianteSelectorModal from '../components/VarianteSelectorModal';
 import { useProductos } from '../../catalogo/hooks/useProductos';
 import type { ProductoResponse } from '../../catalogo/types';
 import { usePedidoMesa, useObtenerComanda } from '../../salon/hooks/useMesas';
@@ -16,7 +17,7 @@ import {
   useEliminarItem,
 } from '../hooks/usePedido';
 import { permiteAbrirModal } from '../utils/productoUtils';
-import { useCategoriasStore } from '../../../lib/categorias-ui/store';
+import { useCategorias } from '../../categorias/hooks/useCategorias';
 import useToast from '../../../hooks/useToast';
 
 interface PantallaPedidoProps {
@@ -56,6 +57,14 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   /** IDs de ítems ya enviados a cocina (tracking local por sesión) */
   const [itemsEnviadosIds, setItemsEnviadosIds] = useState<Set<string>>(new Set());
 
+  // ── Estado de variantes ──
+  /** Producto base del grupo de variantes que abrió el selector */
+  const [varianteSelectorBase, setVarianteSelectorBase] = useState<ProductoResponse | null>(null);
+  /** Lista de variantes del grupo seleccionado */
+  const [variantesDelGrupo, setVariantesDelGrupo] = useState<ProductoResponse[]>([]);
+  /** ID de la variante seleccionada (se propaga al ConfigurarProductoModal y al request) */
+  const [varianteSeleccionadaId, setVarianteSeleccionadaId] = useState<string | undefined>(undefined);
+
   // ── Datos del backend ──
   const { data: productos = [], isLoading: cargandoProductos } =
     useProductos(categoriaActiva);
@@ -63,8 +72,8 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   const { data: pedido = null, isLoading: cargandoPedido } =
     usePedidoMesa(mesaId);
 
-  // ── Store de pseudocategorías (fallback si backend no envía categoria) ──
-  const categoriaDeColor = useCategoriasStore((s) => s.categoriaDeColor);
+  // ── Categorías del backend (para resolver flags de comportamiento) ──
+  const { data: categorias = [] } = useCategorias();
 
   // ── Mutations ──
   const agregarProducto = useAgregarProducto();
@@ -99,12 +108,14 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
 
   /**
    * Al tocar un producto en la grilla:
-   * - Si permiteAbrirModal() = true → abre modal de observaciones/extras
-   * - Si permiteAbrirModal() = false → agrega directamente al pedido (cantidad 1, sin extras)
+   *
+   * 1. Si el producto pertenece a un grupo de variantes (grupoVarianteId != null)
+   *    → abre VarianteSelectorModal para elegir la variante específica
+   * 2. Si permiteAbrirModal() = true → abre modal de observaciones/extras
+   * 3. Si permiteAbrirModal() = false → agrega directamente al pedido (cantidad 1, sin extras)
    *
    * La decisión integra: requiereConfiguracion, permiteExtras, esExtra,
-   * y categoría resuelta (backend o fallback store local).
-   * Bebidas y extras nunca abren modal.
+   * categoría resuelta, y grupoVarianteId para variantes.
    */
   const handleAgregarProducto = useCallback(
     (productoId: string) => {
@@ -115,11 +126,24 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
       const producto = productos.find((p) => p.id === productoId);
       if (!producto) return;
 
-      if (permiteAbrirModal(producto, categoriaDeColor)) {
-        // Abrir modal de configuración (observaciones + extras)
+      // Si tiene variantes → abrir selector de variantes primero
+      if (producto.grupoVarianteId) {
+        const hermanas = productos.filter(
+          (p) => p.grupoVarianteId === producto.grupoVarianteId
+        );
+        if (hermanas.length > 1) {
+          setVarianteSelectorBase(producto);
+          setVariantesDelGrupo(hermanas);
+          return;
+        }
+        // Si solo queda 1 variante visible (ej: filtro de búsqueda), actúa como producto normal
+      }
+
+      // Sin variantes: flujo clásico
+      if (permiteAbrirModal(producto, categorias)) {
+        setVarianteSeleccionadaId(undefined);
         setProductoSeleccionado(producto);
       } else {
-        // Agregar directamente al pedido: cantidad 1, sin extras ni observaciones
         agregarProducto.mutate(
           {
             pedidoId: pedido.pedidoId,
@@ -136,7 +160,51 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
         );
       }
     },
-    [pedido, productos, toast, agregarProducto, categoriaDeColor]
+    [pedido, productos, toast, agregarProducto, categorias]
+  );
+
+  /**
+   * Callback del selector de variantes.
+   *
+   * Cuando el operador elige una variante del grupo, se evalúa si
+   * esa variante necesita configuración (observaciones + extras) o
+   * se agrega directamente al pedido.
+   *
+   * El varianteId se propaga al backend para selección explícita
+   * (sin auto-normalización por discos).
+   */
+  const handleVarianteSeleccionada = useCallback(
+    (variante: ProductoResponse) => {
+      if (!pedido?.pedidoId) return;
+
+      // Cerrar el selector de variantes
+      setVarianteSelectorBase(null);
+      setVariantesDelGrupo([]);
+
+      if (permiteAbrirModal(variante, categorias)) {
+        // Abrir ConfigurarProductoModal con la variante seleccionada
+        setVarianteSeleccionadaId(variante.id);
+        setProductoSeleccionado(variante);
+      } else {
+        // Agregar directamente con varianteId explícito
+        agregarProducto.mutate(
+          {
+            pedidoId: pedido.pedidoId,
+            productoId: variante.id,
+            cantidad: 1,
+            varianteId: variante.id,
+          },
+          {
+            onError: (error: any) => {
+              const msg =
+                error?.response?.data?.message || 'Error al agregar producto';
+              toast.error(msg);
+            },
+          }
+        );
+      }
+    },
+    [pedido, categorias, agregarProducto, toast]
   );
 
   /**
@@ -147,8 +215,7 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
    * productoId, acumula cantidad, combina extras y observaciones,
    * y recalcula promociones sobre la cantidad total.
    *
-   * El frontend NO necesita detectar duplicados ni usar modificarCantidad
-   * para este flujo. Esa responsabilidad pertenece al dominio (backend).
+   * Si hay varianteId, se envía para selección explícita (sin auto-normalización).
    */
   const handleConfirmarProducto = useCallback(
     (payload: ConfigurarProductoPayload) => {
@@ -161,10 +228,12 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
           cantidad: payload.cantidad,
           observaciones: payload.observaciones,
           extrasIds: payload.extrasIds.length > 0 ? payload.extrasIds : undefined,
+          varianteId: payload.varianteId,
         },
         {
           onSuccess: () => {
             setProductoSeleccionado(null);
+            setVarianteSeleccionadaId(undefined);
           },
           onError: (error: any) => {
             const msg =
@@ -303,8 +372,8 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
           <aside className="w-[15%] min-w-[130px] border-r border-neutral-800 bg-neutral-950 overflow-y-auto shrink-0">
             <ListaCategorias
               categoriaActiva={categoriaActiva}
-              onCategoriaChange={(color) => {
-                setCategoriaActiva(color);
+              onCategoriaChange={(categoriaId) => {
+                setCategoriaActiva(categoriaId);
                 setBusqueda('');
               }}
             />
@@ -342,13 +411,30 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
         </section>
       </div>
 
+      {/* ── Modal: Selector de Variantes ── */}
+      {varianteSelectorBase && variantesDelGrupo.length > 0 && (
+        <VarianteSelectorModal
+          productoBase={varianteSelectorBase}
+          variantes={variantesDelGrupo}
+          onSeleccionar={handleVarianteSeleccionada}
+          onCerrar={() => {
+            setVarianteSelectorBase(null);
+            setVariantesDelGrupo([]);
+          }}
+        />
+      )}
+
       {/* ── Modal: Configurar Producto (Observaciones + Extras) ── */}
       {productoSeleccionado && (
         <ConfigurarProductoModal
           producto={productoSeleccionado}
           onConfirmar={handleConfirmarProducto}
-          onCerrar={() => setProductoSeleccionado(null)}
+          onCerrar={() => {
+            setProductoSeleccionado(null);
+            setVarianteSeleccionadaId(undefined);
+          }}
           enviando={agregarProducto.isPending}
+          varianteId={varianteSeleccionadaId}
         />
       )}
 

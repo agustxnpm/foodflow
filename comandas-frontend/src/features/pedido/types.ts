@@ -128,6 +128,12 @@ export interface AgregarProductoRequest {
   observaciones?: string;
   /** IDs de productos extra (esExtra=true). Si qty > 1, repetir el ID. */
   extrasIds?: string[];
+  /**
+   * ID de la variante seleccionada explícitamente por el operador.
+   * Si se envía, el backend usa esta variante directamente (sin auto-normalización).
+   * Si es null/undefined, el backend aplica normalización automática por discos.
+   */
+  varianteId?: string;
 }
 
 /**

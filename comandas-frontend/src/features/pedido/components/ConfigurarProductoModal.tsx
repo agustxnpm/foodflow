@@ -1,7 +1,15 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { X, Minus, Plus, MessageSquare, ChefHat, Loader2 } from 'lucide-react';
 import type { ProductoResponse } from '../../catalogo/types';
 import { useExtras } from '../../catalogo/hooks/useProductos';
+import { useCategorias } from '../../categorias/hooks/useCategorias';
+
+// ─── Límites operativos ───────────────────────────────────────────────────────
+
+/** Cantidad máxima de unidades del producto principal por línea */
+const MAX_CANTIDAD_PRINCIPAL = 40;
+/** Cantidad máxima de unidades de un extra individual */
+const MAX_CANTIDAD_EXTRA = 40;
 
 // ─── Tipos locales ────────────────────────────────────────────────────────────
 
@@ -11,6 +19,11 @@ interface ConfigurarProductoModalProps {
   onCerrar: () => void;
   /** Indica si la mutación está en curso */
   enviando?: boolean;
+  /**
+   * ID de la variante seleccionada explícitamente (si el producto pertenece a un grupo).
+   * Se propaga al payload sin transformaciones.
+   */
+  varianteId?: string;
 }
 
 /** Payload que el modal devuelve al confirmar */
@@ -19,6 +32,8 @@ export interface ConfigurarProductoPayload {
   cantidad: number;
   observaciones?: string;
   extrasIds: string[];
+  /** ID de la variante seleccionada explícitamente */
+  varianteId?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -33,14 +48,18 @@ function ContadorCantidad({
   valor,
   onCambiar,
   min = 0,
+  max,
   tamano = 'md',
 }: {
   valor: number;
   onCambiar: (nueva: number) => void;
   min?: number;
+  /** Límite superior opcional. Si se alcanza, el botón + se deshabilita */
+  max?: number;
   tamano?: 'sm' | 'md';
 }) {
   const esChico = tamano === 'sm';
+  const enMaximo = max !== undefined && valor >= max;
 
   return (
     <div className="flex items-center gap-1">
@@ -75,9 +94,11 @@ function ContadorCantidad({
       <button
         type="button"
         onClick={() => onCambiar(valor + 1)}
+        disabled={enMaximo}
         className={[
           'flex items-center justify-center rounded-lg',
           'transition-colors active:scale-[0.93]',
+          'disabled:opacity-30 disabled:cursor-not-allowed',
           esChico
             ? 'w-8 h-8 bg-neutral-800 hover:bg-neutral-700 text-gray-400'
             : 'w-10 h-10 bg-neutral-800 hover:bg-neutral-700 text-gray-300',
@@ -122,7 +143,7 @@ function ExtraRow({
       </div>
 
       {/* Controles de cantidad */}
-      <ContadorCantidad valor={cantidad} onCambiar={onCambiar} min={0} tamano="sm" />
+      <ContadorCantidad valor={cantidad} onCambiar={onCambiar} min={0} max={MAX_CANTIDAD_EXTRA} tamano="sm" />
     </div>
   );
 }
@@ -149,6 +170,7 @@ export default function ConfigurarProductoModal({
   onConfirmar,
   onCerrar,
   enviando = false,
+  varianteId,
 }: ConfigurarProductoModalProps) {
   // ── Estado local ──
   const [cantidadPrincipal, setCantidadPrincipal] = useState(1);
@@ -161,7 +183,8 @@ export default function ConfigurarProductoModal({
   // 1. El producto NO es un extra en sí mismo (un extra no puede tener sub-extras)
   // 2. El producto permite extras (permiteExtras !== false; undefined → default true)
   const mostrarExtras = !producto.esExtra && producto.permiteExtras !== false;
-  const { data: extras = [], isLoading: cargandoExtras } = useExtras();
+  const { data: categorias = [] } = useCategorias();
+  const { data: extras = [], isLoading: cargandoExtras } = useExtras(categorias);
 
   // ── Handlers ──
 
@@ -171,24 +194,13 @@ export default function ConfigurarProductoModal({
         const { [extraId]: _, ...rest } = prev;
         return rest;
       }
-      return { ...prev, [extraId]: cantidad };
+      // Limitar cantidad máxima de cada extra
+      const cantidadLimitada = Math.min(cantidad, MAX_CANTIDAD_EXTRA);
+      return { ...prev, [extraId]: cantidadLimitada };
     });
   }, []);
 
-  // ── Cálculos ──
-
-  /** Subtotal de los extras seleccionados */
-  const subtotalExtras = useMemo(() => {
-    return Object.entries(extrasSeleccionados).reduce((acc, [extraId, qty]) => {
-      const extra = extras.find((e) => e.id === extraId);
-      return acc + (extra ? extra.precio * qty : 0);
-    }, 0);
-  }, [extrasSeleccionados, extras]);
-
-  /** Total dinámico del footer */
-  const totalDinamico = useMemo(() => {
-    return (producto.precio + subtotalExtras) * cantidadPrincipal;
-  }, [producto.precio, subtotalExtras, cantidadPrincipal]);
+  // ── Construcción del payload ──
 
   /** Construir el array extrasIds (IDs repetidos según cantidad) */
   const construirExtrasIds = useCallback((): string[] => {
@@ -207,9 +219,10 @@ export default function ConfigurarProductoModal({
       cantidad: cantidadPrincipal,
       observaciones: observaciones.trim() || undefined,
       extrasIds: construirExtrasIds(),
+      varianteId,
     };
     onConfirmar(payload);
-  }, [producto.id, cantidadPrincipal, observaciones, construirExtrasIds, onConfirmar]);
+  }, [producto.id, cantidadPrincipal, observaciones, construirExtrasIds, onConfirmar, varianteId]);
 
   const hayExtrasSeleccionados = Object.values(extrasSeleccionados).some((q) => q > 0);
 
@@ -308,8 +321,8 @@ export default function ConfigurarProductoModal({
                   Agregados / Extras
                 </h3>
                 {hayExtrasSeleccionados && (
-                  <span className="ml-auto text-xs font-semibold text-red-400 font-mono tabular-nums">
-                    + $ {formatPrecio(subtotalExtras)}
+                  <span className="ml-auto text-[10px] font-semibold text-red-400 uppercase tracking-wider">
+                    {Object.values(extrasSeleccionados).reduce((a, b) => a + b, 0)} seleccionados
                   </span>
                 )}
               </div>
@@ -357,8 +370,9 @@ export default function ConfigurarProductoModal({
               </span>
               <ContadorCantidad
                 valor={cantidadPrincipal}
-                onCambiar={setCantidadPrincipal}
+                onCambiar={(v) => setCantidadPrincipal(Math.min(v, MAX_CANTIDAD_PRINCIPAL))}
                 min={1}
+                max={MAX_CANTIDAD_PRINCIPAL}
                 tamano="md"
               />
             </div>
@@ -386,7 +400,12 @@ export default function ConfigurarProductoModal({
               ) : (
                 <>
                   <Plus size={20} strokeWidth={2.5} />
-                  Agregar al Pedido — $ {formatPrecio(totalDinamico)}
+                  Agregar al Pedido
+                  {cantidadPrincipal > 1 && (
+                    <span className="text-red-200 font-normal text-sm ml-1">
+                      ({cantidadPrincipal}x)
+                    </span>
+                  )}
                 </>
               )}
             </button>
