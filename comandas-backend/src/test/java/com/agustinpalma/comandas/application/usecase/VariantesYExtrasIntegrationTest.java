@@ -326,11 +326,14 @@ class VariantesYExtrasIntegrationTest {
 
         // --- Extras ---
 
-        discoCarne = productoRepository.guardar(new Producto(
+        // Disco de Carne: es extra + modificador estructural (activa normalización de variantes)
+        Producto disco = new Producto(
             ProductoId.generate(), localId,
             "Disco de Carne", new BigDecimal("500"), true, "#A0522D",
             null, true, null
-        ));
+        );
+        disco.cambiarModificadorEstructural(true);
+        discoCarne = productoRepository.guardar(disco);
 
         huevo = productoRepository.guardar(new Producto(
             ProductoId.generate(), localId,

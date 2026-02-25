@@ -71,6 +71,7 @@ class EditarProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -104,6 +105,7 @@ class EditarProductoUseCaseTest {
             new BigDecimal("1000.00"),
             true,
             "#FFFFFF",
+            null,
             null,
             null,
             null,
@@ -145,6 +147,7 @@ class EditarProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -178,6 +181,7 @@ class EditarProductoUseCaseTest {
             new BigDecimal("2000.00"),
             true,
             "#00FF00",
+            null,
             null,
             null,
             null,
@@ -224,6 +228,7 @@ class EditarProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -262,6 +267,7 @@ class EditarProductoUseCaseTest {
             new BigDecimal("1200.00"),
             true,
             "#FF0000",
+            null,
             null,
             null,
             null,
@@ -307,6 +313,7 @@ class EditarProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -344,6 +351,7 @@ class EditarProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -365,7 +373,7 @@ class EditarProductoUseCaseTest {
         Producto productoExistente = new Producto(
             productoId, localId, "Queso Cheddar",
             new BigDecimal("200.00"), true, "#FFD700",
-            null, false, null, null, true, true, 50, true // categoria=null, permiteExtras=true, requiereConfiguracion=true, stock=50, controlaStock=true
+            null, false, false, null, null, true, true, 50, true // categoria=null, permiteExtras=true, requiereConfiguracion=true, stock=50, controlaStock=true
         );
 
         ProductoRequest request = new ProductoRequest(
@@ -374,6 +382,7 @@ class EditarProductoUseCaseTest {
             true,
             "#FFD700",
             null, // No envía controlaStock → se preserva
+            null,
             null,
             null,
             null,
@@ -395,7 +404,7 @@ class EditarProductoUseCaseTest {
 
     @Test
     void deberia_rechazar_parametros_null() {
-        ProductoRequest request = new ProductoRequest("Test", new BigDecimal("1000"), true, "#FFFFFF", null, null, null, null, null);
+        ProductoRequest request = new ProductoRequest("Test", new BigDecimal("1000"), true, "#FFFFFF", null, null, null, null, null, null);
 
         assertThrows(NullPointerException.class, () -> useCase.ejecutar(null, localId, request));
         assertThrows(NullPointerException.class, () -> useCase.ejecutar(productoId, null, request));
@@ -408,7 +417,7 @@ class EditarProductoUseCaseTest {
         Producto productoExistente = new Producto(
             productoId, localId, "Huevo",
             new BigDecimal("200.00"), true, "#FFFF00",
-            null, false, null, null, true, true, 0, false  // categoria=null, permiteExtras=true, requiereConfiguracion=true, esExtra=false (dato incorrecto)
+            null, false, false, null, null, true, true, 0, false  // categoria=null, permiteExtras=true, requiereConfiguracion=true, esExtra=false (dato incorrecto)
         );
 
         ProductoRequest request = new ProductoRequest(
@@ -418,6 +427,7 @@ class EditarProductoUseCaseTest {
             "#FFFF00",
             false,
             true,  // Corregir: reclasificar como extra
+            null,
             null,  // categoria
             null,  // permiteExtras
             null   // requiereConfiguracion
@@ -441,7 +451,7 @@ class EditarProductoUseCaseTest {
         Producto productoExistente = new Producto(
             productoId, localId, "Queso Cheddar",
             new BigDecimal("200.00"), true, "#FFFF00",
-            null, true, null, null, true, true, 0, false  // categoria=null, permiteExtras=true, requiereConfiguracion=true, esExtra=true
+            null, true, false, null, null, true, true, 0, false  // categoria=null, permiteExtras=true, requiereConfiguracion=true, esExtra=true
         );
 
         ProductoRequest request = new ProductoRequest(
@@ -451,6 +461,7 @@ class EditarProductoUseCaseTest {
             "#FFFF00",
             null,
             null,  // No envía esExtra → se preserva el valor actual
+            null,
             null,  // categoria
             null,  // permiteExtras
             null   // requiereConfiguracion

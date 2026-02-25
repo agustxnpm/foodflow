@@ -6,12 +6,17 @@ import com.agustinpalma.comandas.application.usecase.AjustarStockUseCase;
 import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCase;
 import com.agustinpalma.comandas.application.usecase.AsociarProductoAPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.ConsultarCategoriasUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarProductosUseCase;
+import com.agustinpalma.comandas.application.usecase.CrearCategoriaUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.CrearVarianteUseCase;
+import com.agustinpalma.comandas.application.usecase.EditarCategoriaUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.EliminarCategoriaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
@@ -24,6 +29,7 @@ import com.agustinpalma.comandas.application.usecase.CambiarEstadoPromocionUseCa
 import com.agustinpalma.comandas.application.usecase.CrearPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarPromocionUseCase;
+import com.agustinpalma.comandas.domain.repository.CategoriaRepository;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.MovimientoCajaRepository;
 import com.agustinpalma.comandas.domain.repository.MovimientoStockRepository;
@@ -218,6 +224,18 @@ public class ApplicationConfig {
     @Bean
     public CrearProductoUseCase crearProductoUseCase(ProductoRepository productoRepository) {
         return new CrearProductoUseCase(productoRepository);
+    }
+
+    /**
+     * Bean del caso de uso para crear variantes de productos.
+     * Permite crear variantes jerárquicas de un producto base (ej: Simple → Doble → Triple).
+     *
+     * @param productoRepository implementación del repositorio de productos
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public CrearVarianteUseCase crearVarianteUseCase(ProductoRepository productoRepository) {
+        return new CrearVarianteUseCase(productoRepository);
     }
 
     /**
@@ -424,5 +442,41 @@ public class ApplicationConfig {
             Clock clock
     ) {
         return new AjustarStockUseCase(productoRepository, movimientoStockRepository, gestorStockService, clock);
+    }
+
+    // ============================================
+    // Categorías del catálogo
+    // ============================================
+
+    /**
+     * Bean del caso de uso para crear categoría.
+     */
+    @Bean
+    public CrearCategoriaUseCase crearCategoriaUseCase(CategoriaRepository categoriaRepository) {
+        return new CrearCategoriaUseCase(categoriaRepository);
+    }
+
+    /**
+     * Bean del caso de uso para editar categoría.
+     */
+    @Bean
+    public EditarCategoriaUseCase editarCategoriaUseCase(CategoriaRepository categoriaRepository) {
+        return new EditarCategoriaUseCase(categoriaRepository);
+    }
+
+    /**
+     * Bean del caso de uso para consultar categorías de un local.
+     */
+    @Bean
+    public ConsultarCategoriasUseCase consultarCategoriasUseCase(CategoriaRepository categoriaRepository) {
+        return new ConsultarCategoriasUseCase(categoriaRepository);
+    }
+
+    /**
+     * Bean del caso de uso para eliminar categoría.
+     */
+    @Bean
+    public EliminarCategoriaUseCase eliminarCategoriaUseCase(CategoriaRepository categoriaRepository) {
+        return new EliminarCategoriaUseCase(categoriaRepository);
     }
 }

@@ -55,6 +55,7 @@ class CrearProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -90,6 +91,7 @@ class CrearProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -117,6 +119,7 @@ class CrearProductoUseCaseTest {
             new BigDecimal("500.00"),
             true,
             "#FFFF00",
+            null,
             null,
             null,
             null,
@@ -152,6 +155,7 @@ class CrearProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -174,6 +178,7 @@ class CrearProductoUseCaseTest {
             new BigDecimal("900.00"),
             true,
             null, // Sin color
+            null,
             null,
             null,
             null,
@@ -204,6 +209,7 @@ class CrearProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -227,6 +233,7 @@ class CrearProductoUseCaseTest {
             true,
             "#FFD700",
             true, // Materia prima → controla stock
+            null,
             null,
             null,
             null,
@@ -255,6 +262,7 @@ class CrearProductoUseCaseTest {
             true,
             "#FF0000",
             null, // No especificado → default false
+            null,
             null,
             null,
             null,
@@ -293,6 +301,7 @@ class CrearProductoUseCaseTest {
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -313,6 +322,7 @@ class CrearProductoUseCaseTest {
             "#FFFF00",
             false,
             true,  // esExtra = true
+            null,
             null,  // categoria
             null,  // permiteExtras
             null   // requiereConfiguracion
@@ -341,6 +351,7 @@ class CrearProductoUseCaseTest {
             "#0000FF",
             null,
             null,  // esExtra = null → default false
+            null,
             null,  // categoria
             null,  // permiteExtras
             null   // requiereConfiguracion
@@ -371,7 +382,8 @@ class CrearProductoUseCaseTest {
             "#CC0000",
             null,
             null,    // esExtra
-            "bebida", // categoria
+            null,
+            null,    // categoriaId — ahora es UUID, se testea por separado con categoría real
             false,   // permiteExtras = false (las bebidas no llevan extras)
             null     // requiereConfiguracion
         );
@@ -383,8 +395,8 @@ class CrearProductoUseCaseTest {
         // When
         ProductoResponse response = useCase.ejecutar(localId, request);
 
-        // Then — el response debe exponer categoria y permiteExtras
-        assertEquals("bebida", response.categoria());
+        // Then — el response debe exponer categoriaId y permiteExtras
+        assertNull(response.categoriaId(), "CategoriaId debe ser null cuando no se especifica");
         assertFalse(response.permiteExtras(), "Bebida no debe permitir extras");
     }
 
@@ -398,7 +410,8 @@ class CrearProductoUseCaseTest {
             "#FF5500",
             null,
             null,  // esExtra
-            null,  // categoria = null
+            null,
+            null,  // categoriaId = null
             null,  // permiteExtras = null → default true
             null   // requiereConfiguracion
         );
@@ -410,8 +423,8 @@ class CrearProductoUseCaseTest {
         // When
         ProductoResponse response = useCase.ejecutar(localId, request);
 
-        // Then — por defecto permiteExtras debe ser true y categoria null
+        // Then — por defecto permiteExtras debe ser true y categoriaId null
         assertTrue(response.permiteExtras(), "Producto debe permitir extras por defecto");
-        assertNull(response.categoria(), "Categoria debe ser null si no se especifica");
+        assertNull(response.categoriaId(), "CategoriaId debe ser null si no se especifica");
     }
 }

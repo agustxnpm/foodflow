@@ -105,8 +105,8 @@ class ConsultarDetallePedidoUseCaseTest {
             null
         );
         
-        pedido.agregarItemDesdePersistencia(item1);
-        pedido.agregarItemDesdePersistencia(item2);
+        pedido.agregarItem(item1);
+        pedido.agregarItem(item2);
         
         when(mesaRepository.buscarPorId(mesaId)).thenReturn(Optional.of(mesaAbierta));
         when(pedidoRepository.buscarAbiertoPorMesa(mesaId, localId)).thenReturn(Optional.of(pedido));
@@ -235,7 +235,7 @@ class ConsultarDetallePedidoUseCaseTest {
             null  // Sin observaciones
         );
         
-        pedido.agregarItemDesdePersistencia(itemSinObservaciones);
+        pedido.agregarItem(itemSinObservaciones);
         
         when(mesaRepository.buscarPorId(mesaId)).thenReturn(Optional.of(mesaAbierta));
         when(pedidoRepository.buscarAbiertoPorMesa(mesaId, localId)).thenReturn(Optional.of(pedido));

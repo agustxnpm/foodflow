@@ -171,7 +171,7 @@ class DescuentoManualIntegrationTest {
                 "2x1 Hamburguesas",
                 UUID.randomUUID()
             );
-            pedido.agregarItemDesdePersistencia(itemCon2x1);
+            pedido.agregarItem(itemCon2x1);
             pedidoRepository.guardar(pedido);
 
             // Precio base: 2 × $2500 = $5000

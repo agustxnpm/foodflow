@@ -394,4 +394,61 @@ class ProductoTest {
         assertEquals(producto1, producto2, "Productos con mismo ID deben ser iguales");
         assertEquals(producto1.hashCode(), producto2.hashCode());
     }
+
+    // ============================================
+    // Tests: asignarGrupoVariante
+    // ============================================
+
+    @Test
+    void deberia_asignar_grupo_variante_a_producto_sin_grupo() {
+        // Given: producto sin grupo de variantes
+        ProductoId productoId = ProductoId.generate();
+        Producto producto = new Producto(
+            productoId, LOCAL_ID_VALIDO, "Hamburguesa", new BigDecimal("1500"), true, "#FF0000"
+        );
+        assertNull(producto.getGrupoVarianteId());
+        assertNull(producto.getCantidadDiscosCarne());
+        assertFalse(producto.tieneVariantesEstructurales());
+
+        // When: se asigna como líder de su propio grupo
+        producto.asignarGrupoVariante(productoId, 1);
+
+        // Then
+        assertEquals(productoId, producto.getGrupoVarianteId());
+        assertEquals(1, producto.getCantidadDiscosCarne());
+        assertTrue(producto.tieneVariantesEstructurales());
+    }
+
+    @Test
+    void deberia_rechazar_asignacion_si_ya_tiene_grupo() {
+        // Given: producto que ya pertenece a un grupo
+        ProductoId grupoId = ProductoId.generate();
+        Producto producto = new Producto(
+            ProductoId.generate(), LOCAL_ID_VALIDO, "Hamburguesa Doble",
+            new BigDecimal("2200"), true, "#FF0000",
+            grupoId, false, 2
+        );
+
+        // When/Then: intentar reasignar lanza excepción
+        ProductoId otroGrupo = ProductoId.generate();
+        IllegalStateException ex = assertThrows(
+            IllegalStateException.class,
+            () -> producto.asignarGrupoVariante(otroGrupo, 3)
+        );
+        assertTrue(ex.getMessage().contains("ya pertenece al grupo de variantes"));
+    }
+
+    @Test
+    void deberia_rechazar_asignacion_con_grupo_null() {
+        // Given
+        Producto producto = new Producto(
+            ProductoId.generate(), LOCAL_ID_VALIDO, "Pizza", new BigDecimal("3000"), true, "#FF0000"
+        );
+
+        // When/Then
+        assertThrows(
+            NullPointerException.class,
+            () -> producto.asignarGrupoVariante(null, 1)
+        );
+    }
 }
