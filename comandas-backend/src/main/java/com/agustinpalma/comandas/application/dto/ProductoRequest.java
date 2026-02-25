@@ -27,7 +27,9 @@ public record ProductoRequest(
 
     Boolean esExtra,  // Indica si el producto es un extra (huevo, queso, disco, etc.). Default: false en creación
 
-    String categoria,  // Etiqueta libre de categoría ("bebida", "comida", "postre"). Nullable.
+    Boolean esModificadorEstructural,  // Si true, este extra activa normalización de variantes. Default: false en creación
+
+    String categoriaId,  // UUID de la categoría del catálogo. Nullable.
 
     Boolean permiteExtras,  // Si el producto acepta extras/agregados. Default: true en creación
 

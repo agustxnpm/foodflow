@@ -62,13 +62,13 @@ public interface SpringDataProductoRepository extends JpaRepository<ProductoEnti
     List<ProductoEntity> findByLocalIdAndColorHex(UUID localId, String colorHex);
 
     /**
-     * Busca productos de un local filtrados por categoría (case-insensitive).
+     * Busca productos de un local filtrados por categoría.
      *
      * @param localId UUID del local
-     * @param categoria etiqueta de categoría
+     * @param categoriaId UUID de la categoría
      * @return lista de productos que coinciden (puede estar vacía)
      */
-    List<ProductoEntity> findByLocalIdAndCategoriaIgnoreCase(UUID localId, String categoria);
+    List<ProductoEntity> findByLocalIdAndCategoriaId(UUID localId, UUID categoriaId);
 
     /**
      * HU-05.1: Busca variantes hermanas del mismo grupo.
@@ -80,12 +80,12 @@ public interface SpringDataProductoRepository extends JpaRepository<ProductoEnti
     List<ProductoEntity> findByLocalIdAndGrupoVarianteId(UUID localId, UUID grupoVarianteId);
 
     /**
-     * HU-22: Busca producto extra por nombre y marca de extra.
+     * Busca productos modificadores estructurales de un local.
+     * Un modificador estructural activa normalización automática de variantes.
      *
      * @param localId UUID del local
-     * @param nombre nombre del producto (case-insensitive)
-     * @param esExtra true para buscar solo extras
-     * @return Optional con el producto si existe
+     * @param esModificadorEstructural true para buscar solo modificadores estructurales
+     * @return lista de productos modificadores (puede estar vacía)
      */
-    Optional<ProductoEntity> findByLocalIdAndNombreIgnoreCaseAndEsExtra(UUID localId, String nombre, boolean esExtra);
+    List<ProductoEntity> findByLocalIdAndEsModificadorEstructural(UUID localId, boolean esModificadorEstructural);
 }

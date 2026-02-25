@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.application.usecase;
 
 import com.agustinpalma.comandas.application.dto.ProductoResponse;
 import com.agustinpalma.comandas.application.dto.ProductoResponse.PromocionActivaInfo;
+import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.Producto;
 import com.agustinpalma.comandas.domain.model.Promocion;
@@ -59,10 +60,10 @@ public class ConsultarProductosUseCase {
      * 
      * @param localId identificador del local
      * @param colorHexFiltro color hexadecimal para filtrar (opcional, puede ser null)
-     * @param categoriaFiltro categoría para filtrar (opcional, puede ser null)
+     * @param categoriaIdFiltro UUID de categoría para filtrar (opcional, puede ser null)
      * @return lista de productos que cumplen el criterio (puede estar vacía)
      */
-    public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro, String categoriaFiltro) {
+    public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro, String categoriaIdFiltro) {
         Objects.requireNonNull(localId, "El localId es obligatorio");
         
         List<Producto> productos;
@@ -70,8 +71,9 @@ public class ConsultarProductosUseCase {
         if (colorHexFiltro != null && !colorHexFiltro.isBlank()) {
             String colorNormalizado = colorHexFiltro.trim().toUpperCase();
             productos = productoRepository.buscarPorLocalYColor(localId, colorNormalizado);
-        } else if (categoriaFiltro != null && !categoriaFiltro.isBlank()) {
-            productos = productoRepository.buscarPorLocalYCategoria(localId, categoriaFiltro.trim());
+        } else if (categoriaIdFiltro != null && !categoriaIdFiltro.isBlank()) {
+            CategoriaId categoriaId = CategoriaId.from(categoriaIdFiltro.trim());
+            productos = productoRepository.buscarPorCategoriaId(localId, categoriaId);
         } else {
             productos = productoRepository.buscarPorLocal(localId);
         }

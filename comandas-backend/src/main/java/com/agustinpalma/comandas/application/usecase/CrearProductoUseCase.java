@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.application.usecase;
 
 import com.agustinpalma.comandas.application.dto.ProductoRequest;
 import com.agustinpalma.comandas.application.dto.ProductoResponse;
+import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
 import com.agustinpalma.comandas.domain.model.Producto;
@@ -57,8 +58,10 @@ public class CrearProductoUseCase {
         ProductoId nuevoId = ProductoId.generate();
         boolean activarStock = request.controlaStock() != null ? request.controlaStock() : false;
         boolean esExtra = request.esExtra() != null ? request.esExtra() : false;
+        boolean esModificadorEstructural = request.esModificadorEstructural() != null ? request.esModificadorEstructural() : false;
         boolean permiteExtras = request.permiteExtras() != null ? request.permiteExtras() : true;
         boolean requiereConfig = request.requiereConfiguracion() != null ? request.requiereConfiguracion() : true;
+        CategoriaId categoriaId = request.categoriaId() != null ? CategoriaId.from(request.categoriaId()) : null;
         Producto nuevoProducto = new Producto(
             nuevoId,
             localId,
@@ -68,8 +71,9 @@ public class CrearProductoUseCase {
             request.colorHex(), // Puede ser null, el dominio asigna default
             null,   // grupoVarianteId
             esExtra,
+            esModificadorEstructural,
             null,   // cantidadDiscosCarne
-            request.categoria(),  // Puede ser null
+            categoriaId,
             permiteExtras,
             requiereConfig,
             0,      // stockActual inicial

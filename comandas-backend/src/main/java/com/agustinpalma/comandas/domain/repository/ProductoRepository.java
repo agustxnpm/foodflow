@@ -1,6 +1,7 @@
 package com.agustinpalma.comandas.domain.repository;
 
 import com.agustinpalma.comandas.domain.model.Producto;
+import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
 import java.util.List;
@@ -80,13 +81,23 @@ public interface ProductoRepository {
 
     /**
      * Busca productos de un local filtrados por categoría.
-     * La comparación es case-insensitive.
      *
      * @param localId identificador del local
-     * @param categoria etiqueta de categoría (ej: "bebida", "comida")
-     * @return lista de productos que coinciden con la categoría (puede estar vacía)
+     * @param categoriaId identificador de la categoría
+     * @return lista de productos de esa categoría (puede estar vacía)
      */
-    List<Producto> buscarPorLocalYCategoria(LocalId localId, String categoria);
+    List<Producto> buscarPorCategoriaId(LocalId localId, CategoriaId categoriaId);
+
+    /**
+     * Obtiene la máxima cantidad de discos de carne dentro de un grupo de variantes.
+     * Útil para validar la regla de normalización: el disco de carne solo se agrega
+     * como extra a la variante máxima.
+     *
+     * @param localId identificador del local
+     * @param grupoVarianteId identificador del grupo de variantes
+     * @return la máxima cantidad de discos, o 0 si no existe el grupo
+     */
+    int obtenerMaximaCantidadDiscos(LocalId localId, ProductoId grupoVarianteId);
 
     /**
      * Elimina un producto del repositorio.
@@ -108,17 +119,15 @@ public interface ProductoRepository {
     List<Producto> buscarPorGrupoVariante(LocalId localId, ProductoId grupoVarianteId);
     
     /**
-     * HU-22: Busca el producto extra catalogado como "disco de carne" en el local.
+     * Busca todos los productos marcados como modificadores estructurales de un local.
      * 
-     * Este es un extra especial que requiere validación controlada.
-     * El producto debe estar marcado como esExtra = true y tener un nombre específico
-     * o una marca especial que lo identifique como "disco de carne".
+     * Un modificador estructural es un extra que, al agregarse a un producto con variantes,
+     * activa la normalización automática (ej: agregar disco de carne a hamburguesa simple → doble).
      * 
-     * NOTA: La implementación puede buscar por nombre ("Disco de Carne") o por
-     * algún atributo especial según la estrategia de catálogo del local.
+     * Se identifica por el flag esModificadorEstructural = true, NO por nombre.
      * 
      * @param localId identificador del local
-     * @return Optional con el producto disco de carne si existe
+     * @return lista de productos modificadores estructurales (puede estar vacía)
      */
-    Optional<Producto> buscarExtraDiscoDeCarne(LocalId localId);
+    List<Producto> buscarModificadoresEstructurales(LocalId localId);
 }

@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.infrastructure.mapper;
 
+import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
 import com.agustinpalma.comandas.domain.model.Producto;
@@ -29,8 +30,9 @@ public class ProductoMapper {
             entity.getColorHex(),
             entity.getGrupoVarianteId() != null ? new ProductoId(entity.getGrupoVarianteId()) : null,
             entity.isEsExtra(),
+            entity.isEsModificadorEstructural(),
             entity.getCantidadDiscosCarne(),
-            entity.getCategoria(),
+            entity.getCategoriaId() != null ? new CategoriaId(entity.getCategoriaId()) : null,
             entity.isPermiteExtras(),
             entity.isRequiereConfiguracion(),
             entity.getStockActual(),
@@ -54,8 +56,9 @@ public class ProductoMapper {
             domain.getColorHex(),
             domain.getGrupoVarianteId() != null ? domain.getGrupoVarianteId().getValue() : null,
             domain.isEsExtra(),
+            domain.isEsModificadorEstructural(),
             domain.getCantidadDiscosCarne(),
-            domain.getCategoria(),
+            domain.getCategoriaId() != null ? domain.getCategoriaId().getValue() : null,
             domain.isPermiteExtras(),
             domain.isRequiereConfiguracion(),
             domain.getStockActual(),

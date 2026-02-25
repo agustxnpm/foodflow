@@ -37,12 +37,15 @@ public class ProductoEntity {
     @Column(name = "es_extra", nullable = false)
     private boolean esExtra = false;
 
+    @Column(name = "es_modificador_estructural", nullable = false)
+    private boolean esModificadorEstructural = false;
+
     @Column(name = "cantidad_discos_carne")
     private Integer cantidadDiscosCarne;
 
     // Clasificación de catálogo
-    @Column(name = "categoria", length = 100)
-    private String categoria;
+    @Column(name = "categoria_id")
+    private UUID categoriaId;
 
     @Column(name = "permite_extras", nullable = false)
     private boolean permiteExtras = true;
@@ -63,8 +66,9 @@ public class ProductoEntity {
 
     // Constructor con parámetros
     public ProductoEntity(UUID id, UUID localId, String nombre, BigDecimal precio, boolean activo, String colorHex,
-                         UUID grupoVarianteId, boolean esExtra, Integer cantidadDiscosCarne,
-                         String categoria, boolean permiteExtras,
+                         UUID grupoVarianteId, boolean esExtra, boolean esModificadorEstructural,
+                         Integer cantidadDiscosCarne,
+                         UUID categoriaId, boolean permiteExtras,
                          boolean requiereConfiguracion, int stockActual, boolean controlaStock) {
         this.id = id;
         this.localId = localId;
@@ -74,8 +78,9 @@ public class ProductoEntity {
         this.colorHex = colorHex;
         this.grupoVarianteId = grupoVarianteId;
         this.esExtra = esExtra;
+        this.esModificadorEstructural = esModificadorEstructural;
         this.cantidadDiscosCarne = cantidadDiscosCarne;
-        this.categoria = categoria;
+        this.categoriaId = categoriaId;
         this.permiteExtras = permiteExtras;
         this.requiereConfiguracion = requiereConfiguracion;
         this.stockActual = stockActual;
@@ -147,6 +152,14 @@ public class ProductoEntity {
         this.esExtra = esExtra;
     }
 
+    public boolean isEsModificadorEstructural() {
+        return esModificadorEstructural;
+    }
+
+    public void setEsModificadorEstructural(boolean esModificadorEstructural) {
+        this.esModificadorEstructural = esModificadorEstructural;
+    }
+
     public Integer getCantidadDiscosCarne() {
         return cantidadDiscosCarne;
     }
@@ -155,12 +168,12 @@ public class ProductoEntity {
         this.cantidadDiscosCarne = cantidadDiscosCarne;
     }
 
-    public String getCategoria() {
-        return categoria;
+    public UUID getCategoriaId() {
+        return categoriaId;
     }
 
-    public void setCategoria(String categoria) {
-        this.categoria = categoria;
+    public void setCategoriaId(UUID categoriaId) {
+        this.categoriaId = categoriaId;
     }
 
     public boolean isPermiteExtras() {

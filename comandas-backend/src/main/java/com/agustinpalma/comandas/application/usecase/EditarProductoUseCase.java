@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.application.usecase;
 
 import com.agustinpalma.comandas.application.dto.ProductoRequest;
 import com.agustinpalma.comandas.application.dto.ProductoResponse;
+import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
 import com.agustinpalma.comandas.domain.model.Producto;
@@ -76,10 +77,14 @@ public class EditarProductoUseCase {
             producto.reclasificarExtra(request.esExtra());
         }
 
+        // Modificador estructural: solo se modifica si el request lo incluye explícitamente
+        if (request.esModificadorEstructural() != null) {
+            producto.cambiarModificadorEstructural(request.esModificadorEstructural());
+        }
+
         // Categoría: se actualiza si viene en el request (null = desclasificar)
-        // Se envía siempre porque null es un valor válido (quitar categoría)
-        if (request.categoria() != null) {
-            producto.actualizarCategoria(request.categoria());
+        if (request.categoriaId() != null) {
+            producto.actualizarCategoria(CategoriaId.from(request.categoriaId()));
         }
 
         // Permite extras: solo se modifica si el request lo incluye explícitamente

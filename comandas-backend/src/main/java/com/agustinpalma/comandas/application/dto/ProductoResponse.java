@@ -20,9 +20,12 @@ public record ProductoResponse(
     Integer stockActual,    // Cantidad actual en inventario
     Boolean controlaStock,  // Si el producto tiene control de inventario activo
     boolean esExtra,        // true si es un extra (huevo, queso, disco de carne, etc.)
-    String categoria,       // Etiqueta libre de categoría ("bebida", "comida", "postre") — puede ser null
+    boolean esModificadorEstructural, // true si este extra activa normalización de variantes
+    String categoriaId,     // UUID de la categoría del catálogo — puede ser null
     boolean permiteExtras,  // Si el producto acepta extras/agregados
     boolean requiereConfiguracion, // Si true, el POS abre modal de configuración antes de agregar
+    String grupoVarianteId, // UUID del grupo de variantes — puede ser null
+    Integer cantidadDiscosCarne, // Cantidad de discos de carne (variantes) — puede ser null
     List<PromocionActivaInfo> promocionesActivas // Promociones vigentes que aplican a este producto
 ) {
 
@@ -60,9 +63,12 @@ public record ProductoResponse(
             producto.getStockActual(),
             producto.isControlaStock(),
             producto.isEsExtra(),
-            producto.getCategoria(),
+            producto.isEsModificadorEstructural(),
+            producto.getCategoriaId() != null ? producto.getCategoriaId().getValue().toString() : null,
             producto.isPermiteExtras(),
             producto.isRequiereConfiguracion(),
+            producto.getGrupoVarianteId() != null ? producto.getGrupoVarianteId().getValue().toString() : null,
+            producto.getCantidadDiscosCarne(),
             promociones != null ? List.copyOf(promociones) : List.of()
         );
     }

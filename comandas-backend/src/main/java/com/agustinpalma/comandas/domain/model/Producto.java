@@ -39,12 +39,13 @@ public class Producto {
     private String colorHex;
     
     // HU-05.1 + HU-22: Soporte para variantes y extras
-    private final ProductoId grupoVarianteId;      // Identifica productos hermanos (misma variante)
+    private ProductoId grupoVarianteId;            // Identifica productos hermanos (misma variante) — mutable para asignación tardía
     private boolean esExtra;                        // true si es un extra (huevo, queso, disco, etc.) — reclasificable
-    private final Integer cantidadDiscosCarne;     // Define jerarquía de variantes (null si no aplica)
+    private boolean esModificadorEstructural;       // true si este extra activa normalización de variantes al agregarse
+    private Integer cantidadDiscosCarne;            // Define jerarquía de variantes (null si no aplica) — mutable para asignación tardía
 
     // Clasificación de catálogo
-    private String categoria;                       // Etiqueta libre ("bebida", "comida", "postre") — nullable
+    private CategoriaId categoriaId;                // FK a la categoría del catálogo — nullable para retrocompatibilidad
     private boolean permiteExtras;                  // Si false, el POS oculta la sección de extras
 
     // Control de flujo POS
@@ -55,7 +56,7 @@ public class Producto {
     private boolean controlaStock;                 // Si es false, las operaciones de stock no tienen efecto
 
     /**
-     * Constructor completo con soporte para variantes y extras (HU-05.1 + HU-22).
+     * Constructor completo con soporte para variantes, extras y modificadores estructurales.
      */
     public Producto(
             ProductoId id, 
@@ -66,8 +67,9 @@ public class Producto {
             String colorHex,
             ProductoId grupoVarianteId,
             boolean esExtra,
+            boolean esModificadorEstructural,
             Integer cantidadDiscosCarne,
-            String categoria,
+            CategoriaId categoriaId,
             boolean permiteExtras,
             boolean requiereConfiguracion,
             int stockActual,
@@ -81,8 +83,9 @@ public class Producto {
         this.colorHex = normalizarColor(colorHex);
         this.grupoVarianteId = grupoVarianteId;  // Puede ser null si no tiene variantes
         this.esExtra = esExtra;
+        this.esModificadorEstructural = esModificadorEstructural;
         this.cantidadDiscosCarne = cantidadDiscosCarne;  // Puede ser null si no aplica
-        this.categoria = categoria;  // Puede ser null si no se clasifica
+        this.categoriaId = categoriaId;  // Puede ser null para retrocompatibilidad
         this.permiteExtras = permiteExtras;
         this.requiereConfiguracion = requiereConfiguracion;
         this.stockActual = stockActual;
@@ -94,7 +97,7 @@ public class Producto {
      * Usado por tests y código legacy.
      */
     public Producto(ProductoId id, LocalId localId, String nombre, BigDecimal precio, boolean activo, String colorHex) {
-        this(id, localId, nombre, precio, activo, colorHex, null, false, null, null, true, true, 0, false);
+        this(id, localId, nombre, precio, activo, colorHex, null, false, false, null, null, true, true, 0, false);
     }
 
     /**
@@ -103,7 +106,7 @@ public class Producto {
      */
     public Producto(ProductoId id, LocalId localId, String nombre, BigDecimal precio, boolean activo, String colorHex,
                     ProductoId grupoVarianteId, boolean esExtra, Integer cantidadDiscosCarne) {
-        this(id, localId, nombre, precio, activo, colorHex, grupoVarianteId, esExtra, cantidadDiscosCarne, null, true, true, 0, false);
+        this(id, localId, nombre, precio, activo, colorHex, grupoVarianteId, esExtra, false, cantidadDiscosCarne, null, true, true, 0, false);
     }
 
     private String validarNombre(String nombre) {
@@ -221,23 +224,66 @@ public class Producto {
     public void reclasificarExtra(boolean esExtra) {
         this.esExtra = esExtra;
     }
+
+    /**
+     * Indica si este extra es un modificador estructural.
+     * Un modificador estructural activa la normalización de variantes
+     * al ser agregado como extra (ej: agregar un disco de carne a una
+     * hamburguesa simple la convierte en doble).
+     *
+     * Solo tiene sentido semántico cuando esExtra == true.
+     */
+    public boolean isEsModificadorEstructural() {
+        return esModificadorEstructural;
+    }
+
+    /**
+     * Cambia si el producto es un modificador estructural.
+     */
+    public void cambiarModificadorEstructural(boolean esModificadorEstructural) {
+        this.esModificadorEstructural = esModificadorEstructural;
+    }
     
     public Integer getCantidadDiscosCarne() {
         return cantidadDiscosCarne;
     }
-    
+
     /**
-     * Indica si este producto pertenece a un grupo de variantes.
+     * Asigna este producto a un grupo de variantes.
+     * Solo puede llamarse si el producto NO tiene grupo asignado todavía.
+     * 
+     * Caso de uso principal: cuando se crea la primera variante de un producto,
+     * el producto base necesita ser incorporado al grupo retroactivamente.
+     * 
+     * @param grupoId identificador del grupo de variantes (típicamente el ID del producto base)
+     * @param cantidadDiscos posición jerárquica de este producto dentro del grupo (ej: 1=Simple)
+     * @throws IllegalStateException si el producto ya pertenece a un grupo de variantes
+     * @throws IllegalArgumentException si grupoId es null
      */
-    public boolean tieneVariantes() {
-        return grupoVarianteId != null;
+    public void asignarGrupoVariante(ProductoId grupoId, Integer cantidadDiscos) {
+        if (this.grupoVarianteId != null) {
+            throw new IllegalStateException(
+                "El producto '" + this.nombre + "' ya pertenece al grupo de variantes: " + this.grupoVarianteId.getValue()
+            );
+        }
+        this.grupoVarianteId = Objects.requireNonNull(grupoId, "El grupoVarianteId no puede ser null");
+        this.cantidadDiscosCarne = cantidadDiscos;
     }
     
     /**
-     * Indica si este producto es una hamburguesa (tiene discos de carne definidos).
+     * Indica si este producto pertenece a un grupo de variantes estructurales.
+     * 
+     * Un producto tiene variantes estructurales si pertenece a una familia
+     * de productos agrupados por grupoVarianteId (ej: Simple, Doble, Triple
+     * de una misma línea). El criterio es genérico y NO depende de conceptos
+     * específicos de comida (discos, ingredientes, etc.).
+     * 
+     * Este método reemplaza a tieneVariantes() y esVarianteEstructural()
+     * unificando el concepto: si tiene grupoVarianteId, participa en
+     * normalización de variantes.
      */
-    public boolean esHamburguesa() {
-        return cantidadDiscosCarne != null && cantidadDiscosCarne > 0;
+    public boolean tieneVariantesEstructurales() {
+        return grupoVarianteId != null;
     }
 
     // ============================================
@@ -245,22 +291,20 @@ public class Producto {
     // ============================================
 
     /**
-     * Etiqueta libre de categoría (ej: "bebida", "comida", "postre").
-     * Usada por el frontend para decidir comportamiento de UI.
-     * Puede ser null si el producto no está clasificado.
+     * Referencia a la categoría del catálogo a la que pertenece este producto.
+     * Puede ser null si el producto no está clasificado (retrocompatibilidad).
      */
-    public String getCategoria() {
-        return categoria;
+    public CategoriaId getCategoriaId() {
+        return categoriaId;
     }
 
     /**
      * Actualiza la categoría del producto.
-     * Se normaliza a minúsculas y se trimea para consistencia.
      *
-     * @param categoria nueva categoría (puede ser null para desclasificar)
+     * @param categoriaId nueva categoría (puede ser null para desclasificar)
      */
-    public void actualizarCategoria(String categoria) {
-        this.categoria = categoria != null ? categoria.trim().toLowerCase() : null;
+    public void actualizarCategoria(CategoriaId categoriaId) {
+        this.categoriaId = categoriaId;
     }
 
     /**

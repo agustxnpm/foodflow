@@ -5,9 +5,12 @@ import com.agustinpalma.comandas.application.dto.AjustarStockResponse;
 import com.agustinpalma.comandas.application.dto.ProductoRequest;
 import com.agustinpalma.comandas.application.dto.ProductoResponse;
 import com.agustinpalma.comandas.application.dto.StockAjusteRequestBody;
+import com.agustinpalma.comandas.application.dto.VarianteProductoRequest;
+import com.agustinpalma.comandas.application.dto.VarianteProductoResponse;
 import com.agustinpalma.comandas.application.usecase.AjustarStockUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarProductosUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearProductoUseCase;
+import com.agustinpalma.comandas.application.usecase.CrearVarianteUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
@@ -42,6 +45,7 @@ public class ProductoController {
     private final ProductoRepository productoRepository;
     private final ConsultarProductosUseCase consultarProductosUseCase;
     private final CrearProductoUseCase crearProductoUseCase;
+    private final CrearVarianteUseCase crearVarianteUseCase;
     private final EditarProductoUseCase editarProductoUseCase;
     private final EliminarProductoUseCase eliminarProductoUseCase;
     private final AjustarStockUseCase ajustarStockUseCase;
@@ -51,6 +55,7 @@ public class ProductoController {
         ProductoRepository productoRepository,
         ConsultarProductosUseCase consultarProductosUseCase,
         CrearProductoUseCase crearProductoUseCase,
+        CrearVarianteUseCase crearVarianteUseCase,
         EditarProductoUseCase editarProductoUseCase,
         EliminarProductoUseCase eliminarProductoUseCase,
         AjustarStockUseCase ajustarStockUseCase
@@ -59,6 +64,7 @@ public class ProductoController {
         this.productoRepository = productoRepository;
         this.consultarProductosUseCase = consultarProductosUseCase;
         this.crearProductoUseCase = crearProductoUseCase;
+        this.crearVarianteUseCase = crearVarianteUseCase;
         this.editarProductoUseCase = editarProductoUseCase;
         this.eliminarProductoUseCase = eliminarProductoUseCase;
         this.ajustarStockUseCase = ajustarStockUseCase;
@@ -76,17 +82,17 @@ public class ProductoController {
      *       Por ahora se usa un localId hardcodeado para permitir testing del endpoint.
      *
      * @param color código hexadecimal de color para filtrar (opcional)
-     * @param categoria etiqueta de categoría para filtrar (opcional)
+     * @param categoriaId UUID de categoría para filtrar (opcional)
      * @return lista de productos (puede estar vacía)
      */
     @GetMapping
     public ResponseEntity<List<ProductoResponse>> listarProductos(
         @RequestParam(required = false) String color,
-        @RequestParam(required = false) String categoria
+        @RequestParam(required = false) String categoriaId
     ) {
         LocalId localId = localContextProvider.getCurrentLocalId();
 
-        List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localId, color, categoria);
+        List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localId, color, categoriaId);
 
         return ResponseEntity.ok(productos);
     }
@@ -213,6 +219,67 @@ public class ProductoController {
         );
 
         AjustarStockResponse response = ajustarStockUseCase.ejecutar(localId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    // =================================================
+    // ENDPOINTS - Variantes de producto
+    // =================================================
+
+    /**
+     * Crea una variante de un producto existente.
+     * 
+     * POST /api/productos/{productoBaseId}/variantes
+     * Body: { "nombre": "Hamburguesa Doble", "precio": 2500.00, "cantidadDiscosCarne": 2 }
+     * 
+     * Si el producto base no pertenece a un grupo de variantes todavía,
+     * se crea el grupo automáticamente (el base se convierte en líder con cantidadDiscosCarne=1).
+     * 
+     * @param productoBaseId UUID del producto base
+     * @param request datos de la nueva variante
+     * @return variante creada + todas las hermanas del grupo, con status 201 CREATED
+     */
+    @PostMapping("/{productoBaseId}/variantes")
+    public ResponseEntity<VarianteProductoResponse> crearVariante(
+            @PathVariable UUID productoBaseId,
+            @Valid @RequestBody VarianteProductoRequest request
+    ) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        ProductoId baseId = new ProductoId(productoBaseId);
+
+        VarianteProductoResponse response = crearVarianteUseCase.ejecutar(localId, baseId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Lista todas las variantes de un producto (todas las hermanas del mismo grupo).
+     * 
+     * GET /api/productos/{productoId}/variantes
+     * 
+     * Si el producto no tiene variantes, retorna lista vacía.
+     * 
+     * @param productoId UUID del producto
+     * @return lista de variantes del grupo (puede estar vacía)
+     */
+    @GetMapping("/{productoId}/variantes")
+    public ResponseEntity<List<ProductoResponse>> listarVariantes(@PathVariable UUID productoId) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        ProductoId prodId = new ProductoId(productoId);
+
+        Producto producto = productoRepository.buscarPorIdYLocal(prodId, localId)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Producto no encontrado con ID: " + productoId + " en el local actual"
+            ));
+
+        if (!producto.tieneVariantesEstructurales()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        List<Producto> variantes = productoRepository.buscarPorGrupoVariante(localId, producto.getGrupoVarianteId());
+        List<ProductoResponse> response = variantes.stream()
+            .map(ProductoResponse::fromDomain)
+            .toList();
+
         return ResponseEntity.ok(response);
     }
 }

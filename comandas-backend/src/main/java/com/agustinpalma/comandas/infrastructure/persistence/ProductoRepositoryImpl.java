@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.infrastructure.persistence;
 
+import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
 import com.agustinpalma.comandas.domain.model.Producto;
@@ -83,11 +84,22 @@ public class ProductoRepositoryImpl implements ProductoRepository {
     }
 
     @Override
-    public List<Producto> buscarPorLocalYCategoria(LocalId localId, String categoria) {
-        return springDataRepository.findByLocalIdAndCategoriaIgnoreCase(localId.getValue(), categoria)
+    public List<Producto> buscarPorCategoriaId(LocalId localId, CategoriaId categoriaId) {
+        return springDataRepository.findByLocalIdAndCategoriaId(localId.getValue(), categoriaId.getValue())
             .stream()
             .map(mapper::toDomain)
             .toList();
+    }
+
+    @Override
+    public int obtenerMaximaCantidadDiscos(LocalId localId, ProductoId grupoVarianteId) {
+        return springDataRepository.findByLocalIdAndGrupoVarianteId(
+                localId.getValue(), grupoVarianteId.getValue()).stream()
+            .map(entity -> entity.getCantidadDiscosCarne())
+            .filter(cantidad -> cantidad != null)
+            .mapToInt(Integer::intValue)
+            .max()
+            .orElse(0);
     }
 
     @Override
@@ -110,14 +122,16 @@ public class ProductoRepositoryImpl implements ProductoRepository {
     }
     
     /**
-     * HU-22: Busca el producto extra "disco de carne".
+     * Busca todos los productos marcados como modificadores estructurales.
+     * Se identifica por flag, NO por nombre literal.
      */
     @Override
-    public Optional<Producto> buscarExtraDiscoDeCarne(LocalId localId) {
-        return springDataRepository.findByLocalIdAndNombreIgnoreCaseAndEsExtra(
+    public List<Producto> buscarModificadoresEstructurales(LocalId localId) {
+        return springDataRepository.findByLocalIdAndEsModificadorEstructural(
             localId.getValue(),
-            "Disco de Carne",
             true
-        ).map(mapper::toDomain);
+        ).stream()
+        .map(mapper::toDomain)
+        .toList();
     }
 }
