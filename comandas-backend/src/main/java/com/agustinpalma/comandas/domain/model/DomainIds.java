@@ -173,6 +173,49 @@ public final class DomainIds {
         }
     }
 
+    /**
+     * Identidad de una categoría del catálogo.
+     * Las categorías agrupan productos y definen comportamiento de UI.
+     */
+    public static final class CategoriaId {
+        private final UUID value;
+
+        public CategoriaId(UUID value) {
+            if (value == null) throw new IllegalArgumentException("CategoriaId no puede ser null");
+            this.value = value;
+        }
+
+        public static CategoriaId generate() {
+            return new CategoriaId(UUID.randomUUID());
+        }
+
+        public static CategoriaId from(String value) {
+            return new CategoriaId(UUID.fromString(value));
+        }
+
+        public UUID getValue() {
+            return value;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            CategoriaId that = (CategoriaId) o;
+            return Objects.equals(value, that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(value);
+        }
+
+        @Override
+        public String toString() {
+            return value.toString();
+        }
+    }
+
     public static final class PromocionId {
         private final UUID value;
 
