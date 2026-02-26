@@ -38,9 +38,10 @@ public class ItemPedidoMapper {
 
         // Reconstruir DescuentoManual si existen los campos en la BD
         DescuentoManual descuentoManual = null;
-        if (entity.getDescManualPorcentaje() != null) {
+        if (entity.getDescManualValor() != null && entity.getDescManualTipo() != null) {
             descuentoManual = new DescuentoManual(
-                entity.getDescManualPorcentaje(),
+                entity.getDescManualTipo(),
+                entity.getDescManualValor(),
                 entity.getDescManualRazon(),
                 entity.getDescManualUsuarioId(),
                 entity.getDescManualFecha()
@@ -98,13 +99,14 @@ public class ItemPedidoMapper {
             domain.getMontoDescuento(),
             domain.getNombrePromocion(),
             domain.getPromocionId(),
-            null, null, null, null  // Descuento manual (se setea abajo)
+            null, null, null, null, null  // Descuento manual (se setea abajo)
         );
 
         // Descomponer DescuentoManual VO en campos individuales (HU-14)
         if (domain.getDescuentoManual() != null) {
             DescuentoManual dm = domain.getDescuentoManual();
-            entity.setDescManualPorcentaje(dm.getPorcentaje());
+            entity.setDescManualTipo(dm.getTipo());
+            entity.setDescManualValor(dm.getValor());
             entity.setDescManualRazon(dm.getRazon());
             entity.setDescManualUsuarioId(dm.getUsuarioId());
             entity.setDescManualFecha(dm.getFechaAplicacion());

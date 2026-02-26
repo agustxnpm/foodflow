@@ -458,6 +458,7 @@ class GestionarItemsPedidoIntegrationTest {
                 new AplicarDescuentoManualRequest(
                     pedido.getId(),
                     null,  // Global
+                    ModoDescuento.PORCENTAJE,
                     new BigDecimal("10"),
                     "Descuento test",
                     usuarioId
@@ -501,6 +502,7 @@ class GestionarItemsPedidoIntegrationTest {
                 new AplicarDescuentoManualRequest(
                     pedido.getId(),
                     null,
+                    ModoDescuento.PORCENTAJE,
                     new BigDecimal("10"),
                     "Descuento test",
                     usuarioId

@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.domain.model;
 
+import com.agustinpalma.comandas.domain.model.DomainEnums.ModoDescuento;
 import com.agustinpalma.comandas.domain.model.DomainIds.*;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -564,7 +565,29 @@ public class ItemPedido {
      * 
      * @param descuentoManual el descuento a aplicar, o null para remover el descuento
      */
+    /**
+     * Aplica un descuento manual a este ítem.
+     * Sobrescribe cualquier descuento manual previo.
+     * 
+     * HU-14: El descuento manual es dinámico. Se recalcula en cada invocación de calcularPrecioFinal().
+     * 
+     * Invariante para MONTO_FIJO: el valor no puede exceder el remanente después de
+     * promociones automáticas, para evitar precios finales negativos.
+     * 
+     * @param descuentoManual el descuento a aplicar, o null para remover el descuento
+     * @throws IllegalArgumentException si es MONTO_FIJO y el valor excede el remanente
+     */
     public void aplicarDescuentoManual(DescuentoManual descuentoManual) {
+        if (descuentoManual != null 
+                && descuentoManual.getTipo() == ModoDescuento.MONTO_FIJO) {
+            BigDecimal remanente = calcularSubtotal().subtract(montoDescuento);
+            if (descuentoManual.getValor().compareTo(remanente) > 0) {
+                throw new IllegalArgumentException(
+                    String.format("El monto fijo ($%s) no puede superar el remanente del ítem ($%s)",
+                        descuentoManual.getValor().toPlainString(), remanente.toPlainString())
+                );
+            }
+        }
         this.descuentoManual = descuentoManual;
     }
 

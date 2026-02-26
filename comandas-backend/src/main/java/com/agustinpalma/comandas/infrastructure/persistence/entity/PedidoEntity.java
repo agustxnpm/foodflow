@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.infrastructure.persistence.entity;
 
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoPedido;
 import com.agustinpalma.comandas.domain.model.DomainEnums.MedioPago;
+import com.agustinpalma.comandas.domain.model.DomainEnums.ModoDescuento;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
@@ -57,11 +58,20 @@ public class PedidoEntity {
     // ============================================
 
     /**
-     * Porcentaje del descuento global aplicado al pedido.
+     * Tipo de descuento global (PORCENTAJE o MONTO_FIJO).
      * Null si no tiene descuento global.
      */
-    @Column(name = "desc_global_porcentaje", precision = 5, scale = 2)
-    private BigDecimal descGlobalPorcentaje;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "desc_global_tipo", length = 20)
+    private ModoDescuento descGlobalTipo;
+
+    /**
+     * Valor del descuento global aplicado al pedido.
+     * Si tipo=PORCENTAJE: valor entre 0.01-100. Si tipo=MONTO_FIJO: monto positivo.
+     * Null si no tiene descuento global.
+     */
+    @Column(name = "desc_global_valor", precision = 10, scale = 2)
+    private BigDecimal descGlobalValor;
 
     /**
      * Razón del descuento global.
@@ -207,12 +217,20 @@ public class PedidoEntity {
     // HU-14: Getters y Setters de descuento global
     // ============================================
 
-    public BigDecimal getDescGlobalPorcentaje() {
-        return descGlobalPorcentaje;
+    public ModoDescuento getDescGlobalTipo() {
+        return descGlobalTipo;
     }
 
-    public void setDescGlobalPorcentaje(BigDecimal descGlobalPorcentaje) {
-        this.descGlobalPorcentaje = descGlobalPorcentaje;
+    public void setDescGlobalTipo(ModoDescuento descGlobalTipo) {
+        this.descGlobalTipo = descGlobalTipo;
+    }
+
+    public BigDecimal getDescGlobalValor() {
+        return descGlobalValor;
+    }
+
+    public void setDescGlobalValor(BigDecimal descGlobalValor) {
+        this.descGlobalValor = descGlobalValor;
     }
 
     public String getDescGlobalRazon() {

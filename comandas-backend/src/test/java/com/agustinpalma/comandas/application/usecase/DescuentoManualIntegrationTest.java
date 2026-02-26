@@ -123,6 +123,7 @@ class DescuentoManualIntegrationTest {
                 new AplicarDescuentoManualRequest(
                     pedido.getId(),
                     null,  // Descuento global
+                    ModoDescuento.PORCENTAJE,
                     new BigDecimal("10"),
                     "Descuento test dinamismo",
                     usuarioId
@@ -183,6 +184,7 @@ class DescuentoManualIntegrationTest {
                 new AplicarDescuentoManualRequest(
                     pedido.getId(),
                     itemCon2x1.getId(),  // Descuento por ítem
+                    ModoDescuento.PORCENTAJE,
                     new BigDecimal("10"),
                     "Descuento adicional",
                     usuarioId
@@ -221,6 +223,7 @@ class DescuentoManualIntegrationTest {
                 new AplicarDescuentoManualRequest(
                     pedido.getId(),
                     null,
+                    ModoDescuento.PORCENTAJE,
                     new BigDecimal("15"),
                     "Descuento auditoría test",
                     usuarioEspecifico
@@ -236,7 +239,7 @@ class DescuentoManualIntegrationTest {
             assertThat(descuento.getUsuarioId()).isEqualTo(usuarioEspecifico);
             assertThat(descuento.getRazon()).isEqualTo("Descuento auditoría test");
             assertThat(descuento.getFechaAplicacion()).isNotNull();
-            assertThat(descuento.getPorcentaje()).isEqualByComparingTo("15");
+            assertThat(descuento.getValor()).isEqualByComparingTo("15");
         }
     }
 
@@ -261,6 +264,7 @@ class DescuentoManualIntegrationTest {
                 new AplicarDescuentoManualRequest(
                     pedido.getId(),
                     null,
+                    ModoDescuento.PORCENTAJE,
                     new BigDecimal("10"),
                     "Primer descuento",
                     usuarioId
@@ -276,6 +280,7 @@ class DescuentoManualIntegrationTest {
                 new AplicarDescuentoManualRequest(
                     pedido.getId(),
                     null,
+                    ModoDescuento.PORCENTAJE,
                     new BigDecimal("15"),
                     "Segundo descuento (reemplazo)",
                     usuarioId
@@ -316,6 +321,7 @@ class DescuentoManualIntegrationTest {
                 new AplicarDescuentoManualRequest(
                     pedido.getId(),
                     null,
+                    ModoDescuento.PORCENTAJE,
                     new BigDecimal("10"),
                     "Descuento antes de eliminar",
                     usuarioId
@@ -338,7 +344,7 @@ class DescuentoManualIntegrationTest {
 
             // Then: El porcentaje guardado (10%) aplicado sobre $2500 debe dar $250 de descuento
             // Esto demuestra que el descuento es dinámico: mismo porcentaje, diferente monto
-            assertThat(pedido.getDescuentoGlobal().getPorcentaje()).isEqualByComparingTo("10");
+            assertThat(pedido.getDescuentoGlobal().getValor()).isEqualByComparingTo("10");
             
             // Calculamos el descuento sobre el nuevo subtotal simulado
             BigDecimal descuentoRecalculado = pedido.getDescuentoGlobal().calcularMonto(nuevoSubtotalSimulado);

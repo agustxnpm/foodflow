@@ -72,7 +72,8 @@ public record AplicarDescuentoManualResponse(
                 item.getMontoDescuento(),
                 item.getNombrePromocion(),
                 item.calcularMontoDescuentoManual(),
-                item.tieneDescuentoManual() ? item.getDescuentoManual().getPorcentaje() : null,
+                item.tieneDescuentoManual() ? item.getDescuentoManual().getTipo().name() : null,
+                item.tieneDescuentoManual() ? item.getDescuentoManual().getValor() : null,
                 item.calcularPrecioFinal()
             ))
             .toList();
@@ -101,7 +102,8 @@ public record AplicarDescuentoManualResponse(
         BigDecimal montoDescuentoPromo,
         String nombrePromocion,
         BigDecimal montoDescuentoManual,
-        BigDecimal porcentajeDescuentoManual,
+        String tipoDescuentoManual,
+        BigDecimal valorDescuentoManual,
         BigDecimal precioFinal
     ) {}
 }

@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.domain.model;
 
+import com.agustinpalma.comandas.domain.model.DomainEnums.ModoDescuento;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -7,18 +8,22 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Value Object que representa un descuento manual aplicado por porcentaje.
+ * Value Object que representa un descuento manual aplicado a un pedido o ítem.
  * 
- * HU-14: Aplicar descuento inmediato por porcentaje.
+ * HU-14: Aplicar descuento inmediato por porcentaje o monto fijo.
  * 
  * A diferencia de las promociones automáticas (HU-10) que se capturan como snapshot inmutable,
- * el descuento manual es DINÁMICO: se guarda el porcentaje y el monto se recalcula cada vez
+ * el descuento manual es DINÁMICO: se guarda el tipo y valor, y el monto se recalcula cada vez
  * que cambia la base gravable.
+ * 
+ * Tipos soportados:
+ * - PORCENTAJE: El valor representa un porcentaje (0.01 – 100). Se calcula: base × valor / 100.
+ * - MONTO_FIJO: El valor representa un monto en dinero. Se aplica directamente (capeado a la base gravable).
  * 
  * Características:
  * - Inmutable (Value Object)
- * - Solo guarda el porcentaje, NO el monto calculado
- * - Tiene lógica para calcular el monto dinámicamente
+ * - Solo guarda el tipo y valor, NO el monto calculado
+ * - Tiene lógica para calcular el monto dinámicamente según el tipo
  * - Auditable (registra quién y cuándo lo aplicó)
  * 
  * Regla de Oro: El descuento manual siempre se aplica DESPUÉS de las promociones automáticas.
@@ -26,11 +31,11 @@ import java.util.UUID;
  */
 public final class DescuentoManual {
 
-    private static final BigDecimal PORCENTAJE_MINIMO = BigDecimal.ZERO;
     private static final BigDecimal PORCENTAJE_MAXIMO = new BigDecimal("100");
     private static final BigDecimal CIEN = new BigDecimal("100");
 
-    private final BigDecimal porcentaje;
+    private final ModoDescuento tipo;
+    private final BigDecimal valor;
     private final String razon;
     private final UUID usuarioId;
     private final LocalDateTime fechaAplicacion;
@@ -38,26 +43,40 @@ public final class DescuentoManual {
     /**
      * Constructor principal con validación estricta.
      * 
-     * @param porcentaje Porcentaje del descuento (0-100). Ejemplo: 15.5 para 15.5%
+     * @param tipo Tipo de descuento (PORCENTAJE o MONTO_FIJO)
+     * @param valor Valor del descuento. Si PORCENTAJE: 0.01–100. Si MONTO_FIJO: mayor a 0.
      * @param razon Motivo del descuento (ej: "Cliente frecuente", "Descuento especial"). Puede estar vacío.
      * @param usuarioId ID del usuario que aplicó el descuento (auditoría)
      * @param fechaAplicacion Momento en que se aplicó el descuento
-     * @throws IllegalArgumentException si el porcentaje está fuera del rango 0-100
+     * @throws IllegalArgumentException si el valor está fuera del rango válido según el tipo
      * @throws IllegalArgumentException si la razón es nula
      * @throws IllegalArgumentException si usuarioId o fechaAplicacion son nulos
      */
     public DescuentoManual(
-            BigDecimal porcentaje, 
+            ModoDescuento tipo,
+            BigDecimal valor, 
             String razon, 
             UUID usuarioId, 
             LocalDateTime fechaAplicacion
     ) {
-        // Validar porcentaje
-        Objects.requireNonNull(porcentaje, "El porcentaje no puede ser null");
-        if (porcentaje.compareTo(PORCENTAJE_MINIMO) < 0 || porcentaje.compareTo(PORCENTAJE_MAXIMO) > 0) {
-            throw new IllegalArgumentException(
-                String.format("El porcentaje debe estar entre 0 y 100. Recibido: %s", porcentaje)
-            );
+        // Validar tipo
+        Objects.requireNonNull(tipo, "El tipo de descuento no puede ser null");
+
+        // Validar valor según tipo
+        Objects.requireNonNull(valor, "El valor del descuento no puede ser null");
+        if (tipo == ModoDescuento.PORCENTAJE) {
+            if (valor.compareTo(BigDecimal.ZERO) <= 0 || valor.compareTo(PORCENTAJE_MAXIMO) > 0) {
+                throw new IllegalArgumentException(
+                    String.format("El porcentaje debe estar entre 0.01 y 100. Recibido: %s", valor)
+                );
+            }
+        } else {
+            // MONTO_FIJO: debe ser positivo (la validación contra la base gravable se hace en el aggregate)
+            if (valor.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException(
+                    String.format("El monto fijo debe ser mayor a 0. Recibido: %s", valor)
+                );
+            }
         }
 
         // Validar razón (puede estar vacía, no puede ser null)
@@ -67,7 +86,8 @@ public final class DescuentoManual {
         Objects.requireNonNull(usuarioId, "El usuarioId no puede ser null");
         Objects.requireNonNull(fechaAplicacion, "La fechaAplicacion no puede ser null");
 
-        this.porcentaje = porcentaje;
+        this.tipo = tipo;
+        this.valor = valor;
         this.razon = razon;  // Se permite vacío, solo se valida que no sea null
         this.usuarioId = usuarioId;
         this.fechaAplicacion = fechaAplicacion;
@@ -78,11 +98,12 @@ public final class DescuentoManual {
      * 
      * Este método centraliza la lógica de cálculo y garantiza que el dinamismo funcione.
      * 
-     * Fórmula: monto = base * (porcentaje / 100)
-     * Ejemplo: base=$1000, porcentaje=10 → monto=$100
+     * Según el tipo:
+     * - PORCENTAJE: monto = base × (valor / 100). Ej: base=$1000, valor=10 → monto=$100
+     * - MONTO_FIJO: monto = min(valor, base). Se capea a la base para evitar totales negativos.
      * 
      * @param baseGravable Base sobre la cual calcular el descuento (puede ser subtotal de ítem o total de pedido)
-     * @return Monto del descuento en valor absoluto (siempre >= 0)
+     * @return Monto del descuento en valor absoluto (siempre >= 0, nunca mayor a la base)
      * @throws IllegalArgumentException si la base es negativa
      */
     public BigDecimal calcularMonto(BigDecimal baseGravable) {
@@ -94,20 +115,36 @@ public final class DescuentoManual {
             );
         }
 
-        // Fórmula: monto = base * (porcentaje / 100)
-        // Redondeo: HALF_UP para evitar pérdida de centavos
-        return baseGravable
-                .multiply(porcentaje)
-                .divide(CIEN, 2, RoundingMode.HALF_UP);
+        if (tipo == ModoDescuento.PORCENTAJE) {
+            // Fórmula: monto = base * (valor / 100)
+            // Redondeo: HALF_UP para evitar pérdida de centavos
+            return baseGravable
+                    .multiply(valor)
+                    .divide(CIEN, 2, RoundingMode.HALF_UP);
+        } else {
+            // MONTO_FIJO: aplicar directamente, capeado a la base gravable
+            return valor.min(baseGravable);
+        }
     }
 
     /**
-     * Retorna el porcentaje del descuento.
+     * Retorna el tipo de descuento.
      * 
-     * @return Porcentaje (0-100)
+     * @return PORCENTAJE o MONTO_FIJO
      */
-    public BigDecimal getPorcentaje() {
-        return porcentaje;
+    public ModoDescuento getTipo() {
+        return tipo;
+    }
+
+    /**
+     * Retorna el valor del descuento.
+     * Si es PORCENTAJE: valor entre 0.01 y 100.
+     * Si es MONTO_FIJO: valor monetario positivo.
+     * 
+     * @return Valor del descuento
+     */
+    public BigDecimal getValor() {
+        return valor;
     }
 
     /**
@@ -146,7 +183,8 @@ public final class DescuentoManual {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         DescuentoManual that = (DescuentoManual) o;
-        return Objects.equals(porcentaje, that.porcentaje) &&
+        return tipo == that.tipo &&
+               Objects.equals(valor, that.valor) &&
                Objects.equals(razon, that.razon) &&
                Objects.equals(usuarioId, that.usuarioId) &&
                Objects.equals(fechaAplicacion, that.fechaAplicacion);
@@ -154,14 +192,15 @@ public final class DescuentoManual {
 
     @Override
     public int hashCode() {
-        return Objects.hash(porcentaje, razon, usuarioId, fechaAplicacion);
+        return Objects.hash(tipo, valor, razon, usuarioId, fechaAplicacion);
     }
 
     @Override
     public String toString() {
+        String sufijo = tipo == ModoDescuento.PORCENTAJE ? "%" : "$";
         return String.format(
-            "DescuentoManual{porcentaje=%s%%, razon='%s', usuarioId=%s, fecha=%s}",
-            porcentaje, razon, usuarioId, fechaAplicacion
+            "DescuentoManual{tipo=%s, valor=%s%s, razon='%s', usuarioId=%s, fecha=%s}",
+            tipo, valor, sufijo, razon, usuarioId, fechaAplicacion
         );
     }
 }

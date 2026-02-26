@@ -85,13 +85,15 @@ public class PedidoRepositoryImpl implements PedidoRepository {
         // Sincronizar descuento global
         if (pedido.getDescuentoGlobal() != null) {
             var dg = pedido.getDescuentoGlobal();
-            log.debug("Aplicando descuento global: {}%", dg.getPorcentaje());
-            entity.setDescGlobalPorcentaje(dg.getPorcentaje());
+            log.debug("Aplicando descuento global: tipo={}, valor={}", dg.getTipo(), dg.getValor());
+            entity.setDescGlobalTipo(dg.getTipo());
+            entity.setDescGlobalValor(dg.getValor());
             entity.setDescGlobalRazon(dg.getRazon());
             entity.setDescGlobalUsuarioId(dg.getUsuarioId());
             entity.setDescGlobalFecha(dg.getFechaAplicacion());
         } else {
-            entity.setDescGlobalPorcentaje(null);
+            entity.setDescGlobalTipo(null);
+            entity.setDescGlobalValor(null);
             entity.setDescGlobalRazon(null);
             entity.setDescGlobalUsuarioId(null);
             entity.setDescGlobalFecha(null);
@@ -143,12 +145,14 @@ public class PedidoRepositoryImpl implements PedidoRepository {
                 // Actualizar descuento manual si existe
                 if (domainItem.getDescuentoManual() != null) {
                     var dm = domainItem.getDescuentoManual();
-                    existingItem.setDescManualPorcentaje(dm.getPorcentaje());
+                    existingItem.setDescManualTipo(dm.getTipo());
+                    existingItem.setDescManualValor(dm.getValor());
                     existingItem.setDescManualRazon(dm.getRazon());
                     existingItem.setDescManualUsuarioId(dm.getUsuarioId());
                     existingItem.setDescManualFecha(dm.getFechaAplicacion());
                 } else {
-                    existingItem.setDescManualPorcentaje(null);
+                    existingItem.setDescManualTipo(null);
+                    existingItem.setDescManualValor(null);
                     existingItem.setDescManualRazon(null);
                     existingItem.setDescManualUsuarioId(null);
                     existingItem.setDescManualFecha(null);

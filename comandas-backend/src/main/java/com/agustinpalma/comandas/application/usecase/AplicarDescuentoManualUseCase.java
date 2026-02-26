@@ -86,7 +86,8 @@ public class AplicarDescuentoManualUseCase {
 
         // 3. Crear DescuentoManual VO con timestamp actual
         DescuentoManual descuento = new DescuentoManual(
-            request.porcentaje(),
+            request.tipoDescuento(),
+            request.valor(),
             request.razon(),
             request.usuarioId(),
             LocalDateTime.now(clock)

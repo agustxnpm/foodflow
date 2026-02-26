@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.infrastructure.persistence.entity;
 
+import com.agustinpalma.comandas.domain.model.DomainEnums.ModoDescuento;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -102,11 +103,20 @@ public class ItemPedidoEntity {
     // ============================================
 
     /**
-     * Porcentaje del descuento manual aplicado al ítem.
+     * Tipo de descuento manual (PORCENTAJE o MONTO_FIJO).
      * Null si no tiene descuento manual.
      */
-    @Column(name = "desc_manual_porcentaje", precision = 5, scale = 2)
-    private BigDecimal descManualPorcentaje;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "desc_manual_tipo", length = 20)
+    private ModoDescuento descManualTipo;
+
+    /**
+     * Valor del descuento manual aplicado al ítem.
+     * Si tipo=PORCENTAJE: valor entre 0.01-100. Si tipo=MONTO_FIJO: monto positivo.
+     * Null si no tiene descuento manual.
+     */
+    @Column(name = "desc_manual_valor", precision = 10, scale = 2)
+    private BigDecimal descManualValor;
 
     /**
      * Razón del descuento manual.
@@ -151,7 +161,7 @@ public class ItemPedidoEntity {
     public ItemPedidoEntity(UUID id, UUID productoId, String nombreProducto,
                              int cantidad, BigDecimal precioUnitario, String observacion) {
         this(id, productoId, nombreProducto, cantidad, precioUnitario, observacion, 
-             BigDecimal.ZERO, null, null, null, null, null, null);
+             BigDecimal.ZERO, null, null, null, null, null, null, null);
     }
 
     // Constructor completo con promoción (HU-10) y descuento manual (HU-14)
@@ -165,7 +175,8 @@ public class ItemPedidoEntity {
             BigDecimal montoDescuento,
             String nombrePromocion,
             UUID promocionId,
-            BigDecimal descManualPorcentaje,
+            ModoDescuento descManualTipo,
+            BigDecimal descManualValor,
             String descManualRazon,
             UUID descManualUsuarioId,
             LocalDateTime descManualFecha
@@ -179,7 +190,8 @@ public class ItemPedidoEntity {
         this.montoDescuento = montoDescuento != null ? montoDescuento : BigDecimal.ZERO;
         this.nombrePromocion = nombrePromocion;
         this.promocionId = promocionId;
-        this.descManualPorcentaje = descManualPorcentaje;
+        this.descManualTipo = descManualTipo;
+        this.descManualValor = descManualValor;
         this.descManualRazon = descManualRazon;
         this.descManualUsuarioId = descManualUsuarioId;
         this.descManualFecha = descManualFecha;
@@ -282,12 +294,20 @@ public class ItemPedidoEntity {
     // HU-14: Getters y Setters de descuento manual
     // ============================================
 
-    public BigDecimal getDescManualPorcentaje() {
-        return descManualPorcentaje;
+    public ModoDescuento getDescManualTipo() {
+        return descManualTipo;
     }
 
-    public void setDescManualPorcentaje(BigDecimal descManualPorcentaje) {
-        this.descManualPorcentaje = descManualPorcentaje;
+    public void setDescManualTipo(ModoDescuento descManualTipo) {
+        this.descManualTipo = descManualTipo;
+    }
+
+    public BigDecimal getDescManualValor() {
+        return descManualValor;
+    }
+
+    public void setDescManualValor(BigDecimal descManualValor) {
+        this.descManualValor = descManualValor;
     }
 
     public String getDescManualRazon() {

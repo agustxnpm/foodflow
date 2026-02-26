@@ -8,18 +8,22 @@ import java.util.UUID;
  * DTO de entrada HTTP para aplicar descuentos manuales.
  * Contiene validaciones Bean Validation para la capa de presentación.
  * 
- * HU-14: Aplicar descuento manual por porcentaje
+ * HU-14: Aplicar descuento manual por porcentaje o monto fijo
  * 
  * Validaciones:
- * - porcentaje: 0-100, obligatorio, máximo 2 decimales
+ * - tipoDescuento: obligatorio, PORCENTAJE o MONTO_FIJO
+ * - valor: obligatorio, mayor a 0, máximo 2 decimales
  * - usuarioId: obligatorio
  */
 public record DescuentoManualRequestBody(
-    @NotNull(message = "El porcentaje es obligatorio")
-    @DecimalMin(value = "0.0", message = "El porcentaje debe ser mayor o igual a 0")
-    @DecimalMax(value = "100.0", message = "El porcentaje debe ser menor o igual a 100")
-    @Digits(integer = 3, fraction = 2, message = "El porcentaje debe tener máximo 2 decimales")
-    BigDecimal porcentaje,
+    @NotNull(message = "El tipo de descuento es obligatorio")
+    @Pattern(regexp = "PORCENTAJE|MONTO_FIJO", message = "El tipo de descuento debe ser PORCENTAJE o MONTO_FIJO")
+    String tipoDescuento,
+
+    @NotNull(message = "El valor es obligatorio")
+    @DecimalMin(value = "0.01", message = "El valor debe ser mayor a 0")
+    @Digits(integer = 10, fraction = 2, message = "El valor debe tener máximo 2 decimales")
+    BigDecimal valor,
 
     @Size(max = 255, message = "La razón no puede exceder 255 caracteres")
     String razon,

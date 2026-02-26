@@ -6,6 +6,7 @@ import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCa
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
+import com.agustinpalma.comandas.domain.model.DomainEnums.ModoDescuento;
 import com.agustinpalma.comandas.domain.model.DomainIds.ItemPedidoId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
@@ -139,10 +140,12 @@ public class PedidoController {
             @PathVariable UUID pedidoId,
             @Valid @RequestBody DescuentoManualRequestBody requestBody
     ) {
+        ModoDescuento tipo = ModoDescuento.valueOf(requestBody.tipoDescuento());
         AplicarDescuentoManualRequest request = new AplicarDescuentoManualRequest(
             new PedidoId(pedidoId),
             null,  // null = descuento global
-            requestBody.porcentaje(),
+            tipo,
+            requestBody.valor(),
             requestBody.razon(),
             requestBody.usuarioId()
         );
@@ -176,10 +179,12 @@ public class PedidoController {
             @PathVariable UUID itemId,
             @Valid @RequestBody DescuentoManualRequestBody requestBody
     ) {
+        ModoDescuento tipo = ModoDescuento.valueOf(requestBody.tipoDescuento());
         AplicarDescuentoManualRequest request = new AplicarDescuentoManualRequest(
             new PedidoId(pedidoId),
             new ItemPedidoId(itemId),  // Descuento por ítem
-            requestBody.porcentaje(),
+            tipo,
+            requestBody.valor(),
             requestBody.razon(),
             requestBody.usuarioId()
         );

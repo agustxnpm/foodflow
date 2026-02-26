@@ -449,9 +449,25 @@ public class Pedido {
      * 
      * HU-14: El descuento global es dinámico. Se recalcula en cada invocación de calcularTotal().
      * 
+     * Invariante para MONTO_FIJO: el valor no puede exceder la base gravable actual
+     * del pedido (suma de precios finales de ítems), para evitar totales negativos.
+     * 
      * @param descuentoGlobal el descuento a aplicar, o null para remover el descuento
+     * @throws IllegalArgumentException si es MONTO_FIJO y el valor excede la base gravable
      */
     public void aplicarDescuentoGlobal(DescuentoManual descuentoGlobal) {
+        if (descuentoGlobal != null 
+                && descuentoGlobal.getTipo() == ModoDescuento.MONTO_FIJO) {
+            BigDecimal baseGravable = items.stream()
+                .map(ItemPedido::calcularPrecioFinal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (descuentoGlobal.getValor().compareTo(baseGravable) > 0) {
+                throw new IllegalArgumentException(
+                    String.format("El monto fijo ($%s) no puede superar la base gravable del pedido ($%s)",
+                        descuentoGlobal.getValor().toPlainString(), baseGravable.toPlainString())
+                );
+            }
+        }
         this.descuentoGlobal = descuentoGlobal;
     }
 

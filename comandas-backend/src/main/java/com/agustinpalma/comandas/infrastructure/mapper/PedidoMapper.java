@@ -1,6 +1,7 @@
 package com.agustinpalma.comandas.infrastructure.mapper;
 
 import com.agustinpalma.comandas.domain.model.DescuentoManual;
+import com.agustinpalma.comandas.domain.model.DomainEnums.ModoDescuento;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
@@ -74,9 +75,10 @@ public class PedidoMapper {
 
         // Reconstruir descuento global si existe
         DescuentoManual descuentoGlobal = null;
-        if (entity.getDescGlobalPorcentaje() != null) {
+        if (entity.getDescGlobalValor() != null && entity.getDescGlobalTipo() != null) {
             descuentoGlobal = new DescuentoManual(
-                entity.getDescGlobalPorcentaje(),
+                entity.getDescGlobalTipo(),
+                entity.getDescGlobalValor(),
                 entity.getDescGlobalRazon(),
                 entity.getDescGlobalUsuarioId(),
                 entity.getDescGlobalFecha()
@@ -128,12 +130,14 @@ public class PedidoMapper {
         // HU-14: Descomponer descuento global VO en campos individuales
         if (pedido.getDescuentoGlobal() != null) {
             DescuentoManual dg = pedido.getDescuentoGlobal();
-            entity.setDescGlobalPorcentaje(dg.getPorcentaje());
+            entity.setDescGlobalTipo(dg.getTipo());
+            entity.setDescGlobalValor(dg.getValor());
             entity.setDescGlobalRazon(dg.getRazon());
             entity.setDescGlobalUsuarioId(dg.getUsuarioId());
             entity.setDescGlobalFecha(dg.getFechaAplicacion());
         } else {
-            entity.setDescGlobalPorcentaje(null);
+            entity.setDescGlobalTipo(null);
+            entity.setDescGlobalValor(null);
             entity.setDescGlobalRazon(null);
             entity.setDescGlobalUsuarioId(null);
             entity.setDescGlobalFecha(null);
