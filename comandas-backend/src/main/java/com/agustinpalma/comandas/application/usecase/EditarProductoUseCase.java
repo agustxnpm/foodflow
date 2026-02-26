@@ -70,7 +70,12 @@ public class EditarProductoUseCase {
         producto.actualizarNombre(request.nombre());
         producto.actualizarPrecio(request.precio());
         producto.cambiarEstado(request.activo() != null ? request.activo() : producto.isActivo());
-        producto.actualizarColor(request.colorHex());
+
+        // Color: solo se modifica si el request lo incluye explícitamente
+        // Esto evita que un toggle de activo/inactivo borre el color existente
+        if (request.colorHex() != null) {
+            producto.actualizarColor(request.colorHex());
+        }
 
         // Reclasificación como extra: solo se modifica si el request lo incluye explícitamente
         if (request.esExtra() != null) {

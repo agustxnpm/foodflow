@@ -67,7 +67,7 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
 
   // ── Datos del backend ──
   const { data: productos = [], isLoading: cargandoProductos } =
-    useProductos(categoriaActiva);
+    useProductos(categoriaActiva, true);
 
   const { data: pedido = null, isLoading: cargandoPedido } =
     usePedidoMesa(mesaId);

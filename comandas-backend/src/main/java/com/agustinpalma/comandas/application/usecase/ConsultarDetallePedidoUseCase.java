@@ -13,6 +13,7 @@ import com.agustinpalma.comandas.domain.model.Mesa;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
+import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -32,6 +33,7 @@ public class ConsultarDetallePedidoUseCase {
 
     private final MesaRepository mesaRepository;
     private final PedidoRepository pedidoRepository;
+    private final ProductoRepository productoRepository;
 
     /**
      * Constructor con inyección de dependencias.
@@ -39,13 +41,16 @@ public class ConsultarDetallePedidoUseCase {
      *
      * @param mesaRepository repositorio de mesas
      * @param pedidoRepository repositorio de pedidos
+     * @param productoRepository repositorio de productos (para calcular puedeAgregarDiscoExtra dinámico)
      */
     public ConsultarDetallePedidoUseCase(
         MesaRepository mesaRepository, 
-        PedidoRepository pedidoRepository
+        PedidoRepository pedidoRepository,
+        ProductoRepository productoRepository
     ) {
         this.mesaRepository = Objects.requireNonNull(mesaRepository, "El mesaRepository es obligatorio");
         this.pedidoRepository = Objects.requireNonNull(pedidoRepository, "El pedidoRepository es obligatorio");
+        this.productoRepository = Objects.requireNonNull(productoRepository, "El productoRepository es obligatorio");
     }
 
     /**
@@ -104,9 +109,9 @@ public class ConsultarDetallePedidoUseCase {
      * @return DTO con toda la información del pedido
      */
     private DetallePedidoResponse mapearADetalle(Pedido pedido, int numeroMesa) {
-        // AC1 - Mapear ítems con toda su información
+        // AC1 - Mapear ítems con toda su información (incluyendo campos de escalado)
         List<ItemDetalleDTO> itemsDTO = pedido.getItems().stream()
-            .map(this::mapearItem)
+            .map(item -> mapearItem(item, pedido.getLocalId()))
             .toList();
 
         // Ajustes económicos explícitos desde el dominio — la narrativa del pedido.
@@ -150,14 +155,18 @@ public class ConsultarDetallePedidoUseCase {
      * HU-10: Incluye información de promoción aplicada.
      * HU-05.1 + HU-22: Incluye extras como sub-elementos del ítem.
      * 
+     * Regla única de extras estructurales:
+     * puedeAgregarDiscoExtra = true si el ítem está en la variante máxima de su grupo.
+     * Se consulta dinámicamente desde el repositorio para reflejar cambios en el catálogo.
+     * 
      * REGLA CRÍTICA:
-     * Los cálculos se invocan desde el dominio (calcularSubtotal, calcularPrecioFinal).
-     * Este método NO calcula, solo transporta el resultado.
+     * Los cálculos financieros se invocan desde el dominio.
      * 
      * @param item entidad de dominio ItemPedido
+     * @param localId ID del local para consultar maxEstructural
      * @return DTO con la información del ítem
      */
-    private ItemDetalleDTO mapearItem(ItemPedido item) {
+    private ItemDetalleDTO mapearItem(ItemPedido item, LocalId localId) {
         // Descuentos explícitos del dominio: promo (snapshot) + manual (calculado desde VO).
         // No se infiere por resta subtotal - precioFinal.
         var subtotal = item.calcularSubtotalLinea();
@@ -174,6 +183,17 @@ public class ConsultarDetallePedidoUseCase {
             ))
             .toList();
 
+        // Regla única: ¿puede recibir un modificador estructural como extra?
+        // true si no tiene grupo de variantes (sin restricción) o si está en el máximo del grupo.
+        boolean puedeAgregarDiscoExtra = true;
+
+        if (item.getGrupoVarianteIdSnapshot() != null && item.getCantidadDiscosSnapshot() != null) {
+            int maxEstructural = productoRepository.obtenerMaximaCantidadDiscos(
+                localId, item.getGrupoVarianteIdSnapshot()
+            );
+            puedeAgregarDiscoExtra = item.getCantidadDiscosSnapshot() >= maxEstructural;
+        }
+
         return new ItemDetalleDTO(
             item.getId().getValue().toString(),
             item.getNombreProducto(),
@@ -185,7 +205,8 @@ public class ConsultarDetallePedidoUseCase {
             item.getObservacion(),
             item.getNombrePromocion(),
             item.tienePromocion() || item.tieneDescuentoManual(),
-            extrasDTO
+            extrasDTO,
+            puedeAgregarDiscoExtra
         );
     }
 }

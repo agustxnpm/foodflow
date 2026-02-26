@@ -2,6 +2,7 @@ package com.agustinpalma.comandas.application.usecase;
 
 import com.agustinpalma.comandas.application.dto.AgregarProductoRequest;
 import com.agustinpalma.comandas.application.dto.AgregarProductoResponse;
+import com.agustinpalma.comandas.domain.exception.DiscoExtraNoPermitidoException;
 import com.agustinpalma.comandas.domain.model.ExtraPedido;
 import com.agustinpalma.comandas.domain.model.ItemPedido;
 import com.agustinpalma.comandas.domain.model.Pedido;
@@ -186,7 +187,17 @@ public class AgregarProductoUseCase {
         Producto productoFinal = normalizacion.getProductoFinal();
         List<ExtraPedido> extrasFiltrados = normalizacion.getExtrasFiltrados();
 
-        // 4.1 MERGE INTELIGENTE: Solo fusionar si la CONFIGURACIÓN es idéntica.
+        // 4.2 Validación de modificadores estructurales como extras.
+        //
+        // Regla dinámica: Si después de la normalización todavía quedan extras
+        // que son modificadores estructurales, validar que el producto final
+        // esté en la variante máxima de su grupo.
+        //
+        // Si cantidadDiscosActual < maxEstructural → la variante debería escalarse,
+        // no agregar el modificador como extra suelto.
+        validarModificadoresEstructuralesComoExtras(productoFinal, extrasFiltrados, pedido.getLocalId());
+
+        // 4.3 MERGE INTELIGENTE: Solo fusionar si la CONFIGURACIÓN es idéntica.
         //
         // Regla de negocio: Cada plato personalizado es una unidad independiente.
         // Dos ítems son fusionables SOLO si comparten:
@@ -370,5 +381,66 @@ public class AgregarProductoUseCase {
             return existente + "; " + nueva;
         }
         return tieneExistente ? existente : (tieneNueva ? nueva : null);
+    }
+
+    /**
+     * Valida que no haya modificadores estructurales como extras cuando
+     * el producto todavía puede escalarse a una variante superior.
+     * 
+     * Regla dinámica:
+     *   Sea maxEstructural = obtenerMaximaCantidadDiscos(localId, grupoVarianteId)
+     *   puedeAgregarDiscoExtra = (cantidadDiscosActual == maxEstructural)
+     * 
+     * Si cantidadDiscosActual < maxEstructural y hay un modificador estructural
+     * entre los extras (que no fue absorbido por la normalización),
+     * se lanza excepción de dominio.
+     * 
+     * @param productoFinal producto después de normalización
+     * @param extrasFiltrados extras después de normalización
+     * @param localId ID del local para consultar maxEstructural
+     * @throws DiscoExtraNoPermitidoException si hay modificadores y se puede escalar
+     */
+    private void validarModificadoresEstructuralesComoExtras(
+            Producto productoFinal,
+            List<ExtraPedido> extrasFiltrados,
+            com.agustinpalma.comandas.domain.model.DomainIds.LocalId localId
+    ) {
+        // Si no tiene grupo de variantes, no aplica la restricción
+        if (productoFinal.getGrupoVarianteId() == null) return;
+
+        // Si no hay extras, nada que validar
+        if (extrasFiltrados == null || extrasFiltrados.isEmpty()) return;
+
+        // Buscar modificadores estructurales del local
+        List<Producto> modificadores = productoRepository.buscarModificadoresEstructurales(localId);
+        if (modificadores.isEmpty()) return;
+
+        java.util.Set<ProductoId> idsModificadores = modificadores.stream()
+            .map(Producto::getId)
+            .collect(Collectors.toSet());
+
+        // Verificar si hay modificadores entre los extras filtrados
+        boolean tieneModificadorEnExtras = extrasFiltrados.stream()
+            .anyMatch(extra -> idsModificadores.contains(extra.getProductoId()));
+
+        if (!tieneModificadorEnExtras) return;
+
+        // Hay modificadores como extras → validar que el producto esté en su máximo
+        int maxEstructural = productoRepository.obtenerMaximaCantidadDiscos(
+            localId, productoFinal.getGrupoVarianteId()
+        );
+        int discosActuales = productoFinal.getCantidadDiscosCarne() != null
+            ? productoFinal.getCantidadDiscosCarne() : 0;
+
+        if (discosActuales < maxEstructural) {
+            throw new DiscoExtraNoPermitidoException(
+                String.format(
+                    "No se puede agregar un modificador estructural como extra al producto '%s' " +
+                    "porque no es la variante máxima del grupo (discos: %d/%d). " +
+                    "Seleccione la variante máxima para agregar este extra.",
+                    productoFinal.getNombre(), discosActuales, maxEstructural)
+            );
+        }
+        // discosActuales == maxEstructural → OK
     }
 }

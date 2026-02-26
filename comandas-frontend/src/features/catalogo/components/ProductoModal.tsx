@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Check } from 'lucide-react';
+import { X, Check, HelpCircle } from 'lucide-react';
 import { useCrearProducto, useEditarProducto } from '../hooks/useProductos';
 import type { ProductoResponse, ProductoRequest } from '../types';
 import { useCategorias } from '../../categorias/hooks/useCategorias';
@@ -33,6 +33,9 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
   const [precio, setPrecio] = useState(producto?.precio?.toString() ?? '');
   const [controlaStock, setControlaStock] = useState(producto?.controlaStock ?? false);
   const [categoriaId, setCategoriaId] = useState<string | null>(producto?.categoriaId ?? null);
+  const [esModificadorEstructural, setEsModificadorEstructural] = useState(
+    producto?.esModificadorEstructural ?? false
+  );
   const [error, setError] = useState<string | null>(null);
 
   const handleGuardarProducto = () => {
@@ -55,13 +58,17 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
       ? categoriasAsignables.find((c) => c.id === categoriaId)
       : null;
 
+    const esExtra = categoriaSeleccionada?.esCategoriaExtra ?? false;
+
     const data: ProductoRequest = {
       nombre: nombre.trim(),
       precio: precioNum,
       colorHex: categoriaSeleccionada?.colorHex ?? '#FFFFFF',
       controlaStock,
-      esExtra: categoriaSeleccionada?.esCategoriaExtra ?? false,
+      esExtra,
       categoriaId: categoriaId ?? undefined,
+      // Solo enviar esModificadorEstructural si es un extra; para productos normales siempre false
+      esModificadorEstructural: esExtra ? esModificadorEstructural : false,
     };
 
     if (esEdicion) {
@@ -157,7 +164,11 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
                     <button
                       key={cat.id}
                       type="button"
-                      onClick={() => setCategoriaId(cat.id)}
+                      onClick={() => {
+                        setCategoriaId(cat.id);
+                        // Reset modificador estructural si la nueva categoría no es de extras
+                        if (!cat.esCategoriaExtra) setEsModificadorEstructural(false);
+                      }}
                       className={[
                         'flex items-center gap-2.5 px-3 py-2.5 rounded-lg border transition-all text-left',
                         isSelected
@@ -178,6 +189,34 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
                 })}
               </div>
             </div>
+
+            {/* Afecta composición — solo visible cuando la categoría es de extras */}
+            {(() => {
+              const catSel = categoriaId ? categoriasAsignables.find((c) => c.id === categoriaId) : null;
+              if (!catSel?.esCategoriaExtra) return null;
+              return (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={esModificadorEstructural}
+                      onChange={(e) => setEsModificadorEstructural(e.target.checked)}
+                      className="w-5 h-5 rounded border-gray-600 bg-background-card text-primary focus:ring-primary focus:ring-offset-0"
+                    />
+                    <span className="text-sm text-text-primary">Afecta composición del producto</span>
+                  </label>
+                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-950/20 border border-amber-800/30">
+                    <HelpCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-200/80 leading-relaxed">
+                      Ejemplo: un <strong>medallón extra</strong> suma un disco de carne al plato.
+                      Si activás esto, el extra <strong>solo va a aparecer</strong> en el producto más grande
+                      (ej: la triple, no en la simple ni la doble).
+                      Para extras como queso, huevo o panceta <strong>no hace falta activarlo</strong>.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Error */}
             {error && (

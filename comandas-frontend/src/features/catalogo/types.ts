@@ -44,6 +44,8 @@ export interface ProductoRequest {
   permiteExtras?: boolean;
   /** Si el POS debe abrir modal de configuración. Default: true */
   requiereConfiguracion?: boolean;
+  /** Si true, este extra afecta la composición del producto (ej: medallón extra). Default: false */
+  esModificadorEstructural?: boolean;
 }
 
 /**
@@ -52,6 +54,8 @@ export interface ProductoRequest {
  */
 export interface PromocionActivaInfo {
   nombre: string;
+  /** Descripción libre de la promo (puede ser null) */
+  descripcion?: string | null;
   /** Tipo de estrategia: DESCUENTO_DIRECTO, CANTIDAD_FIJA, COMBO_CONDICIONAL, PRECIO_FIJO_CANTIDAD */
   tipoEstrategia: string;
 }
@@ -86,6 +90,10 @@ export interface ProductoResponse {
   grupoVarianteId?: string | null;
   /** Cantidad de discos de carne del producto (para ordenar variantes). Puede ser null */
   cantidadDiscosCarne?: number | null;
+  /** true si este extra activa normalización de variantes (ej: disco de carne) */
+  esModificadorEstructural: boolean;
+  /** true si el producto está en la variante máxima y puede recibir disco extra */
+  puedeAgregarDiscoExtra: boolean;
   /** Promociones activas que aplican a este producto (puede estar vacía) */
   promocionesActivas: PromocionActivaInfo[];
 }

@@ -8,6 +8,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import com.agustinpalma.comandas.domain.exception.DiscoExtraNoPermitidoException;
+
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -84,6 +86,24 @@ public class GlobalExceptionHandler {
         body.put("error", "Conflict");
         body.put("message", ex.getMessage());
         body.put("cause", ex.getCause() != null ? ex.getCause().toString() : null);
+        
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
+     * Captura DiscoExtraNoPermitidoException (no se puede agregar modificador estructural como extra).
+     * HTTP 409 Conflict.
+     */
+    @ExceptionHandler(DiscoExtraNoPermitidoException.class)
+    public ResponseEntity<Map<String, Object>> handleDiscoExtraNoPermitido(DiscoExtraNoPermitidoException ex) {
+        logger.warn("Disco extra rechazado: {}", ex.getMessage());
+        
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("error", "Conflict");
+        body.put("message", ex.getMessage());
+        body.put("errorCode", "DISCO_EXTRA_NO_PERMITIDO");
         
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }

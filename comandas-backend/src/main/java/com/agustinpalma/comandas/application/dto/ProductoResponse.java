@@ -10,6 +10,7 @@ import java.util.List;
  * Incluye el colorHex para permitir al frontend renderizar botones con colores.
  * Incluye información de stock para transparencia del inventario.
  * Incluye las promociones activas asociadas al producto (cruce en capa de aplicación).
+ * Incluye puedeAgregarDiscoExtra para que el frontend filtre extras estructurales.
  */
 public record ProductoResponse(
     String id,              // UUID como String para JSON/REST
@@ -26,7 +27,8 @@ public record ProductoResponse(
     boolean requiereConfiguracion, // Si true, el POS abre modal de configuración antes de agregar
     String grupoVarianteId, // UUID del grupo de variantes — puede ser null
     Integer cantidadDiscosCarne, // Cantidad de discos de carne (variantes) — puede ser null
-    List<PromocionActivaInfo> promocionesActivas // Promociones vigentes que aplican a este producto
+    List<PromocionActivaInfo> promocionesActivas, // Promociones vigentes que aplican a este producto
+    boolean puedeAgregarDiscoExtra // true si el producto puede recibir un modificador estructural como extra
 ) {
 
     /**
@@ -35,25 +37,28 @@ public record ProductoResponse(
      */
     public record PromocionActivaInfo(
         String nombre,
+        String descripcion, // Descripción libre de la promo (puede ser null)
         String tipoEstrategia // ej: "DESCUENTO_DIRECTO", "CANTIDAD_FIJA", etc.
     ) {}
 
     /**
      * Factory method para construir el DTO desde la entidad de dominio.
      * Sin enriquecimiento de promociones (lista vacía).
+     * puedeAgregarDiscoExtra = true por defecto (conservador: sin restricción).
      */
     public static ProductoResponse fromDomain(Producto producto) {
-        return fromDomain(producto, List.of());
+        return fromDomain(producto, List.of(), true);
     }
 
     /**
      * Factory method para construir el DTO desde la entidad de dominio
-     * con las promociones activas asociadas.
+     * con las promociones activas asociadas y el flag de disco extra.
      *
      * @param producto entidad de dominio
      * @param promociones lista de promociones activas que aplican al producto
+     * @param puedeAgregarDiscoExtra true si el producto está en la variante máxima de su grupo
      */
-    public static ProductoResponse fromDomain(Producto producto, List<PromocionActivaInfo> promociones) {
+    public static ProductoResponse fromDomain(Producto producto, List<PromocionActivaInfo> promociones, boolean puedeAgregarDiscoExtra) {
         return new ProductoResponse(
             producto.getId().getValue().toString(),
             producto.getNombre(),
@@ -69,7 +74,8 @@ public record ProductoResponse(
             producto.isRequiereConfiguracion(),
             producto.getGrupoVarianteId() != null ? producto.getGrupoVarianteId().getValue().toString() : null,
             producto.getCantidadDiscosCarne(),
-            promociones != null ? List.copyOf(promociones) : List.of()
+            promociones != null ? List.copyOf(promociones) : List.of(),
+            puedeAgregarDiscoExtra
         );
     }
 }

@@ -9,11 +9,11 @@ import type { ProductoResponse, ProductoRequest, VarianteRequest } from '../type
  * durante el servicio, pero el badge de "Promo Activa" debe
  * actualizarse eventualmente sin requerir F5.
  */
-export function useProductos(categoriaId: string | null = null) {
+export function useProductos(categoriaId: string | null = null, soloActivos: boolean = false) {
   return useQuery<ProductoResponse[]>({
-    queryKey: ['productos', categoriaId],
+    queryKey: ['productos', categoriaId, soloActivos],
     queryFn: async () => {
-      const { data } = await productosApi.listar(categoriaId);
+      const { data } = await productosApi.listar(categoriaId, soloActivos || undefined);
       return data;
     },
     refetchInterval: 60_000,

@@ -4,6 +4,7 @@ import com.agustinpalma.comandas.application.dto.ProductoResponse;
 import com.agustinpalma.comandas.application.dto.ProductoResponse.PromocionActivaInfo;
 import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
+import com.agustinpalma.comandas.domain.model.DomainIds.ProductoId;
 import com.agustinpalma.comandas.domain.model.Producto;
 import com.agustinpalma.comandas.domain.model.Promocion;
 import com.agustinpalma.comandas.domain.repository.ProductoRepository;
@@ -44,15 +45,22 @@ public class ConsultarProductosUseCase {
     }
 
     /**
-     * Sobrecarga de retrocompatibilidad: consulta sin filtro de categoría.
+     * Sobrecarga de retrocompatibilidad: consulta sin filtro de categoría ni activo.
      */
     public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro) {
-        return ejecutar(localId, colorHexFiltro, null);
+        return ejecutar(localId, colorHexFiltro, null, null);
+    }
+
+    /**
+     * Sobrecarga de retrocompatibilidad: consulta sin filtro de activo.
+     */
+    public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro, String categoriaIdFiltro) {
+        return ejecutar(localId, colorHexFiltro, categoriaIdFiltro, null);
     }
 
     /**
      * Ejecuta el caso de uso: consulta productos del local.
-     * Soporta filtros opcionales por color y/o categoría.
+     * Soporta filtros opcionales por color, categoría y estado activo.
      * Si no se proveen filtros, retorna todos los productos del local.
      * 
      * Enriquece cada producto con las promociones activas cuyo alcance incluya
@@ -61,9 +69,10 @@ public class ConsultarProductosUseCase {
      * @param localId identificador del local
      * @param colorHexFiltro color hexadecimal para filtrar (opcional, puede ser null)
      * @param categoriaIdFiltro UUID de categoría para filtrar (opcional, puede ser null)
+     * @param soloActivos si true, filtra solo productos activos; si null/false, retorna todos
      * @return lista de productos que cumplen el criterio (puede estar vacía)
      */
-    public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro, String categoriaIdFiltro) {
+    public List<ProductoResponse> ejecutar(LocalId localId, String colorHexFiltro, String categoriaIdFiltro, Boolean soloActivos) {
         Objects.requireNonNull(localId, "El localId es obligatorio");
         
         List<Producto> productos;
@@ -78,15 +87,24 @@ public class ConsultarProductosUseCase {
             productos = productoRepository.buscarPorLocal(localId);
         }
 
+        // Filtrar por estado activo si se solicita (POS solo muestra activos)
+        if (Boolean.TRUE.equals(soloActivos)) {
+            productos = productos.stream().filter(Producto::isActivo).toList();
+        }
+
         // Cruce en capa de aplicación: traer promos activas y mapear por productoId
         Map<UUID, List<PromocionActivaInfo>> promosPorProducto = buildPromosPorProducto(localId);
 
-        // Transformar a DTOs enriquecidos
+        // Cache de maxEstructural por grupoVarianteId para evitar N+1 queries
+        Map<ProductoId, Integer> cacheMaxDiscos = new HashMap<>();
+
+        // Transformar a DTOs enriquecidos con promos y flag de disco extra
         return productos.stream()
             .map(producto -> {
                 UUID productoUuid = producto.getId().getValue();
                 List<PromocionActivaInfo> promos = promosPorProducto.getOrDefault(productoUuid, List.of());
-                return ProductoResponse.fromDomain(producto, promos);
+                boolean puedeAgregarDiscoExtra = calcularPuedeAgregarDiscoExtra(producto, localId, cacheMaxDiscos);
+                return ProductoResponse.fromDomain(producto, promos, puedeAgregarDiscoExtra);
             })
             .toList();
     }
@@ -107,6 +125,7 @@ public class ConsultarProductosUseCase {
         for (Promocion promo : promocionesActivas) {
             PromocionActivaInfo info = new PromocionActivaInfo(
                 promo.getNombre(),
+                promo.getDescripcion(),
                 promo.getEstrategia().getTipo().name()
             );
 
@@ -121,5 +140,43 @@ public class ConsultarProductosUseCase {
         }
 
         return mapa;
+    }
+
+    /**
+     * Calcula si un producto puede recibir un modificador estructural como extra.
+     * 
+     * Regla única:
+     *   - Si el producto NO tiene grupoVarianteId → true (sin restricción)
+     *   - Si tiene grupo → true solo si cantidadDiscosCarne == maxEstructural del grupo
+     * 
+     * Usa cache para evitar consultas repetidas al repositorio por cada producto del mismo grupo.
+     *
+     * @param producto producto de dominio a evaluar
+     * @param localId ID del local (para consultar maxEstructural)
+     * @param cacheMaxDiscos cache mutable de maxDiscos por grupo
+     * @return true si el producto puede recibir extras estructurales
+     */
+    private boolean calcularPuedeAgregarDiscoExtra(
+            Producto producto,
+            LocalId localId,
+            Map<ProductoId, Integer> cacheMaxDiscos
+    ) {
+        // Sin grupo de variantes → sin restricción
+        if (producto.getGrupoVarianteId() == null) {
+            return true;
+        }
+
+        Integer discos = producto.getCantidadDiscosCarne();
+        if (discos == null) {
+            return true;
+        }
+
+        // Obtener maxEstructural del grupo (con cache para evitar N+1)
+        int maxEstructural = cacheMaxDiscos.computeIfAbsent(
+            producto.getGrupoVarianteId(),
+            grupoId -> productoRepository.obtenerMaximaCantidadDiscos(localId, grupoId)
+        );
+
+        return discos >= maxEstructural;
     }
 }

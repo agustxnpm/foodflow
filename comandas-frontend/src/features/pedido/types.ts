@@ -79,6 +79,9 @@ export interface ItemDetalle {
   tienePromocion: boolean;
   /** Extras/agregados asociados a este ítem (snapshot inmutable) */
   extras: ExtraDetalle[];
+
+  /** true si el producto está en la variante máxima de su grupo y puede recibir disco extra */
+  puedeAgregarDiscoExtra: boolean;
 }
 
 /**

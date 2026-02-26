@@ -27,6 +27,8 @@ interface ElementoGrilla {
   cantidadVariantes: number;
   /** Precio mínimo del grupo (para mostrar "desde $X" si hay variantes) */
   precioMinimo: number;
+  /** true si ALGUNA variante del grupo tiene promociones activas */
+  tienePromoEnGrupo: boolean;
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -56,16 +58,19 @@ function ProductoCard({
   onAgregar,
   cantidadVariantes,
   precioMinimo,
+  tienePromoEnGrupo,
 }: {
   producto: ProductoResponse;
   onAgregar: () => void;
   cantidadVariantes: number;
   precioMinimo: number;
+  /** true si alguna variante del grupo (o el propio producto) tiene promos */
+  tienePromoEnGrupo: boolean;
 }) {
   const sinStock: boolean =
     !!(producto.controlaStock && producto.stockActual !== null && producto.stockActual <= 0);
 
-  const tienePromos = producto.promocionesActivas && producto.promocionesActivas.length > 0;
+  const tienePromos = tienePromoEnGrupo;
   const esGrupo = cantidadVariantes > 1;
 
   return (
@@ -99,13 +104,20 @@ function ProductoCard({
             min-w-[180px] max-w-[240px] z-50
             pointer-events-none
           ">
-            <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider mb-1">
+            <p className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1">
               Promo activa
             </p>
             {producto.promocionesActivas.map((promo, i) => (
-              <p key={i} className="text-xs text-gray-200 leading-snug">
-                {promo.nombre}
-              </p>
+              <div key={i} className="mb-1.5 last:mb-0">
+                <p className="text-sm text-gray-200 font-medium leading-snug">
+                  {promo.nombre}
+                </p>
+                {promo.descripcion && (
+                  <p className="text-xs text-gray-400 leading-snug mt-0.5">
+                    {promo.descripcion}
+                  </p>
+                )}
+              </div>
             ))}
             <div className="absolute -top-1 right-3 w-2 h-2 bg-neutral-800 border-l border-t border-neutral-700 rotate-45" />
           </div>
@@ -222,7 +234,12 @@ export default function GrillaProductos({
 
     // Productos individuales (sin grupo)
     for (const p of sinGrupo) {
-      elementos.push({ producto: p, cantidadVariantes: 1, precioMinimo: p.precio });
+      elementos.push({
+        producto: p,
+        cantidadVariantes: 1,
+        precioMinimo: p.precio,
+        tienePromoEnGrupo: p.promocionesActivas?.length > 0,
+      });
     }
 
     // Grupos de variantes → 1 tarjeta por grupo
@@ -233,11 +250,14 @@ export default function GrillaProductos({
       );
       const representante = sorted[0];
       const precioMinimo = Math.min(...sorted.map((v) => v.precio));
+      // Si CUALQUIER variante tiene promo, el badge se muestra en la card grupal
+      const tienePromoEnGrupo = sorted.some((v) => v.promocionesActivas?.length > 0);
 
       elementos.push({
         producto: representante,
         cantidadVariantes: sorted.length,
         precioMinimo,
+        tienePromoEnGrupo,
       });
     }
 
@@ -354,6 +374,7 @@ export default function GrillaProductos({
                 onAgregar={() => onAgregarProducto(elem.producto.id)}
                 cantidadVariantes={elem.cantidadVariantes}
                 precioMinimo={elem.precioMinimo}
+                tienePromoEnGrupo={elem.tienePromoEnGrupo}
               />
             ))}
           </div>

@@ -184,7 +184,13 @@ export default function ConfigurarProductoModal({
   // 2. El producto permite extras (permiteExtras !== false; undefined → default true)
   const mostrarExtras = !producto.esExtra && producto.permiteExtras !== false;
   const { data: categorias = [] } = useCategorias();
-  const { data: extras = [], isLoading: cargandoExtras } = useExtras(categorias);
+  const { data: todosExtras = [], isLoading: cargandoExtras } = useExtras(categorias);
+
+  // Si el producto no puede recibir disco extra (no está en variante máxima),
+  // excluimos los extras que son modificadores estructurales (ej: disco de carne).
+  const extras = producto.puedeAgregarDiscoExtra === false
+    ? todosExtras.filter((e) => !e.esModificadorEstructural)
+    : todosExtras;
 
   // ── Handlers ──
 

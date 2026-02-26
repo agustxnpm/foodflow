@@ -187,14 +187,16 @@ public class ApplicationConfig {
      *
      * @param mesaRepository implementación del repositorio de mesas
      * @param pedidoRepository implementación del repositorio de pedidos
+     * @param productoRepository implementación del repositorio de productos (para maxEstructural dinámico)
      * @return instancia del caso de uso lista para usar
      */
     @Bean
     public ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase(
         MesaRepository mesaRepository, 
-        PedidoRepository pedidoRepository
+        PedidoRepository pedidoRepository,
+        ProductoRepository productoRepository
     ) {
-        return new ConsultarDetallePedidoUseCase(mesaRepository, pedidoRepository);
+        return new ConsultarDetallePedidoUseCase(mesaRepository, pedidoRepository, productoRepository);
     }
 
     /**

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { X, Layers } from 'lucide-react';
+import { X, Layers, Sparkles } from 'lucide-react';
 import type { ProductoResponse } from '../../catalogo/types';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -180,6 +180,7 @@ export default function VarianteSelectorModal({
                 const letra = abreviatura(etiqueta);
                 const sinStock =
                   !!(variante.controlaStock && variante.stockActual !== null && variante.stockActual <= 0);
+                const tienePromo = variante.promocionesActivas?.length > 0;
 
                 return (
                   <button
@@ -194,7 +195,9 @@ export default function VarianteSelectorModal({
                       'active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500',
                       sinStock
                         ? 'bg-neutral-900/50 border-2 border-neutral-800 opacity-50 cursor-not-allowed'
-                        : 'bg-neutral-900 border-2 border-neutral-800 hover:border-red-600/60 hover:bg-neutral-800/80 cursor-pointer',
+                        : tienePromo
+                          ? 'bg-neutral-900 border-2 border-emerald-800/40 hover:border-emerald-600/60 hover:bg-neutral-800/80 cursor-pointer'
+                          : 'bg-neutral-900 border-2 border-neutral-800 hover:border-red-600/60 hover:bg-neutral-800/80 cursor-pointer',
                     ].join(' ')}
                     aria-label={`${variante.nombre} — $${variante.precio}`}
                   >
@@ -211,7 +214,7 @@ export default function VarianteSelectorModal({
                       {letra}
                     </span>
 
-                    {/* Nombre completo */}
+                    {/* Nombre + promo */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-200 truncate">
                         {etiqueta}
@@ -220,6 +223,41 @@ export default function VarianteSelectorModal({
                         <p className="text-[10px] font-bold uppercase text-red-400 mt-0.5">
                           Sin stock
                         </p>
+                      )}
+                      {tienePromo && !sinStock && (
+                        <span className="relative inline-flex group/promo mt-0.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 cursor-default">
+                            <Sparkles size={9} className="shrink-0" />
+                            Tiene promo
+                          </span>
+                          {/* Tooltip con detalle de promo */}
+                          <span className="
+                            invisible group-hover/promo:visible opacity-0 group-hover/promo:opacity-100
+                            transition-opacity duration-150
+                            absolute left-0 bottom-full mb-2
+                            bg-neutral-800 border border-neutral-700 rounded-lg
+                            px-3 py-2 shadow-xl shadow-black/40
+                            min-w-[180px] max-w-[240px] z-50
+                            pointer-events-none
+                          ">
+                            <span className="block text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1">
+                              Promo activa
+                            </span>
+                            {variante.promocionesActivas.map((p, i) => (
+                              <span key={i} className="block mb-1.5 last:mb-0">
+                                <span className="block text-sm text-gray-200 font-medium leading-snug">
+                                  {p.nombre}
+                                </span>
+                                {p.descripcion && (
+                                  <span className="block text-xs text-gray-400 leading-snug mt-0.5">
+                                    {p.descripcion}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                            <span className="absolute -bottom-1 left-4 w-2 h-2 bg-neutral-800 border-r border-b border-neutral-700 rotate-45" />
+                          </span>
+                        </span>
                       )}
                     </div>
 

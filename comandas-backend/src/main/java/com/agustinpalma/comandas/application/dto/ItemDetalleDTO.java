@@ -17,6 +17,10 @@ import java.util.List;
  * Los extras se muestran debajo del producto principal, NO como líneas independientes.
  * 
  * Se usa como parte de la respuesta en la consulta de detalle de pedido.
+ * 
+ * puedeAgregarDiscoExtra: true si el ítem está en la variante estructural máxima
+ * de su grupo y puede recibir un modificador estructural como extra.
+ * El frontend NO calcula nada: este flag es la fuente de verdad.
  */
 public record ItemDetalleDTO(
     String id,
@@ -29,7 +33,10 @@ public record ItemDetalleDTO(
     String observacion,
     String nombrePromocion,           // Nombre de la promo aplicada (puede ser null)
     boolean tienePromocion,           // Flag para condicionales en UI
-    List<ExtraDetalleDTO> extras      // Extras aplicados como sub-elementos
+    List<ExtraDetalleDTO> extras,     // Extras aplicados como sub-elementos
+
+    // Regla única de extras estructurales
+    boolean puedeAgregarDiscoExtra    // true si está en la variante máxima del grupo
 ) {
     /**
      * Valida que los campos obligatorios no sean nulos.

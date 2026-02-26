@@ -234,6 +234,8 @@ export default function VistaCatalogo() {
       nombre: producto.nombre,
       precio: producto.precio,
       activo: !producto.activo,
+      colorHex: producto.colorHex,
+      categoriaId: producto.categoriaId ?? undefined,
     });
   };
 

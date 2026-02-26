@@ -13,6 +13,7 @@ import com.agustinpalma.comandas.domain.model.Mesa;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
+import com.agustinpalma.comandas.domain.repository.ProductoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,9 @@ class ConsultarDetallePedidoUseCaseTest {
     @Mock
     private PedidoRepository pedidoRepository;
 
+    @Mock
+    private ProductoRepository productoRepository;
+
     private ConsultarDetallePedidoUseCase useCase;
 
     private LocalId localId;
@@ -60,7 +64,7 @@ class ConsultarDetallePedidoUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new ConsultarDetallePedidoUseCase(mesaRepository, pedidoRepository);
+        useCase = new ConsultarDetallePedidoUseCase(mesaRepository, pedidoRepository, productoRepository);
         
         // Datos de prueba comunes
         localId = new LocalId(UUID.randomUUID());

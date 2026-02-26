@@ -88,11 +88,12 @@ public class ProductoController {
     @GetMapping
     public ResponseEntity<List<ProductoResponse>> listarProductos(
         @RequestParam(required = false) String color,
-        @RequestParam(required = false) String categoriaId
+        @RequestParam(required = false) String categoriaId,
+        @RequestParam(required = false) Boolean activo
     ) {
         LocalId localId = localContextProvider.getCurrentLocalId();
 
-        List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localId, color, categoriaId);
+        List<ProductoResponse> productos = consultarProductosUseCase.ejecutar(localId, color, categoriaId, activo);
 
         return ResponseEntity.ok(productos);
     }
