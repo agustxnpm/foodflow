@@ -98,7 +98,10 @@ export interface ItemDescuento {
   montoDescuentoPromo: number;
   nombrePromocion?: string;
   montoDescuentoManual: number;
-  porcentajeDescuentoManual?: number;
+  /** Tipo de descuento manual aplicado (nullable) */
+  tipoDescuentoManual?: TipoDescuentoManual;
+  /** Valor configurado del descuento manual (nullable) */
+  valorDescuentoManual?: number;
   precioFinal: number;
 }
 
@@ -152,6 +155,13 @@ export interface ModificarCantidadItemRequest {
 }
 
 /**
+ * Tipo de descuento manual soportado por el backend.
+ * - PORCENTAJE: el valor es un porcentaje (0.01–100)
+ * - MONTO_FIJO: el valor es un monto monetario positivo
+ */
+export type TipoDescuentoManual = 'PORCENTAJE' | 'MONTO_FIJO';
+
+/**
  * Body HTTP para aplicar descuento manual (HU-14).
  * Refleja DescuentoManualRequestBody del backend.
  *
@@ -159,8 +169,10 @@ export interface ModificarCantidadItemRequest {
  * Si no se envía itemPedidoId → descuento global sobre el pedido.
  */
 export interface DescuentoManualRequest {
-  /** Porcentaje del descuento (0–100, máx 2 decimales) */
-  porcentaje: number;
+  /** Tipo de descuento: PORCENTAJE o MONTO_FIJO */
+  tipoDescuento: TipoDescuentoManual;
+  /** Valor del descuento (porcentaje 0.01–100 o monto fijo positivo) */
+  valor: number;
   /** Motivo del descuento (ej: "Cliente frecuente", "Compensación por demora") */
   razon?: string;
   /** ID del usuario que aplica el descuento (auditoría) */

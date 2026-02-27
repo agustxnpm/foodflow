@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
-import { X, Percent, Tag, ShoppingBag } from 'lucide-react';
-import type { DetallePedidoResponse, ItemDetalle } from '../types';
+import { useState, useCallback, useMemo } from 'react';
+import { X, Percent, Tag, ShoppingBag, DollarSign } from 'lucide-react';
+import type { DetallePedidoResponse, ItemDetalle, TipoDescuentoManual } from '../types';
 import {
   useAplicarDescuentoGlobal,
   useAplicarDescuentoPorItem,
@@ -22,8 +22,12 @@ interface DescuentoManualModalProps {
  * Modal de descuento manual — HU-14
  *
  * Permite aplicar descuentos manuales al pedido:
- * - Global: porcentaje sobre el total del pedido
- * - Por Ítem: porcentaje sobre un ítem específico
+ * - Global: sobre el total del pedido
+ * - Por Ítem: sobre un ítem específico
+ *
+ * Tipos de descuento:
+ * - PORCENTAJE: valor entre 0.01 y 100
+ * - MONTO_FIJO: valor monetario positivo (no puede superar el total aplicable)
  *
  * El backend recalcula montos dinámicamente.
  * El descuento no modifica precios base ni afecta la vista de cocina.
@@ -36,7 +40,8 @@ export default function DescuentoManualModal({
 
   // ── Estado del formulario ──
   const [ambito, setAmbito] = useState<AmbitoDescuento>('TOTAL');
-  const [porcentaje, setPorcentaje] = useState<string>('');
+  const [tipoDescuento, setTipoDescuento] = useState<TipoDescuentoManual>('PORCENTAJE');
+  const [valor, setValor] = useState<string>('');
   const [razon, setRazon] = useState('');
   const [itemSeleccionadoId, setItemSeleccionadoId] = useState<string | null>(null);
 
@@ -45,11 +50,29 @@ export default function DescuentoManualModal({
   const descuentoPorItem = useAplicarDescuentoPorItem();
 
   const isPending = descuentoGlobal.isPending || descuentoPorItem.isPending;
-  const porcentajeNum = parseFloat(porcentaje) || 0;
-  const esValido =
-    porcentajeNum > 0 &&
-    porcentajeNum <= 100 &&
-    (ambito === 'TOTAL' || itemSeleccionadoId !== null);
+  const valorNum = parseFloat(valor) || 0;
+
+  // ── Cálculo del total aplicable (para validación de MONTO_FIJO) ──
+  const totalAplicable = useMemo(() => {
+    if (ambito === 'TOTAL') return pedido.totalParcial;
+    const item = pedido.items.find((i) => i.id === itemSeleccionadoId);
+    return item ? item.precioFinal : 0;
+  }, [ambito, pedido, itemSeleccionadoId]);
+
+  // ── Validación ──
+  const esValido = useMemo(() => {
+    if (valorNum <= 0) return false;
+    if (ambito === 'ITEM' && !itemSeleccionadoId) return false;
+
+    if (tipoDescuento === 'PORCENTAJE') {
+      return valorNum >= 0.01 && valorNum <= 100;
+    } else {
+      // MONTO_FIJO: no puede superar el total aplicable
+      return valorNum <= totalAplicable;
+    }
+  }, [valorNum, ambito, itemSeleccionadoId, tipoDescuento, totalAplicable]);
+
+  const excedeMonto = tipoDescuento === 'MONTO_FIJO' && valorNum > totalAplicable && valorNum > 0;
 
   // ── Handler de aplicación ──
   const handleAplicar = useCallback(() => {
@@ -57,18 +80,24 @@ export default function DescuentoManualModal({
 
     const payload = {
       pedidoId: pedido.pedidoId,
-      porcentaje: porcentajeNum,
+      tipoDescuento,
+      valor: valorNum,
       razon: razon.trim() || undefined,
       // MVP: UUID fijo para el único operador del local (sin autenticación real)
       usuarioId: '00000000-0000-0000-0000-000000000001',
     };
 
+    const etiqueta =
+      tipoDescuento === 'PORCENTAJE'
+        ? `${valorNum}%`
+        : `$${valorNum.toLocaleString('es-AR')}`;
+
     const callbacks = {
       onSuccess: () => {
         toast.success(
           ambito === 'TOTAL'
-            ? `Descuento del ${porcentajeNum}% aplicado al pedido`
-            : `Descuento del ${porcentajeNum}% aplicado al ítem`
+            ? `Descuento de ${etiqueta} aplicado al pedido`
+            : `Descuento de ${etiqueta} aplicado al ítem`
         );
         onClose();
       },
@@ -91,7 +120,8 @@ export default function DescuentoManualModal({
     esValido,
     ambito,
     pedido.pedidoId,
-    porcentajeNum,
+    tipoDescuento,
+    valorNum,
     razon,
     itemSeleccionadoId,
     descuentoGlobal,
@@ -221,24 +251,73 @@ export default function DescuentoManualModal({
               </div>
             )}
 
-            {/* Input de porcentaje */}
+            {/* Toggle de tipo de descuento */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
+                Tipo de descuento
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoDescuento('PORCENTAJE');
+                    setValor('');
+                  }}
+                  className={[
+                    'flex-1 flex items-center justify-center gap-2',
+                    'h-12 rounded-xl text-sm font-bold',
+                    'transition-all duration-150',
+                    tipoDescuento === 'PORCENTAJE'
+                      ? 'bg-red-600 text-white shadow-sm shadow-red-950/40 ring-1 ring-red-500/50'
+                      : 'bg-neutral-800 text-gray-400 border border-neutral-700 hover:text-gray-300 hover:border-neutral-600',
+                  ].join(' ')}
+                >
+                  <Percent size={18} />
+                  Porcentaje
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoDescuento('MONTO_FIJO');
+                    setValor('');
+                  }}
+                  className={[
+                    'flex-1 flex items-center justify-center gap-2',
+                    'h-12 rounded-xl text-sm font-bold',
+                    'transition-all duration-150',
+                    tipoDescuento === 'MONTO_FIJO'
+                      ? 'bg-red-600 text-white shadow-sm shadow-red-950/40 ring-1 ring-red-500/50'
+                      : 'bg-neutral-800 text-gray-400 border border-neutral-700 hover:text-gray-300 hover:border-neutral-600',
+                  ].join(' ')}
+                >
+                  <DollarSign size={18} />
+                  Monto Fijo
+                </button>
+              </div>
+            </div>
+
+            {/* Input de valor */}
             <div className="space-y-1.5">
               <label
-                htmlFor="porcentaje"
+                htmlFor="valor"
                 className="text-xs font-semibold text-gray-500 uppercase tracking-widest"
               >
-                Porcentaje de descuento
+                {tipoDescuento === 'PORCENTAJE'
+                  ? 'Porcentaje de descuento'
+                  : 'Monto a descontar'}
               </label>
               <div className="relative">
                 <input
-                  id="porcentaje"
+                  id="valor"
                   type="number"
                   min={0}
-                  max={100}
-                  step={1}
-                  value={porcentaje}
-                  onChange={(e) => setPorcentaje(e.target.value)}
-                  placeholder="Ej: 10"
+                  max={tipoDescuento === 'PORCENTAJE' ? 100 : undefined}
+                  step={tipoDescuento === 'PORCENTAJE' ? 1 : 50}
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                  placeholder={
+                    tipoDescuento === 'PORCENTAJE' ? 'Ej: 10' : 'Ej: 500'
+                  }
                   className="
                     w-full h-12 pl-4 pr-10
                     bg-neutral-800 border border-neutral-700
@@ -249,12 +328,18 @@ export default function DescuentoManualModal({
                   "
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-lg">
-                  %
+                  {tipoDescuento === 'PORCENTAJE' ? '%' : '$'}
                 </span>
               </div>
-              {porcentajeNum > 100 && (
+              {tipoDescuento === 'PORCENTAJE' && valorNum > 100 && (
                 <p className="text-xs text-red-400">
                   El porcentaje no puede superar el 100%
+                </p>
+              )}
+              {excedeMonto && (
+                <p className="text-xs text-red-400">
+                  El monto no puede superar ${totalAplicable.toLocaleString('es-AR')}{' '}
+                  ({ambito === 'TOTAL' ? 'total del pedido' : 'precio del ítem'})
                 </p>
               )}
             </div>
@@ -291,7 +376,11 @@ export default function DescuentoManualModal({
                 <p className="text-sm text-gray-300">
                   {ambito === 'TOTAL' ? (
                     <>
-                      <span className="text-red-400 font-bold">{porcentajeNum}%</span>
+                      <span className="text-red-400 font-bold">
+                        {tipoDescuento === 'PORCENTAJE'
+                          ? `${valorNum}%`
+                          : `$${valorNum.toLocaleString('es-AR')}`}
+                      </span>
                       {' '}sobre el total del pedido
                       {' '}
                       <span className="text-gray-500 font-mono">
@@ -300,7 +389,11 @@ export default function DescuentoManualModal({
                     </>
                   ) : (
                     <>
-                      <span className="text-red-400 font-bold">{porcentajeNum}%</span>
+                      <span className="text-red-400 font-bold">
+                        {tipoDescuento === 'PORCENTAJE'
+                          ? `${valorNum}%`
+                          : `$${valorNum.toLocaleString('es-AR')}`}
+                      </span>
                       {' '}sobre{' '}
                       <span className="font-medium">
                         {pedido.items.find((i) => i.id === itemSeleccionadoId)?.nombreProducto}
