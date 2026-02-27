@@ -39,7 +39,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["binaries/*"],
+    "resources": ["binaries/*", "jre/**"],
     "externalBin": [
       "binaries/backend"
     ],
