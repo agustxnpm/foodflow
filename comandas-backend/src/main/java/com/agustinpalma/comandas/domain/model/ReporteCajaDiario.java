@@ -22,6 +22,7 @@ import java.util.Objects;
  * - totalEgresos: suma de movimientos de caja (egresos de efectivo)
  * - balanceEfectivo: (total pagos EFECTIVO) − (total egresos)
  * - desglosePorMedioPago: mapa con el total por cada medio de pago
+ * - pedidosCerrados: lista de pedidos cerrados del día (para historial de ventas)
  */
 public final class ReporteCajaDiario {
 
@@ -31,6 +32,7 @@ public final class ReporteCajaDiario {
     private final BigDecimal balanceEfectivo;
     private final Map<MedioPago, BigDecimal> desglosePorMedioPago;
     private final List<MovimientoCaja> listaMovimientos;
+    private final List<Pedido> pedidosCerrados;
 
     public ReporteCajaDiario(
             BigDecimal totalVentasReales,
@@ -38,7 +40,8 @@ public final class ReporteCajaDiario {
             BigDecimal totalEgresos,
             BigDecimal balanceEfectivo,
             Map<MedioPago, BigDecimal> desglosePorMedioPago,
-            List<MovimientoCaja> listaMovimientos
+            List<MovimientoCaja> listaMovimientos,
+            List<Pedido> pedidosCerrados
     ) {
         this.totalVentasReales = Objects.requireNonNull(totalVentasReales, "totalVentasReales no puede ser null");
         this.totalConsumoInterno = Objects.requireNonNull(totalConsumoInterno, "totalConsumoInterno no puede ser null");
@@ -49,6 +52,9 @@ public final class ReporteCajaDiario {
         );
         this.listaMovimientos = Collections.unmodifiableList(
             Objects.requireNonNull(listaMovimientos, "listaMovimientos no puede ser null")
+        );
+        this.pedidosCerrados = Collections.unmodifiableList(
+            Objects.requireNonNull(pedidosCerrados, "pedidosCerrados no puede ser null")
         );
     }
 
@@ -74,6 +80,10 @@ public final class ReporteCajaDiario {
 
     public List<MovimientoCaja> getListaMovimientos() {
         return listaMovimientos;
+    }
+
+    public List<Pedido> getPedidosCerrados() {
+        return pedidosCerrados;
     }
 
     @Override

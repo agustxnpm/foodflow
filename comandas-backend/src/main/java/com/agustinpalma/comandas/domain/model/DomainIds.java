@@ -463,6 +463,53 @@ public final class DomainIds {
     }
 
     // ============================================
+    // JORNADA CAJA AGGREGATE
+    // ============================================
+
+    /**
+     * Identidad de una jornada de caja (cierre diario).
+     * Representa un ciclo operativo cerrado del local.
+     */
+    public static final class JornadaCajaId {
+        private final UUID value;
+
+        public JornadaCajaId(UUID value) {
+            if (value == null) throw new IllegalArgumentException("JornadaCajaId no puede ser null");
+            this.value = value;
+        }
+
+        public static JornadaCajaId generate() {
+            return new JornadaCajaId(UUID.randomUUID());
+        }
+
+        public static JornadaCajaId from(String value) {
+            return new JornadaCajaId(UUID.fromString(value));
+        }
+
+        public UUID getValue() {
+            return value;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            JornadaCajaId that = (JornadaCajaId) o;
+            return Objects.equals(value, that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(value);
+        }
+
+        @Override
+        public String toString() {
+            return value.toString();
+        }
+    }
+
+    // ============================================
     // STOCK AGGREGATE
     // ============================================
 

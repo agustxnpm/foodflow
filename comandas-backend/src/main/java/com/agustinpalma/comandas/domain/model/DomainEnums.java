@@ -53,6 +53,15 @@ public final class DomainEnums {
         EGRESO
     }
 
+    /**
+     * Estado de una jornada de caja.
+     * Actualmente solo existe CERRADA porque las jornadas se crean al cierre.
+     * No modelamos "ABIERTA" porque la caja se auto-inicia al operar.
+     */
+    public enum EstadoJornada {
+        CERRADA
+    }
+
     public enum TipoCriterio {
         TEMPORAL,
         CONTENIDO,

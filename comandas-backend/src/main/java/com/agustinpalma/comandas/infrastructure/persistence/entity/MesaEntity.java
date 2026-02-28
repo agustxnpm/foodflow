@@ -15,9 +15,15 @@ import java.util.UUID;
  * NO es la entidad de dominio - vive exclusivamente en la capa de infraestructura.
  */
 @Entity
-@Table(name = "mesas", indexes = {
-    @Index(name = "idx_mesa_local_id", columnList = "local_id")
-})
+@Table(name = "mesas",
+    uniqueConstraints = @UniqueConstraint(
+        name = "uk_mesa_local_numero",
+        columnNames = {"local_id", "numero"}
+    ),
+    indexes = {
+        @Index(name = "idx_mesa_local_id", columnList = "local_id")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor

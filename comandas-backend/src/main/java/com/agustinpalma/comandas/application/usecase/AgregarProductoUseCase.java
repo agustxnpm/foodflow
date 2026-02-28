@@ -2,7 +2,6 @@ package com.agustinpalma.comandas.application.usecase;
 
 import com.agustinpalma.comandas.application.dto.AgregarProductoRequest;
 import com.agustinpalma.comandas.application.dto.AgregarProductoResponse;
-import com.agustinpalma.comandas.domain.exception.DiscoExtraNoPermitidoException;
 import com.agustinpalma.comandas.domain.model.ExtraPedido;
 import com.agustinpalma.comandas.domain.model.ItemPedido;
 import com.agustinpalma.comandas.domain.model.Pedido;
@@ -365,23 +364,6 @@ public class AgregarProductoUseCase {
         );
     }
 
-    /**
-     * Combina observaciones de un ítem existente con las nuevas del request.
-     * Preserva las existentes y concatena las nuevas si ambas están presentes.
-     * 
-     * @param existente observaciones del ítem existente (puede ser null)
-     * @param nueva observaciones del nuevo request (puede ser null)
-     * @return observaciones combinadas, o null si ambas son null/vacías
-     */
-    private String mergeObservaciones(String existente, String nueva) {
-        boolean tieneExistente = existente != null && !existente.isBlank();
-        boolean tieneNueva = nueva != null && !nueva.isBlank();
-
-        if (tieneExistente && tieneNueva) {
-            return existente + "; " + nueva;
-        }
-        return tieneExistente ? existente : (tieneNueva ? nueva : null);
-    }
 
     /**
      * Valida que no haya modificadores estructurales como extras cuando
@@ -433,7 +415,7 @@ public class AgregarProductoUseCase {
             ? productoFinal.getCantidadDiscosCarne() : 0;
 
         if (discosActuales < maxEstructural) {
-            throw new DiscoExtraNoPermitidoException(
+            throw new IllegalArgumentException(
                 String.format(
                     "No se puede agregar un modificador estructural como extra al producto '%s' " +
                     "porque no es la variante máxima del grupo (discos: %d/%d). " +

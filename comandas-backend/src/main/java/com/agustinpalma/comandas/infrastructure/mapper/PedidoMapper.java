@@ -93,6 +93,7 @@ public class PedidoMapper {
             entity.getNumero(),
             entity.getEstado(),
             entity.getFechaApertura(),
+            entity.getFechaCierre(),
             items,
             pagos,
             descuentoGlobal,

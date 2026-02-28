@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -67,6 +68,7 @@ public class Pedido {
      * @param numero número secuencial
      * @param estado estado actual
      * @param fechaApertura fecha de apertura
+     * @param fechaCierre fecha de cierre (null si está abierto)
      * @param items ítems del pedido (ya reconstruidos)
      * @param pagos pagos registrados (vacío si está abierto)
      * @param descuentoGlobal descuento global aplicado (null si no tiene)
@@ -77,12 +79,13 @@ public class Pedido {
      */
     public static Pedido reconstruirDesdePersistencia(
             PedidoId id, LocalId localId, MesaId mesaId, int numero,
-            EstadoPedido estado, LocalDateTime fechaApertura,
+            EstadoPedido estado, LocalDateTime fechaApertura, LocalDateTime fechaCierre,
             List<ItemPedido> items, List<Pago> pagos,
             DescuentoManual descuentoGlobal,
             BigDecimal montoSubtotalFinal, BigDecimal montoDescuentosFinal, BigDecimal montoTotalFinal
     ) {
         Pedido pedido = new Pedido(id, localId, mesaId, numero, estado, fechaApertura);
+        pedido.fechaCierre = fechaCierre;
         
         if (items != null) {
             pedido.items.addAll(items);
@@ -696,6 +699,97 @@ public class Pedido {
         
         // AC5: La auditoría se maneja en la capa de aplicación
         // El UseCase registrará quién y cuándo realizó la reapertura
+    }
+
+    /**
+     * Corrección in-place de un pedido cerrado.
+     * 
+     * Permite ajustar cantidades de ítems y pagos SIN reabrir la mesa.
+     * El pedido permanece en estado CERRADO — solo se actualiza el snapshot contable.
+     * 
+     * Caso de uso principal: el operador detecta un error en el cierre
+     * (cantidad equivocada, medio de pago incorrecto) y necesita corregirlo
+     * sin afectar el flujo operativo del salón.
+     * 
+     * Reglas de negocio:
+     * - Solo se pueden corregir pedidos CERRADO
+     * - Al menos un ítem debe permanecer tras la corrección
+     * - La suma de pagos debe coincidir exactamente con el nuevo total
+     * - Los precios unitarios NO se modifican (son snapshot histórico)
+     * - La fechaCierre original se preserva (momento real de la operación)
+     * 
+     * @param cantidadesCorregidas mapa itemId → nueva cantidad (0 = eliminar)
+     * @param nuevosPagos lista de pagos corregidos
+     * @throws IllegalStateException si el pedido no está CERRADO
+     * @throws IllegalArgumentException si quedaría sin ítems o pagos no coinciden
+     */
+    public void corregir(Map<ItemPedidoId, Integer> cantidadesCorregidas, List<Pago> nuevosPagos) {
+        Objects.requireNonNull(nuevosPagos, "Los pagos no pueden ser null");
+
+        if (this.estado != EstadoPedido.CERRADO) {
+            throw new IllegalStateException(
+                String.format("Solo se pueden corregir pedidos en estado CERRADO. Estado actual: %s", this.estado)
+            );
+        }
+
+        if (nuevosPagos.isEmpty()) {
+            throw new IllegalArgumentException("Debe registrarse al menos un pago para la corrección");
+        }
+
+        // Aplicar correcciones de cantidad sobre los ítems existentes
+        if (cantidadesCorregidas != null && !cantidadesCorregidas.isEmpty()) {
+            List<ItemPedido> itemsARemover = new ArrayList<>();
+
+            for (Map.Entry<ItemPedidoId, Integer> entry : cantidadesCorregidas.entrySet()) {
+                ItemPedido item = buscarItemPorId(entry.getKey());
+                int nuevaCantidad = entry.getValue();
+
+                if (nuevaCantidad < 0) {
+                    throw new IllegalArgumentException(
+                        String.format("La cantidad no puede ser negativa. Recibido: %d para ítem %s",
+                            nuevaCantidad, entry.getKey().getValue())
+                    );
+                }
+
+                if (nuevaCantidad == 0) {
+                    itemsARemover.add(item);
+                } else if (nuevaCantidad != item.getCantidad()) {
+                    item.actualizarCantidad(nuevaCantidad);
+                }
+            }
+
+            this.items.removeAll(itemsARemover);
+        }
+
+        if (this.items.isEmpty()) {
+            throw new IllegalArgumentException("No se puede dejar un pedido sin ítems");
+        }
+
+        // Recalcular snapshot contable con las cantidades corregidas
+        BigDecimal nuevoSubtotal = calcularSubtotalItems();
+        BigDecimal nuevoTotal = calcularTotal();
+        BigDecimal nuevosDescuentos = nuevoSubtotal.subtract(nuevoTotal);
+
+        // Validar que la suma de pagos coincide exactamente con el nuevo total
+        BigDecimal sumaPagos = nuevosPagos.stream()
+            .map(Pago::getMonto)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (sumaPagos.compareTo(nuevoTotal) != 0) {
+            throw new IllegalArgumentException(
+                String.format("La suma de pagos (%s) no coincide con el total corregido (%s)",
+                    sumaPagos.toPlainString(), nuevoTotal.toPlainString())
+            );
+        }
+
+        // Re-congelar snapshot contable
+        this.montoSubtotalFinal = nuevoSubtotal;
+        this.montoDescuentosFinal = nuevosDescuentos;
+        this.montoTotalFinal = nuevoTotal;
+
+        // Reemplazar pagos
+        this.pagos.clear();
+        this.pagos.addAll(nuevosPagos);
     }
 
     // ============================================

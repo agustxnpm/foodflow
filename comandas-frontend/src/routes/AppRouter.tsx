@@ -3,7 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastContainer } from '../ui';
 import MainLayout from '../layout/MainLayout';
 import SalonPage from '../features/salon/pages/SalonPage';
-import CajaIndex from '../features/caja/components/CajaIndex';
+import CajaPage from '../features/caja/components/CajaPage';
+import HistorialJornadasPage from '../features/caja/components/HistorialJornadasPage';
 import MostradorPantalla from '../pages/MostradorPantalla';
 
 // Configuración de React Query
@@ -38,7 +39,8 @@ export function AppRouter() {
             <Route index element={<SalonPage />} />
 
             {/* Caja */}
-            <Route path="caja" element={<CajaIndex />} />
+            <Route path="caja" element={<CajaPage />} />
+            <Route path="caja/historial" element={<HistorialJornadasPage />} />
 
             {/* Mostrador: Catálogo + Promociones */}
             <Route path="mostrador" element={<MostradorPantalla />} />

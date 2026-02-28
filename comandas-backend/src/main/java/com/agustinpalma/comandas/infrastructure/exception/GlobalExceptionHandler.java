@@ -1,5 +1,7 @@
 package com.agustinpalma.comandas.infrastructure.exception;
 
+import com.agustinpalma.comandas.domain.exception.JornadaYaCerradaException;
+import com.agustinpalma.comandas.domain.exception.MesasAbiertasException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -8,7 +10,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import com.agustinpalma.comandas.domain.exception.DiscoExtraNoPermitidoException;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -55,6 +56,41 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Captura MesasAbiertasException (intento de cerrar jornada con mesas abiertas).
+     * HTTP 400 Bad Request.
+     * 
+     * El body es compatible con el frontend: { mensaje, mesasAbiertas }.
+     * El hook useCerrarJornada transforma este 400 en MesasAbiertasError.
+     */
+    @ExceptionHandler(MesasAbiertasException.class)
+    public ResponseEntity<Map<String, Object>> handleMesasAbiertas(MesasAbiertasException ex) {
+        logger.warn("Intento de cerrar jornada con mesas abiertas: {}", ex.getMesasAbiertas());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("mensaje", ex.getMessage());
+        body.put("mesasAbiertas", ex.getMesasAbiertas());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * Captura JornadaYaCerradaException (intento de cerrar una jornada ya cerrada).
+     * HTTP 409 Conflict.
+     */
+    @ExceptionHandler(JornadaYaCerradaException.class)
+    public ResponseEntity<Map<String, Object>> handleJornadaYaCerrada(JornadaYaCerradaException ex) {
+        logger.warn("Intento de doble cierre de jornada: {}", ex.getFechaOperativa());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("error", "Conflict");
+        body.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
      * Captura IllegalArgumentException (ej: pedido/item no encontrado, validaciones de negocio).
      * HTTP 400 Bad Request.
      */
@@ -90,23 +126,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
-    /**
-     * Captura DiscoExtraNoPermitidoException (no se puede agregar modificador estructural como extra).
-     * HTTP 409 Conflict.
-     */
-    @ExceptionHandler(DiscoExtraNoPermitidoException.class)
-    public ResponseEntity<Map<String, Object>> handleDiscoExtraNoPermitido(DiscoExtraNoPermitidoException ex) {
-        logger.warn("Disco extra rechazado: {}", ex.getMessage());
-        
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", LocalDateTime.now());
-        body.put("status", HttpStatus.CONFLICT.value());
-        body.put("error", "Conflict");
-        body.put("message", ex.getMessage());
-        body.put("errorCode", "DISCO_EXTRA_NO_PERMITIDO");
-        
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
-    }
 
     /**
      * Captura TODAS las demás excepciones no manejadas.

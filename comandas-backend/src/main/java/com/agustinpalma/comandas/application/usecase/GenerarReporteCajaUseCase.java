@@ -3,10 +3,12 @@ package com.agustinpalma.comandas.application.usecase;
 import com.agustinpalma.comandas.application.dto.ReporteCajaResponse;
 import com.agustinpalma.comandas.domain.model.DomainEnums.MedioPago;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
+import com.agustinpalma.comandas.domain.model.Mesa;
 import com.agustinpalma.comandas.domain.model.MovimientoCaja;
 import com.agustinpalma.comandas.domain.model.Pago;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.model.ReporteCajaDiario;
+import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.MovimientoCajaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,8 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Caso de uso para generar el reporte de caja diario (arqueo).
@@ -42,13 +46,17 @@ public class GenerarReporteCajaUseCase {
 
     private final PedidoRepository pedidoRepository;
     private final MovimientoCajaRepository movimientoCajaRepository;
+    private final MesaRepository mesaRepository;
 
     public GenerarReporteCajaUseCase(PedidoRepository pedidoRepository,
-                                     MovimientoCajaRepository movimientoCajaRepository) {
+                                     MovimientoCajaRepository movimientoCajaRepository,
+                                     MesaRepository mesaRepository) {
         this.pedidoRepository = Objects.requireNonNull(pedidoRepository, 
             "El pedidoRepository es obligatorio");
         this.movimientoCajaRepository = Objects.requireNonNull(movimientoCajaRepository, 
             "El movimientoCajaRepository es obligatorio");
+        this.mesaRepository = Objects.requireNonNull(mesaRepository,
+            "El mesaRepository es obligatorio");
     }
 
     /**
@@ -72,10 +80,18 @@ public class GenerarReporteCajaUseCase {
         // 3. Obtener movimientos de caja del día
         List<MovimientoCaja> movimientos = movimientoCajaRepository.buscarPorFecha(localId, inicio, fin);
 
-        // 4. Calcular el reporte
+        // 4. Construir mapa MesaId → número de mesa para resolver en el DTO
+        List<Mesa> mesasDelLocal = mesaRepository.buscarPorLocal(localId);
+        Map<String, Integer> mesaNumeros = mesasDelLocal.stream()
+            .collect(Collectors.toMap(
+                m -> m.getId().getValue().toString(),
+                Mesa::getNumero
+            ));
+
+        // 5. Calcular el reporte
         ReporteCajaDiario reporte = calcularReporte(pedidosCerrados, movimientos);
 
-        return ReporteCajaResponse.fromDomain(reporte);
+        return ReporteCajaResponse.fromDomain(reporte, mesaNumeros);
     }
 
     /**
@@ -130,7 +146,8 @@ public class GenerarReporteCajaUseCase {
             totalEgresos,
             balanceEfectivo,
             desglose,
-            movimientos
+            movimientos,
+            pedidosCerrados
         );
     }
 }

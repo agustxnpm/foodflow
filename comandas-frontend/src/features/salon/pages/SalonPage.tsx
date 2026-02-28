@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useSalonState } from '../hooks/useSalonState';
+import { useEliminarMesa } from '../hooks/useMesas';
+import useToast from '../../../hooks/useToast';
 import MesaGrid from '../components/MesaGrid';
 import SalonControls from '../components/SalonControls';
 import SidebarResumen from '../components/SidebarResumen';
@@ -41,6 +43,26 @@ export default function SalonPage() {
     abriendoMesa,
   } = useSalonState();
 
+  const eliminarMesa = useEliminarMesa();
+  const toast = useToast();
+
+  /** HU-16: Eliminar mesa libre del salón */
+  const handleEliminarMesa = (mesaId: string) => {
+    const mesa = mesas.find((m) => m.id === mesaId);
+    if (!mesa) return;
+
+    eliminarMesa.mutate(mesaId, {
+      onSuccess: () => {
+        toast.success(`Mesa ${mesa.numero} eliminada`);
+      },
+      onError: (error: any) => {
+        const mensaje =
+          error?.response?.data?.message || 'Error al eliminar mesa';
+        toast.error(mensaje);
+      },
+    });
+  };
+
   return (
     <>
       <section className="h-[calc(100vh-4rem)] flex overflow-hidden">
@@ -52,6 +74,7 @@ export default function SalonPage() {
               Salón
             </h1>
             <SalonControls
+              mesas={mesas}
               modoEdicion={modoEdicion}
               onToggleModoEdicion={() => setModoEdicion(!modoEdicion)}
             />
@@ -72,6 +95,7 @@ export default function SalonPage() {
               mesas={mesas}
               onMesaClick={handleMesaClick}
               modoEdicion={modoEdicion}
+              onEliminar={handleEliminarMesa}
               isLoading={cargandoMesas}
               isError={errorMesas}
             />

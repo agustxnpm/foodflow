@@ -5,7 +5,11 @@ import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.AjustarStockUseCase;
 import com.agustinpalma.comandas.application.usecase.AplicarDescuentoManualUseCase;
 import com.agustinpalma.comandas.application.usecase.AsociarProductoAPromocionUseCase;
+import com.agustinpalma.comandas.application.usecase.CerrarJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.ConsultarHistorialJornadasUseCase;
+import com.agustinpalma.comandas.application.usecase.ConsultarPedidoCerradoUseCase;
+import com.agustinpalma.comandas.application.usecase.CorregirPedidoCerradoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarCategoriasUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
@@ -30,6 +34,7 @@ import com.agustinpalma.comandas.application.usecase.CrearPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarPromocionUseCase;
 import com.agustinpalma.comandas.domain.repository.CategoriaRepository;
+import com.agustinpalma.comandas.domain.repository.JornadaCajaRepository;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.MovimientoCajaRepository;
 import com.agustinpalma.comandas.domain.repository.MovimientoStockRepository;
@@ -415,9 +420,71 @@ public class ApplicationConfig {
     @Bean
     public GenerarReporteCajaUseCase generarReporteCajaUseCase(
             PedidoRepository pedidoRepository,
-            MovimientoCajaRepository movimientoCajaRepository
+            MovimientoCajaRepository movimientoCajaRepository,
+            MesaRepository mesaRepository
     ) {
-        return new GenerarReporteCajaUseCase(pedidoRepository, movimientoCajaRepository);
+        return new GenerarReporteCajaUseCase(pedidoRepository, movimientoCajaRepository, mesaRepository);
+    }
+
+    /**
+     * Bean del caso de uso para cerrar la jornada de caja.
+     * Valida mesas abiertas, calcula snapshot contable y persiste el cierre.
+     * 
+     * @param mesaRepository para validar que no hay mesas abiertas
+     * @param pedidoRepository para calcular ventas del día
+     * @param movimientoCajaRepository para calcular egresos del día
+     * @param jornadaCajaRepository para persistir la jornada cerrada
+     * @param clock reloj del sistema para fecha de cierre
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public CerrarJornadaUseCase cerrarJornadaUseCase(
+            MesaRepository mesaRepository,
+            PedidoRepository pedidoRepository,
+            MovimientoCajaRepository movimientoCajaRepository,
+            JornadaCajaRepository jornadaCajaRepository,
+            Clock clock
+    ) {
+        return new CerrarJornadaUseCase(
+            mesaRepository, pedidoRepository, movimientoCajaRepository,
+            jornadaCajaRepository, clock
+        );
+    }
+
+    /**
+     * Bean del caso de uso para consultar detalle de pedido cerrado (corrección de caja).
+     * Usado por el modal de corrección para obtener ítems y pagos editables.
+     */
+    @Bean
+    public ConsultarPedidoCerradoUseCase consultarPedidoCerradoUseCase(
+            PedidoRepository pedidoRepository,
+            MesaRepository mesaRepository
+    ) {
+        return new ConsultarPedidoCerradoUseCase(pedidoRepository, mesaRepository);
+    }
+
+    /**
+     * Bean del caso de uso para corregir un pedido cerrado sin reabrir la mesa.
+     * Alternativa segura a la reapertura para correcciones operativas.
+     */
+    @Bean
+    public CorregirPedidoCerradoUseCase corregirPedidoCerradoUseCase(
+            PedidoRepository pedidoRepository,
+            MesaRepository mesaRepository,
+            Clock clock
+    ) {
+        return new CorregirPedidoCerradoUseCase(pedidoRepository, mesaRepository, clock);
+    }
+
+    /**
+     * Bean del caso de uso para consultar historial de jornadas cerradas.
+     * Permite ver cierres de caja pasados filtrados por rango de fechas.
+     */
+    @Bean
+    public ConsultarHistorialJornadasUseCase consultarHistorialJornadasUseCase(
+            JornadaCajaRepository jornadaCajaRepository
+    ) {
+        return new ConsultarHistorialJornadasUseCase(jornadaCajaRepository);
     }
 
     // ============================================
