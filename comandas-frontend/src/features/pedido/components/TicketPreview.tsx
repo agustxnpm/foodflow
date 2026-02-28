@@ -117,13 +117,13 @@ export default function TicketPreview({ ticket }: TicketPreviewProps) {
       {items.map((item: ItemTicket, idx: number) => (
         <div key={idx}>
           {/* Línea principal del ítem */}
-          <div className="flex justify-between py-0.5">
-            <span className="w-6 text-right tabular-nums">{item.cantidad}</span>
-            <span className="flex-1 ml-2 truncate">{item.descripcion}</span>
-            <span className="w-16 text-right tabular-nums">
+          <div className="flex py-0.5">
+            <span className="w-6 text-right tabular-nums shrink-0">{item.cantidad}</span>
+            <span className="flex-1 ml-2 break-words">{item.descripcion}</span>
+            <span className="w-16 text-right tabular-nums shrink-0">
               {formatMoney(item.precioUnitario)}
             </span>
-            <span className="w-16 text-right tabular-nums font-semibold">
+            <span className="w-16 text-right tabular-nums font-semibold shrink-0">
               {formatMoney(item.importe)}
             </span>
           </div>
@@ -132,10 +132,10 @@ export default function TicketPreview({ ticket }: TicketPreviewProps) {
             <div className="pl-8 space-y-0">
               {item.extras.map((extra: ExtraTicket, eidx: number) => (
                 <div key={eidx} className="flex justify-between text-[10px] text-neutral-500">
-                  <span className="flex-1 truncate">
+                  <span className="flex-1 break-words">
                     + {extra.cantidad > 1 ? `${extra.cantidad}x ` : ''}{extra.nombre}
                   </span>
-                  <span className="w-16 text-right tabular-nums">
+                  <span className="w-16 text-right tabular-nums shrink-0">
                     {formatMoney(extra.subtotal)}
                   </span>
                 </div>
