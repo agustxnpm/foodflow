@@ -19,7 +19,7 @@ import java.time.ZoneId;
  * En tests, este bean puede ser sobrescrito con Clock.fixed() para determinismo.
  */
 @Configuration
-@Profile("!test")
+@Profile("!test & !dev")
 public class ClockConfig {
 
     /**

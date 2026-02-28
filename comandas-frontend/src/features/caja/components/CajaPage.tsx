@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useSyncExternalStore } from 'react';
 import { DollarSign, Calendar, History } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -10,6 +10,7 @@ import {
 import { MesasAbiertasError, JornadaYaCerradaError } from '../types';
 import type { PagoDetalle } from '../types';
 import useToast from '../../../hooks/useToast';
+import { getDevDateOverride, subscribeDevDate } from '../../../lib/devClock';
 
 import PanelResumenCaja from './PanelResumenCaja';
 import DesglosePagos from './DesglosePagos';
@@ -20,15 +21,39 @@ import ListaMovimientosDia from './ListaMovimientosDia';
 import EgresoModal from './EgresoModal';
 import AlertaMesasAbiertas from './AlertaMesasAbiertas';
 import CorregirPedidoModal from './CorregirPedidoModal';
+import ConfirmarCierreModal from './ConfirmarCierreModal';
 
 // ─── Utilidad ─────────────────────────────────────────────────────────────────
 
-function fechaHoy(): string {
-  const hoy = new Date();
-  const yyyy = hoy.getFullYear();
-  const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-  const dd = String(hoy.getDate()).padStart(2, '0');
+/**
+ * Hora de corte para determinar la fecha operativa.
+ * Espejo exacto de JornadaCaja.HORA_CORTE_JORNADA del backend.
+ *
+ * Si la hora actual es ANTES de las 06:00, la fecha operativa
+ * es el día anterior (turno noche: el local sigue operando).
+ */
+const HORA_CORTE = 6;
+
+function fechaOperativaDesde(date: Date): string {
+  const ajustada = date.getHours() < HORA_CORTE
+    ? new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1)
+    : date;
+  const yyyy = ajustada.getFullYear();
+  const mm = String(ajustada.getMonth() + 1).padStart(2, '0');
+  const dd = String(ajustada.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Hook que retorna la fecha operativa actual.
+ * En dev con time-travel activo, usa la fecha del backend override.
+ * En producción, aplica la lógica de hora de corte (06:00)
+ * para que a las 01:00 AM siga mostrando los datos del día anterior.
+ */
+function useFechaOperativa(): string {
+  const devDate = useSyncExternalStore(subscribeDevDate, getDevDateOverride);
+  const realDate = useMemo(() => fechaOperativaDesde(new Date()), []);
+  return devDate ?? realDate;
 }
 
 function formatFechaLegible(fecha: string): string {
@@ -58,7 +83,7 @@ function formatFechaLegible(fecha: string): string {
  */
 export default function CajaPage() {
   const toast = useToast();
-  const hoy = useMemo(() => fechaHoy(), []);
+  const hoy = useFechaOperativa();
 
   // ── Hooks de datos ──
   const { data: reporte, isLoading: cargandoReporte } = useReporteCaja(hoy);
@@ -67,7 +92,8 @@ export default function CajaPage() {
 
   // ── Estado local de UI ──
   const [egresoModalAbierto, setEgresoModalAbierto] = useState(false);
-  const [jornadaCerrada, setJornadaCerrada] = useState(false);
+  const [confirmarCierreAbierto, setConfirmarCierreAbierto] = useState(false);
+  const jornadaCerrada = reporte?.jornadaCerrada ?? false;
   const [alertaMesas, setAlertaMesas] = useState<{
     mensaje: string;
     mesasAbiertas?: number;
@@ -90,21 +116,25 @@ export default function CajaPage() {
   };
 
   const handleCerrarJornada = () => {
+    setConfirmarCierreAbierto(true);
+  };
+
+  const handleConfirmarCierre = () => {
     cerrarJornada.mutate(undefined, {
       onSuccess: () => {
-        setJornadaCerrada(true);
+        setConfirmarCierreAbierto(false);
         setPagoDetalle(null);
         setPedidoACorregir(null);
         toast.success('Jornada cerrada exitosamente. Los datos quedan registrados.');
       },
       onError: (error) => {
+        setConfirmarCierreAbierto(false);
         if (error instanceof MesasAbiertasError) {
           setAlertaMesas({
             mensaje: error.message,
             mesasAbiertas: error.mesasAbiertas,
           });
         } else if (error instanceof JornadaYaCerradaError) {
-          setJornadaCerrada(true);
           toast.info(error.message);
         } else {
           toast.error('Error inesperado al cerrar la jornada');
@@ -281,6 +311,14 @@ export default function CajaPage() {
           pedidoId={pedidoACorregir}
           onClose={() => setPedidoACorregir(null)}
           onCorreccionExitosa={handleCorreccionExitosa}
+        />
+      )}
+
+      {confirmarCierreAbierto && (
+        <ConfirmarCierreModal
+          onConfirmar={handleConfirmarCierre}
+          onCancelar={() => setConfirmarCierreAbierto(false)}
+          isPending={cerrarJornada.isPending}
         />
       )}
     </section>

@@ -138,6 +138,8 @@ export interface ReporteCajaResponse {
   ventas: VentaResumen[];
   /** Lista plana de pagos individuales con contexto pedido/mesa */
   pagosDetalle: PagoDetalle[];
+  /** Indica si la jornada ya fue cerrada para la fecha consultada */
+  jornadaCerrada: boolean;
 }
 
 // ─── Detalle de Pedido Cerrado (Corrección) ──────────────────────────────────

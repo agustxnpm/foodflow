@@ -415,15 +415,18 @@ public class ApplicationConfig {
      * 
      * @param pedidoRepository implementación del repositorio de pedidos
      * @param movimientoCajaRepository implementación del repositorio de movimientos
+     * @param mesaRepository implementación del repositorio de mesas
+     * @param jornadaCajaRepository implementación del repositorio de jornadas (para verificar cierre)
      * @return instancia del caso de uso lista para usar
      */
     @Bean
     public GenerarReporteCajaUseCase generarReporteCajaUseCase(
             PedidoRepository pedidoRepository,
             MovimientoCajaRepository movimientoCajaRepository,
-            MesaRepository mesaRepository
+            MesaRepository mesaRepository,
+            JornadaCajaRepository jornadaCajaRepository
     ) {
-        return new GenerarReporteCajaUseCase(pedidoRepository, movimientoCajaRepository, mesaRepository);
+        return new GenerarReporteCajaUseCase(pedidoRepository, movimientoCajaRepository, mesaRepository, jornadaCajaRepository);
     }
 
     /**

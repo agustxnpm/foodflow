@@ -103,6 +103,7 @@ export function useReporteCaja(fecha: string, fondoInicial = 0) {
     queryKey: cajaKeys.reporte(fecha),
     queryFn: () => cajaApi.obtenerReporte(fecha),
     enabled: !!fecha,
+    refetchInterval: 30_000, // Polling cada 30s — mantiene UI sincronizada sin F5 (Tauri)
     select: (data): ReporteCajaDerivado => ({
       ...data,
       // balanceEfectivo del backend = EFECTIVO − totalEgresos
@@ -210,6 +211,7 @@ export function useCerrarJornada() {
     onSuccess: () => {
       // Refrescar dominios afectados por el cierre
       queryClient.invalidateQueries({ queryKey: cajaKeys.all, exact: false });
+      queryClient.invalidateQueries({ queryKey: ['jornadas-caja'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
     },
     onError: (error) => {

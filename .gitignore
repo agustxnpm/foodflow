@@ -1,4 +1,5 @@
 .vscode
 
-# JRE embebido generado por jlink (solo se genera en CI)
-comandas-frontend/src-tauri/jre/
+# JRE embebido generado por jlink (se genera en build de producción)
+comandas-frontend/src-tauri/jre/*
+!comandas-frontend/src-tauri/jre/.gitkeep

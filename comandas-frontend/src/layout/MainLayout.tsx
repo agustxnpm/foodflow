@@ -1,6 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { LayoutGrid, DollarSign, Coffee } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { lazy, Suspense } from 'react';
+
+// Panel de time-travel: solo se carga en desarrollo (code-split)
+const DevTimeTravelPanel = import.meta.env.DEV
+  ? lazy(() => import('../components/dev/DevTimeTravelPanel'))
+  : null;
 
 /**
  * Ítem de navegación del dashboard
@@ -75,6 +81,13 @@ export default function MainLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
+
+      {/* ── Panel de Time-Travel (solo dev) ── */}
+      {DevTimeTravelPanel && (
+        <Suspense fallback={null}>
+          <DevTimeTravelPanel />
+        </Suspense>
+      )}
     </div>
   );
 }

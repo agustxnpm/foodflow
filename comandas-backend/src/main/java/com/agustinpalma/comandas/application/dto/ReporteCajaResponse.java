@@ -23,6 +23,7 @@ import java.util.Map;
  * @param movimientos lista de movimientos de caja del día (egresos)
  * @param ventas lista de pedidos cerrados del día (historial de ventas)
  * @param pagosDetalle lista plana de pagos individuales con contexto del pedido/mesa
+ * @param jornadaCerrada indica si ya existe una jornada cerrada para la fecha consultada
  */
 public record ReporteCajaResponse(
     BigDecimal totalVentasReales,
@@ -32,7 +33,8 @@ public record ReporteCajaResponse(
     Map<MedioPago, BigDecimal> desglosePorMedioPago,
     List<MovimientoResumen> movimientos,
     List<VentaResumen> ventas,
-    List<PagoDetalle> pagosDetalle
+    List<PagoDetalle> pagosDetalle,
+    boolean jornadaCerrada
 ) {
 
     /**
@@ -94,9 +96,11 @@ public record ReporteCajaResponse(
      *
      * @param reporte reporte de caja diario del dominio
      * @param mesaNumeros mapa MesaId (string) → número de mesa
+     * @param jornadaCerrada indica si ya existe una jornada cerrada para la fecha consultada
      * @return DTO de respuesta
      */
-    public static ReporteCajaResponse fromDomain(ReporteCajaDiario reporte, Map<String, Integer> mesaNumeros) {
+    public static ReporteCajaResponse fromDomain(ReporteCajaDiario reporte, Map<String, Integer> mesaNumeros,
+                                                  boolean jornadaCerrada) {
         List<MovimientoResumen> movimientos = reporte.getListaMovimientos().stream()
             .map(MovimientoResumen::fromDomain)
             .toList();
@@ -130,7 +134,8 @@ public record ReporteCajaResponse(
             reporte.getDesglosePorMedioPago(),
             movimientos,
             ventas,
-            pagosDetalle
+            pagosDetalle,
+            jornadaCerrada
         );
     }
 

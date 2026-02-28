@@ -1,0 +1,22 @@
+# ============================================================
+# FOODFLOW - PERFIL DEV (DESARROLLO CON TIME-TRAVEL)
+# ============================================================
+#
+# Hereda toda la configuración del application.yaml (PostgreSQL).
+# Agrega el mecanismo de time-travel para pruebas de usabilidad.
+#
+# ACTIVACIÓN:
+#   ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+#
+# O con variable de entorno:
+#   SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
+#
+# ENDPOINTS ADICIONALES:
+#   GET    /api/dev/clock              → Ver hora actual del sistema
+#   POST   /api/dev/clock              → Fijar hora específica
+#   POST   /api/dev/clock/advance      → Avanzar N horas
+#   DELETE /api/dev/clock              → Volver a tiempo real
+# ============================================================
+
+# No necesita configuración adicional — hereda todo del default.
+# Este archivo existe solo para documentar el profile.

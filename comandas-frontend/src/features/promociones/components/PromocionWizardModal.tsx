@@ -1007,6 +1007,7 @@ export default function PromocionWizardModal({ promocion, onClose }: PromocionWi
                   focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30"
               />
             </div>
+            <p className="col-span-2 text-[10px] text-gray-600 italic">Presiona Esc para cerrar el calendario</p>
           </div>
         )}
       </div>

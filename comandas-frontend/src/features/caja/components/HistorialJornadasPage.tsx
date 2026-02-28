@@ -60,16 +60,28 @@ function formatMonto(monto: number): string {
   }).format(monto);
 }
 
-/** Obtiene la fecha ISO de hace N días */
-function haceDias(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
+/**
+ * Hora de corte para determinar la fecha operativa.
+ * Espejo exacto de JornadaCaja.HORA_CORTE_JORNADA del backend.
+ * Antes de las 06:00, la fecha operativa es el día anterior.
+ */
+const HORA_CORTE = 6;
+
+/** Fecha operativa de hoy (respeta hora de corte 06:00) */
+function hoy(): string {
+  const now = new Date();
+  const ajustada = now.getHours() < HORA_CORTE
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)
+    : now;
+  return ajustada.toISOString().split('T')[0];
 }
 
-/** Fecha de hoy ISO */
-function hoy(): string {
-  return new Date().toISOString().split('T')[0];
+/** Obtiene la fecha operativa de hace N días */
+function haceDias(n: number): string {
+  const base = hoy();
+  const d = new Date(base + 'T12:00:00');
+  d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
 }
 
 // ─── Rangos predefinidos ──────────────────────────────────────────────────────
@@ -521,6 +533,7 @@ export default function HistorialJornadasPage() {
                 className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-gray-300 font-mono focus:outline-none focus:ring-1 focus:ring-red-500/50 focus:border-red-500/50"
               />
             </div>
+            <span className="text-[10px] text-gray-600 italic">Presiona Esc para cerrar el calendario</span>
             {jornadas && (
               <span className="text-[11px] text-gray-500 ml-auto">
                 {jornadas.length} {jornadas.length === 1 ? 'jornada' : 'jornadas'} encontradas

@@ -11,6 +11,7 @@ import com.agustinpalma.comandas.domain.model.ReporteCajaDiario;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
 import com.agustinpalma.comandas.domain.repository.MovimientoCajaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
+import com.agustinpalma.comandas.domain.repository.JornadaCajaRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -47,16 +48,20 @@ public class GenerarReporteCajaUseCase {
     private final PedidoRepository pedidoRepository;
     private final MovimientoCajaRepository movimientoCajaRepository;
     private final MesaRepository mesaRepository;
+    private final JornadaCajaRepository jornadaCajaRepository;
 
     public GenerarReporteCajaUseCase(PedidoRepository pedidoRepository,
                                      MovimientoCajaRepository movimientoCajaRepository,
-                                     MesaRepository mesaRepository) {
+                                     MesaRepository mesaRepository,
+                                     JornadaCajaRepository jornadaCajaRepository) {
         this.pedidoRepository = Objects.requireNonNull(pedidoRepository, 
             "El pedidoRepository es obligatorio");
         this.movimientoCajaRepository = Objects.requireNonNull(movimientoCajaRepository, 
             "El movimientoCajaRepository es obligatorio");
         this.mesaRepository = Objects.requireNonNull(mesaRepository,
             "El mesaRepository es obligatorio");
+        this.jornadaCajaRepository = Objects.requireNonNull(jornadaCajaRepository,
+            "El jornadaCajaRepository es obligatorio");
     }
 
     /**
@@ -91,7 +96,10 @@ public class GenerarReporteCajaUseCase {
         // 5. Calcular el reporte
         ReporteCajaDiario reporte = calcularReporte(pedidosCerrados, movimientos);
 
-        return ReporteCajaResponse.fromDomain(reporte, mesaNumeros);
+        // 6. Verificar si la jornada ya fue cerrada para esta fecha operativa
+        boolean jornadaCerrada = jornadaCajaRepository.existePorFechaOperativa(localId, fechaReporte);
+
+        return ReporteCajaResponse.fromDomain(reporte, mesaNumeros, jornadaCerrada);
     }
 
     /**
