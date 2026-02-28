@@ -12,7 +12,9 @@ public record CategoriaResponse(
     String colorHex,
     boolean admiteVariantes,
     boolean esCategoriaExtra,
-    int orden
+    int orden,
+    /** ID de la categoría de modificadores asociada (nullable). */
+    String categoriaModificadoresId
 ) {
 
     /**
@@ -25,7 +27,10 @@ public record CategoriaResponse(
             categoria.getColorHex(),
             categoria.isAdmiteVariantes(),
             categoria.isEsCategoriaExtra(),
-            categoria.getOrden()
+            categoria.getOrden(),
+            categoria.getCategoriaModificadoresId() != null
+                ? categoria.getCategoriaModificadoresId().getValue().toString()
+                : null
         );
     }
 }

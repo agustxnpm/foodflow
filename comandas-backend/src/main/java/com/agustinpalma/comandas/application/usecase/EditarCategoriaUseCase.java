@@ -7,6 +7,7 @@ import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.repository.CategoriaRepository;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Caso de uso para editar una categoría existente del catálogo.
@@ -67,6 +68,17 @@ public class EditarCategoriaUseCase {
         }
         if (request.orden() != null) {
             categoria.cambiarOrden(request.orden());
+        }
+
+        // categoriaModificadoresId: se puede setear a null (enviar string vacío) o a un UUID válido
+        if (request.categoriaModificadoresId() != null) {
+            if (request.categoriaModificadoresId().isBlank()) {
+                categoria.cambiarCategoriaModificadores(null);
+            } else {
+                categoria.cambiarCategoriaModificadores(
+                    new CategoriaId(UUID.fromString(request.categoriaModificadoresId()))
+                );
+            }
         }
 
         Categoria categoriaActualizada = categoriaRepository.guardar(categoria);

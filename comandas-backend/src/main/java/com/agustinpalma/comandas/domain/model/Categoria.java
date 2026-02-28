@@ -32,6 +32,13 @@ public class Categoria {
     private boolean admiteVariantes;
     private boolean esCategoriaExtra;
     private int orden;
+    /**
+     * Categoría de modificadores asociada (nullable).
+     * Cuando está presente, el POS muestra exclusivamente los productos
+     * de esa categoría como modificadores en lugar de los extras genéricos.
+     * Ej: "Panchos" → apunta a "Salsas para Panchos".
+     */
+    private CategoriaId categoriaModificadoresId;
 
     /**
      * Constructor completo.
@@ -43,6 +50,30 @@ public class Categoria {
      * @param admiteVariantes si los productos de esta categoría pueden tener variantes estructurales
      * @param esCategoriaExtra si los productos de esta categoría son extras
      * @param orden        posición visual en el frontend (0-based)
+     * @param categoriaModificadoresId categoría cuyos productos se muestran como modificadores (nullable)
+     */
+    public Categoria(
+            CategoriaId id,
+            LocalId localId,
+            String nombre,
+            String colorHex,
+            boolean admiteVariantes,
+            boolean esCategoriaExtra,
+            int orden,
+            CategoriaId categoriaModificadoresId
+    ) {
+        this.id = Objects.requireNonNull(id, "El id de la categoría no puede ser null");
+        this.localId = Objects.requireNonNull(localId, "El localId no puede ser null");
+        this.nombre = validarNombre(nombre);
+        this.colorHex = normalizarColor(colorHex);
+        this.admiteVariantes = admiteVariantes;
+        this.esCategoriaExtra = esCategoriaExtra;
+        this.orden = validarOrden(orden);
+        this.categoriaModificadoresId = categoriaModificadoresId;
+    }
+
+    /**
+     * Constructor de retrocompatibilidad (sin categoriaModificadoresId).
      */
     public Categoria(
             CategoriaId id,
@@ -53,13 +84,7 @@ public class Categoria {
             boolean esCategoriaExtra,
             int orden
     ) {
-        this.id = Objects.requireNonNull(id, "El id de la categoría no puede ser null");
-        this.localId = Objects.requireNonNull(localId, "El localId no puede ser null");
-        this.nombre = validarNombre(nombre);
-        this.colorHex = normalizarColor(colorHex);
-        this.admiteVariantes = admiteVariantes;
-        this.esCategoriaExtra = esCategoriaExtra;
-        this.orden = validarOrden(orden);
+        this(id, localId, nombre, colorHex, admiteVariantes, esCategoriaExtra, orden, null);
     }
 
     // ============================================
@@ -165,6 +190,18 @@ public class Categoria {
 
     public int getOrden() {
         return orden;
+    }
+
+    public CategoriaId getCategoriaModificadoresId() {
+        return categoriaModificadoresId;
+    }
+
+    /**
+     * Asocia una categoría de modificadores específicos a esta categoría.
+     * Si se pasa null, se elimina la asociación y se vuelve al comportamiento genérico.
+     */
+    public void cambiarCategoriaModificadores(CategoriaId categoriaModificadoresId) {
+        this.categoriaModificadoresId = categoriaModificadoresId;
     }
 
     // ============================================

@@ -48,8 +48,8 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
     }
 
     const precioNum = parseFloat(precio);
-    if (isNaN(precioNum) || precioNum <= 0) {
-      setError('El precio debe ser un número mayor a cero');
+    if (isNaN(precioNum) || precioNum < 0) {
+      setError('El precio debe ser un número mayor o igual a cero');
       return;
     }
 

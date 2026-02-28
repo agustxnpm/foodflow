@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
-import { X, Minus, Plus, MessageSquare, ChefHat, Loader2 } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { X, Minus, Plus, MessageSquare, ChefHat, Loader2, Check } from 'lucide-react';
 import type { ProductoResponse } from '../../catalogo/types';
-import { useExtras } from '../../catalogo/hooks/useProductos';
-import { useCategorias } from '../../categorias/hooks/useCategorias';
+import type { CategoriaResponse } from '../../categorias/types';
+import { useExtras, useModificadores } from '../../catalogo/hooks/useProductos';
 
 // ─── Límites operativos ───────────────────────────────────────────────────────
 
@@ -24,6 +24,12 @@ interface ConfigurarProductoModalProps {
    * Se propaga al payload sin transformaciones.
    */
   varianteId?: string;
+  /**
+   * Categorías del local (ya cargadas). Se usan para:
+   * 1. Resolver qué categorías son de extras (para useExtras genérico)
+   * 2. Detectar si la categoría del producto tiene categoriaModificadoresId
+   */
+  categorias?: CategoriaResponse[];
 }
 
 /** Payload que el modal devuelve al confirmar */
@@ -148,6 +154,64 @@ function ExtraRow({
   );
 }
 
+// ─── Sub-componente: Checkbox de Modificador (Salsas) ─────────────────────────
+
+function ModificadorCheckbox({
+  modificador,
+  seleccionado,
+  onToggle,
+}: {
+  modificador: ProductoResponse;
+  seleccionado: boolean;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(modificador.id)}
+      className={[
+        'flex items-center gap-3',
+        'w-full px-4 py-3.5 rounded-xl transition-all duration-150',
+        'active:scale-[0.98]',
+        seleccionado
+          ? 'bg-red-950/30 border-2 border-red-600/60'
+          : 'bg-neutral-800/50 border-2 border-transparent hover:border-neutral-700',
+      ].join(' ')}
+    >
+      {/* Checkbox visual */}
+      <div
+        className={[
+          'w-6 h-6 rounded-lg shrink-0',
+          'flex items-center justify-center',
+          'transition-all duration-150',
+          seleccionado
+            ? 'bg-red-600 border-red-500'
+            : 'bg-neutral-700 border border-neutral-600',
+        ].join(' ')}
+      >
+        {seleccionado && <Check size={14} strokeWidth={3} className="text-white" />}
+      </div>
+
+      {/* Nombre */}
+      <span
+        className={[
+          'text-sm font-medium truncate',
+          seleccionado ? 'text-gray-100' : 'text-gray-300',
+        ].join(' ')}
+      >
+        {modificador.nombre}
+      </span>
+
+      {/* Precio (si > 0) */}
+      {modificador.precio > 0 && (
+        <span className="ml-auto text-xs text-red-400 font-semibold font-mono tabular-nums shrink-0">
+          + $ {formatPrecio(modificador.precio)}
+        </span>
+      )}
+    </button>
+  );
+}
+
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 /**
@@ -171,6 +235,7 @@ export default function ConfigurarProductoModal({
   onCerrar,
   enviando = false,
   varianteId,
+  categorias = [],
 }: ConfigurarProductoModalProps) {
   // ── Estado local ──
   const [cantidadPrincipal, setCantidadPrincipal] = useState(1);
@@ -178,13 +243,36 @@ export default function ConfigurarProductoModal({
   /** Map<productoId, cantidad> para extras seleccionados */
   const [extrasSeleccionados, setExtrasSeleccionados] = useState<Record<string, number>>({});
 
+  // ── Resolver categoría de modificadores (si existe) ──
+  // Si la categoría del producto tiene categoriaModificadoresId → modo "modificadores específicos"
+  // Si no → modo "extras genéricos" (comportamiento original)
+  const categoriaDelProducto = useMemo(
+    () => categorias.find((c) => c.id === producto.categoriaId),
+    [categorias, producto.categoriaId]
+  );
+  const categoriaModificadoresId = categoriaDelProducto?.categoriaModificadoresId ?? null;
+
+  // Nombre de la categoría de modificadores para el título de la sección
+  const nombreCategoriaModificadores = useMemo(() => {
+    if (!categoriaModificadoresId) return null;
+    return categorias.find((c) => c.id === categoriaModificadoresId)?.nombre ?? 'Modificadores';
+  }, [categorias, categoriaModificadoresId]);
+
   // ── Datos: extras disponibles ──
   // Los extras solo se muestran si:
   // 1. El producto NO es un extra en sí mismo (un extra no puede tener sub-extras)
   // 2. El producto permite extras (permiteExtras !== false; undefined → default true)
   const mostrarExtras = !producto.esExtra && producto.permiteExtras !== false;
-  const { data: categorias = [] } = useCategorias();
-  const { data: todosExtras = [], isLoading: cargandoExtras } = useExtras(categorias);
+
+  // Extras genéricos (se cargan SOLO si NO hay categoría de modificadores)
+  const { data: todosExtras = [], isLoading: cargandoExtras } = useExtras(
+    categoriaModificadoresId ? [] : categorias
+  );
+
+  // Modificadores específicos (se cargan SOLO si HAY categoría de modificadores)
+  const { data: modificadores = [], isLoading: cargandoModificadores } = useModificadores(
+    categoriaModificadoresId
+  );
 
   // Si el producto no puede recibir disco extra (no está en variante máxima),
   // excluimos los extras que son modificadores estructurales (ej: disco de carne).
@@ -203,6 +291,17 @@ export default function ConfigurarProductoModal({
       // Limitar cantidad máxima de cada extra
       const cantidadLimitada = Math.min(cantidad, MAX_CANTIDAD_EXTRA);
       return { ...prev, [extraId]: cantidadLimitada };
+    });
+  }, []);
+
+  /** Toggle on/off de un modificador (checkbox, cantidad siempre 1) */
+  const handleToggleModificador = useCallback((modificadorId: string) => {
+    setExtrasSeleccionados((prev) => {
+      if (prev[modificadorId]) {
+        const { [modificadorId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [modificadorId]: 1 };
     });
   }, []);
 
@@ -318,8 +417,47 @@ export default function ConfigurarProductoModal({
               />
             </section>
 
-            {/* ── Sección 2: Extras / Agregados ── */}
-            {mostrarExtras ? (
+            {/* ── Sección 2: Modificadores específicos ó Extras genéricos ── */}
+            {mostrarExtras && categoriaModificadoresId ? (
+            /* ── Modo MODIFICADORES (checkboxes, ej: Salsas para Panchos) ── */
+            <section>
+              <div className="flex items-center gap-2 mb-2.5">
+                <ChefHat size={16} className="text-gray-500" />
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                  {nombreCategoriaModificadores}
+                </h3>
+                {hayExtrasSeleccionados && (
+                  <span className="ml-auto text-[10px] font-semibold text-red-400 uppercase tracking-wider">
+                    {Object.keys(extrasSeleccionados).length} seleccionados
+                  </span>
+                )}
+              </div>
+
+              {cargandoModificadores ? (
+                <div className="flex items-center justify-center py-8 gap-2">
+                  <Loader2 size={18} className="text-gray-600 animate-spin" />
+                  <span className="text-sm text-gray-600">Cargando {nombreCategoriaModificadores?.toLowerCase()}...</span>
+                </div>
+              ) : modificadores.length === 0 ? (
+                <p className="text-sm text-gray-600 text-center py-6">
+                  No hay {nombreCategoriaModificadores?.toLowerCase()} disponibles
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1">
+                  {modificadores.map((mod) => (
+                    <ModificadorCheckbox
+                      key={mod.id}
+                      modificador={mod}
+                      seleccionado={!!extrasSeleccionados[mod.id]}
+                      onToggle={handleToggleModificador}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            ) : mostrarExtras ? (
+            /* ── Modo EXTRAS genéricos (contadores, comportamiento original) ── */
             <section>
               <div className="flex items-center gap-2 mb-2.5">
                 <ChefHat size={16} className="text-gray-500" />

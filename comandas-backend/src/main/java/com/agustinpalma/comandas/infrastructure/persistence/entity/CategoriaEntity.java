@@ -33,12 +33,16 @@ public class CategoriaEntity {
     @Column(name = "orden", nullable = false)
     private int orden = 0;
 
+    @Column(name = "categoria_modificadores_id")
+    private UUID categoriaModificadoresId;
+
     // Constructor vacío para JPA
     public CategoriaEntity() {}
 
     // Constructor con parámetros
     public CategoriaEntity(UUID id, UUID localId, String nombre, String colorHex,
-                           boolean admiteVariantes, boolean esCategoriaExtra, int orden) {
+                           boolean admiteVariantes, boolean esCategoriaExtra, int orden,
+                           UUID categoriaModificadoresId) {
         this.id = id;
         this.localId = localId;
         this.nombre = nombre;
@@ -46,6 +50,13 @@ public class CategoriaEntity {
         this.admiteVariantes = admiteVariantes;
         this.esCategoriaExtra = esCategoriaExtra;
         this.orden = orden;
+        this.categoriaModificadoresId = categoriaModificadoresId;
+    }
+
+    /** Constructor de retrocompatibilidad (sin categoriaModificadoresId). */
+    public CategoriaEntity(UUID id, UUID localId, String nombre, String colorHex,
+                           boolean admiteVariantes, boolean esCategoriaExtra, int orden) {
+        this(id, localId, nombre, colorHex, admiteVariantes, esCategoriaExtra, orden, null);
     }
 
     // Getters y setters
@@ -104,5 +115,13 @@ public class CategoriaEntity {
 
     public void setOrden(int orden) {
         this.orden = orden;
+    }
+
+    public UUID getCategoriaModificadoresId() {
+        return categoriaModificadoresId;
+    }
+
+    public void setCategoriaModificadoresId(UUID categoriaModificadoresId) {
+        this.categoriaModificadoresId = categoriaModificadoresId;
     }
 }

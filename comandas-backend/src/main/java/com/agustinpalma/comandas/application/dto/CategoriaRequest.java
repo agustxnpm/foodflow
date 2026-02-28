@@ -18,6 +18,9 @@ public record CategoriaRequest(
 
     Boolean esCategoriaExtra,  // Opcional, default false en creación
 
-    Integer orden  // Opcional, default 0 en creación
+    Integer orden,  // Opcional, default 0 en creación
+
+    /** UUID de la categoría de modificadores asociada. Nullable. */
+    String categoriaModificadoresId
 ) {
 }

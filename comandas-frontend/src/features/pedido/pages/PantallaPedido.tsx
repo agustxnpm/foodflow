@@ -435,6 +435,7 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
           }}
           enviando={agregarProducto.isPending}
           varianteId={varianteSeleccionadaId}
+          categorias={categorias}
         />
       )}
 

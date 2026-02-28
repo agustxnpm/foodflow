@@ -54,6 +54,33 @@ export function useExtras(categorias: import('../../categorias/types').Categoria
 }
 
 /**
+ * Lista productos activos de una categoría de modificadores específica.
+ *
+ * Se usa cuando una categoría de productos tiene `categoriaModificadoresId` definido
+ * (ej: "Panchos" → apunta a "Salsas para Panchos"). En ese caso, el modal de
+ * configuración muestra exclusivamente los productos de esa categoría como
+ * checkboxes seleccionables, en lugar de los extras genéricos.
+ *
+ * Los productos de esta categoría se tratan como extras en el dominio:
+ * deben tener `esExtra = true` y se agregan al pedido vía `extrasIds`.
+ *
+ * queryKey: ['productos', 'modificadores', categoriaId]
+ *
+ * @param categoriaModificadoresId UUID de la categoría de modificadores (nullable)
+ */
+export function useModificadores(categoriaModificadoresId?: string | null) {
+  return useQuery<ProductoResponse[]>({
+    queryKey: ['productos', 'modificadores', categoriaModificadoresId],
+    queryFn: async () => {
+      const { data } = await productosApi.listar(categoriaModificadoresId, true);
+      return data.filter((p) => p.activo);
+    },
+    enabled: !!categoriaModificadoresId,
+    refetchInterval: 60_000,
+  });
+}
+
+/**
  * Consulta un producto individual por ID.
  * Habilitado solo cuando el ID está definido.
  * Polling cada 60s para capturar cambios de precio o promos.

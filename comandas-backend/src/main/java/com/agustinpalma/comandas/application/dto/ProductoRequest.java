@@ -16,7 +16,7 @@ public record ProductoRequest(
     String nombre,
     
     @NotNull(message = "El precio es obligatorio")
-    @DecimalMin(value = "0.01", message = "El precio debe ser mayor a cero")
+    @DecimalMin(value = "0.0", inclusive = true, message = "El precio no puede ser negativo")
     BigDecimal precio,
     
     Boolean activo,  // Opcional, si es null se asume true en creación

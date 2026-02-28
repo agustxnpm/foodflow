@@ -52,6 +52,8 @@ interface FormState {
   colorHex: string;
   admiteVariantes: boolean;
   esCategoriaExtra: boolean;
+  /** ID de la categoría cuyos productos se muestran como modificadores (ej: salsas) */
+  categoriaModificadoresId: string;
 }
 
 const FORM_VACIO: FormState = {
@@ -59,6 +61,7 @@ const FORM_VACIO: FormState = {
   colorHex: '',
   admiteVariantes: false,
   esCategoriaExtra: false,
+  categoriaModificadoresId: '',
 };
 
 // ─── Componente ────────────────────────────────────────────────────────────────
@@ -109,6 +112,7 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
       colorHex: cat.colorHex,
       admiteVariantes: cat.admiteVariantes,
       esCategoriaExtra: cat.esCategoriaExtra,
+      categoriaModificadoresId: cat.categoriaModificadoresId ?? '',
     });
     setError(null);
     setModo('editar');
@@ -156,6 +160,7 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
           colorHex: form.colorHex,
           admiteVariantes: form.admiteVariantes,
           esCategoriaExtra: form.esCategoriaExtra,
+          categoriaModificadoresId: form.categoriaModificadoresId || null,
         });
       } else if (modo === 'editar' && editandoId) {
         await editarCategoriaMutation.mutateAsync({
@@ -164,6 +169,7 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
           colorHex: form.colorHex,
           admiteVariantes: form.admiteVariantes,
           esCategoriaExtra: form.esCategoriaExtra,
+          categoriaModificadoresId: form.categoriaModificadoresId || null,
         });
       }
       cancelarFormulario();
@@ -352,6 +358,40 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
         <span className="text-xs text-text-secondary">(simple, doble, triple, etc.)</span>
       </label>
 
+      {/* Categoría de Modificadores */}
+      {!form.esCategoriaExtra && (() => {
+        // Solo mostrar categorías que sean extras como opciones posibles
+        const categoriasExtra = categorias.filter(
+          (c) => c.esCategoriaExtra && c.id !== editandoId
+        );
+        if (categoriasExtra.length === 0) return null;
+        return (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm text-text-secondary">
+              Categoría de modificadores
+            </label>
+            <select
+              value={form.categoriaModificadoresId}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, categoriaModificadoresId: e.target.value }))
+              }
+              className="min-h-[48px] px-4 bg-background-card border border-gray-700 rounded-lg text-text-primary focus:border-primary focus:outline-none appearance-none cursor-pointer"
+            >
+              <option value="">— Sin modificadores —</option>
+              {categoriasExtra.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-gray-600 leading-tight">
+              Al configurar un producto de esta categoría, el POS mostrará los productos
+              de la categoría seleccionada como opciones (ej: salsas para panchos).
+            </p>
+          </div>
+        );
+      })()}
+
       {/* Error */}
       {error && (
         <p className="text-sm text-red-500 flex items-center gap-2">
@@ -402,6 +442,11 @@ export default function CategoriasModal({ onClose }: CategoriasModalProps) {
                 )}
                 {cat.admiteVariantes && (
                   <span className="text-blue-400/70">Variantes</span>
+                )}
+                {cat.categoriaModificadoresId && (
+                  <span className="text-emerald-400/70">
+                    Modif: {categorias.find((c) => c.id === cat.categoriaModificadoresId)?.nombre ?? '?'}
+                  </span>
                 )}
                 <span className="font-mono">{cat.colorHex}</span>
               </p>

@@ -27,7 +27,10 @@ public class CategoriaMapper {
             entity.getColorHex(),
             entity.isAdmiteVariantes(),
             entity.isEsCategoriaExtra(),
-            entity.getOrden()
+            entity.getOrden(),
+            entity.getCategoriaModificadoresId() != null
+                ? new CategoriaId(entity.getCategoriaModificadoresId())
+                : null
         );
     }
 
@@ -45,7 +48,10 @@ public class CategoriaMapper {
             domain.getColorHex(),
             domain.isAdmiteVariantes(),
             domain.isEsCategoriaExtra(),
-            domain.getOrden()
+            domain.getOrden(),
+            domain.getCategoriaModificadoresId() != null
+                ? domain.getCategoriaModificadoresId().getValue()
+                : null
         );
     }
 }

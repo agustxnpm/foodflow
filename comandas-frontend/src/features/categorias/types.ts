@@ -25,6 +25,13 @@ export interface CategoriaResponse {
   esCategoriaExtra: boolean;
   /** Posición en la lista (0-based). Define el orden visual */
   orden: number;
+  /**
+   * UUID de la categoría de modificadores asociada (nullable).
+   * Cuando está presente, el modal de configuración muestra exclusivamente
+   * los productos de esa categoría como modificadores (ej: salsas para panchos).
+   * Si es null, se muestran los extras genéricos.
+   */
+  categoriaModificadoresId?: string | null;
 }
 
 // ─── Request ──────────────────────────────────────────────────────────────────
@@ -39,4 +46,6 @@ export interface CategoriaRequest {
   admiteVariantes?: boolean;
   esCategoriaExtra?: boolean;
   orden?: number;
+  /** UUID de la categoría de modificadores asociada. Nullable. */
+  categoriaModificadoresId?: string | null;
 }

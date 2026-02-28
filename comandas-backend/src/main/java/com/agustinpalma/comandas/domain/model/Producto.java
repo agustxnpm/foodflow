@@ -120,8 +120,8 @@ public class Producto {
         if (precio == null) {
             throw new IllegalArgumentException("El precio no puede ser null");
         }
-        if (precio.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("El precio debe ser mayor a cero");
+        if (precio.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El precio no puede ser negativo");
         }
         return precio;
     }

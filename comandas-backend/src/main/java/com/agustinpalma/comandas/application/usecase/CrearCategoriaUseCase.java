@@ -7,6 +7,7 @@ import com.agustinpalma.comandas.domain.model.DomainIds.CategoriaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.repository.CategoriaRepository;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Caso de uso para crear una nueva categoría en el catálogo del local.
@@ -49,6 +50,12 @@ public class CrearCategoriaUseCase {
         boolean esCategoriaExtra = request.esCategoriaExtra() != null ? request.esCategoriaExtra() : false;
         int orden = request.orden() != null ? request.orden() : 0;
 
+        // Resolver categoriaModificadoresId (nullable)
+        CategoriaId categoriaModificadoresId = null;
+        if (request.categoriaModificadoresId() != null && !request.categoriaModificadoresId().isBlank()) {
+            categoriaModificadoresId = new CategoriaId(UUID.fromString(request.categoriaModificadoresId()));
+        }
+
         Categoria nuevaCategoria = new Categoria(
             nuevoId,
             localId,
@@ -56,7 +63,8 @@ public class CrearCategoriaUseCase {
             request.colorHex(),
             admiteVariantes,
             esCategoriaExtra,
-            orden
+            orden,
+            categoriaModificadoresId
         );
 
         Categoria categoriaGuardada = categoriaRepository.guardar(nuevaCategoria);
