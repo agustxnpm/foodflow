@@ -135,6 +135,18 @@ public class PedidoEntity {
     @Column(name = "monto_total_final", precision = 10, scale = 2)
     private BigDecimal montoTotalFinal;
 
+    // ============================================
+    // HU-29: Timestamp del último envío a cocina
+    // ============================================
+
+    /**
+     * Timestamp del último envío de comanda a cocina.
+     * Se usa para determinar qué ítems son "nuevos" en siguientes impresiones.
+     * Null si nunca se envió.
+     */
+    @Column(name = "ultimo_envio_cocina")
+    private LocalDateTime ultimoEnvioCocina;
+
     // Constructor vacío requerido por JPA
     protected PedidoEntity() {
     }
@@ -327,5 +339,17 @@ public class PedidoEntity {
     public void eliminarItem(ItemPedidoEntity item) {
         items.remove(item);
         item.setPedido(null);
+    }
+
+    // ============================================
+    // HU-29: Getter y Setter de ultimoEnvioCocina
+    // ============================================
+
+    public LocalDateTime getUltimoEnvioCocina() {
+        return ultimoEnvioCocina;
+    }
+
+    public void setUltimoEnvioCocina(LocalDateTime ultimoEnvioCocina) {
+        this.ultimoEnvioCocina = ultimoEnvioCocina;
     }
 }

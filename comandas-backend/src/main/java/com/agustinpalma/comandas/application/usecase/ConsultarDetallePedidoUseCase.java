@@ -111,7 +111,7 @@ public class ConsultarDetallePedidoUseCase {
     private DetallePedidoResponse mapearADetalle(Pedido pedido, int numeroMesa) {
         // AC1 - Mapear ítems con toda su información (incluyendo campos de escalado)
         List<ItemDetalleDTO> itemsDTO = pedido.getItems().stream()
-            .map(item -> mapearItem(item, pedido.getLocalId()))
+            .map(item -> mapearItem(item, pedido.getLocalId(), pedido))
             .toList();
 
         // Ajustes económicos explícitos desde el dominio — la narrativa del pedido.
@@ -164,9 +164,10 @@ public class ConsultarDetallePedidoUseCase {
      * 
      * @param item entidad de dominio ItemPedido
      * @param localId ID del local para consultar maxEstructural
+     * @param pedido el pedido padre (para calcular esNuevo respecto al último envío a cocina)
      * @return DTO con la información del ítem
      */
-    private ItemDetalleDTO mapearItem(ItemPedido item, LocalId localId) {
+    private ItemDetalleDTO mapearItem(ItemPedido item, LocalId localId, Pedido pedido) {
         // Descuentos explícitos del dominio: promo (snapshot) + manual (calculado desde VO).
         // No se infiere por resta subtotal - precioFinal.
         var subtotal = item.calcularSubtotalLinea();
@@ -206,7 +207,8 @@ public class ConsultarDetallePedidoUseCase {
             item.getNombrePromocion(),
             item.tienePromocion() || item.tieneDescuentoManual(),
             extrasDTO,
-            puedeAgregarDiscoExtra
+            puedeAgregarDiscoExtra,
+            pedido.esItemNuevo(item)
         );
     }
 }

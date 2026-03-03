@@ -70,13 +70,37 @@ export default function DevTimeTravelPanel() {
       setDevDateOverride(data.overrideActivo ? data.fechaOperativa : null);
     } catch {
       // El endpoint no existe → backend no corriendo con profile "dev"
+      // Silenciamos: el error 500 ya se logueó en apiClient, no es un bug.
       setAvailable(false);
       setDevDateOverride(null);
     }
   }, []);
 
+  // Probe inicial silencioso: verificar si el endpoint existe antes de renderizar.
+  // Usa fetch nativo para no pasar por el interceptor de apiClient que loguea
+  // errores 500 en consola (ruidoso cuando el profile "dev" no está activo).
   useEffect(() => {
-    fetchStatus();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/dev/clock', {
+          headers: { 'X-Local-Id': import.meta.env.VITE_LOCAL_ID || '' },
+        });
+        if (!cancelled && res.ok) {
+          // Endpoint existe → cargar estado completo vía apiClient
+          fetchStatus();
+        } else if (!cancelled) {
+          setAvailable(false);
+          setDevDateOverride(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setAvailable(false);
+          setDevDateOverride(null);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
   }, [fetchStatus]);
 
   useEffect(() => {

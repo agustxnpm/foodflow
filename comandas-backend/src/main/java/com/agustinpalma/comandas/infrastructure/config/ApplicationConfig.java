@@ -33,6 +33,8 @@ import com.agustinpalma.comandas.application.usecase.CambiarEstadoPromocionUseCa
 import com.agustinpalma.comandas.application.usecase.CrearPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EditarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarPromocionUseCase;
+import com.agustinpalma.comandas.application.usecase.EnviarComandaCocinaUseCase;
+import com.agustinpalma.comandas.application.usecase.GenerarTicketVentaUseCase;
 import com.agustinpalma.comandas.domain.repository.CategoriaRepository;
 import com.agustinpalma.comandas.domain.repository.JornadaCajaRepository;
 import com.agustinpalma.comandas.domain.repository.MesaRepository;
@@ -550,5 +552,30 @@ public class ApplicationConfig {
     @Bean
     public EliminarCategoriaUseCase eliminarCategoriaUseCase(CategoriaRepository categoriaRepository) {
         return new EliminarCategoriaUseCase(categoriaRepository);
+    }
+
+    /**
+     * HU-29: Bean del caso de uso para enviar comanda a cocina.
+     * Genera el buffer ESC/POS y marca el pedido como enviado.
+     */
+    @Bean
+    public EnviarComandaCocinaUseCase enviarComandaCocinaUseCase(
+        MesaRepository mesaRepository,
+        PedidoRepository pedidoRepository,
+        MeisenProperties meisenProperties
+    ) {
+        return new EnviarComandaCocinaUseCase(mesaRepository, pedidoRepository, meisenProperties);
+    }
+
+    /**
+     * HU-29: Bean del caso de uso para generar ticket de venta ESC/POS.
+     * Solo lectura — no modifica estado. Reutiliza ConsultarDetallePedidoUseCase.
+     */
+    @Bean
+    public GenerarTicketVentaUseCase generarTicketVentaUseCase(
+        ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase,
+        MeisenProperties meisenProperties
+    ) {
+        return new GenerarTicketVentaUseCase(consultarDetallePedidoUseCase, meisenProperties);
     }
 }

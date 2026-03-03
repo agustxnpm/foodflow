@@ -7,14 +7,18 @@ import com.agustinpalma.comandas.application.dto.CerrarMesaResponse;
 import com.agustinpalma.comandas.application.dto.ComandaImpresionResponse;
 import com.agustinpalma.comandas.application.dto.CrearMesaRequest;
 import com.agustinpalma.comandas.application.dto.DetallePedidoResponse;
+import com.agustinpalma.comandas.application.dto.EnviarComandaResponse;
 import com.agustinpalma.comandas.application.dto.MesaResponse;
 import com.agustinpalma.comandas.application.dto.TicketImpresionResponse;
+import com.agustinpalma.comandas.application.dto.TicketVentaEscPosResponse;
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarDetallePedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarMesasUseCase;
 import com.agustinpalma.comandas.application.usecase.CrearMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
+import com.agustinpalma.comandas.application.usecase.EnviarComandaCocinaUseCase;
+import com.agustinpalma.comandas.application.usecase.GenerarTicketVentaUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.MesaId;
@@ -41,6 +45,8 @@ public class MesaController {
     private final CrearMesaUseCase crearMesaUseCase;
     private final EliminarMesaUseCase eliminarMesaUseCase;
     private final ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase;
+    private final EnviarComandaCocinaUseCase enviarComandaCocinaUseCase;
+    private final GenerarTicketVentaUseCase generarTicketVentaUseCase;
     private final TicketImpresionMapper ticketImpresionMapper;
 
     public MesaController(
@@ -51,6 +57,8 @@ public class MesaController {
         CrearMesaUseCase crearMesaUseCase,
         EliminarMesaUseCase eliminarMesaUseCase,
         ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase,
+        EnviarComandaCocinaUseCase enviarComandaCocinaUseCase,
+        GenerarTicketVentaUseCase generarTicketVentaUseCase,
         TicketImpresionMapper ticketImpresionMapper
     ) {
         this.localContextProvider = localContextProvider;
@@ -60,6 +68,8 @@ public class MesaController {
         this.crearMesaUseCase = crearMesaUseCase;
         this.eliminarMesaUseCase = eliminarMesaUseCase;
         this.consultarDetallePedidoUseCase = consultarDetallePedidoUseCase;
+        this.enviarComandaCocinaUseCase = enviarComandaCocinaUseCase;
+        this.generarTicketVentaUseCase = generarTicketVentaUseCase;
         this.ticketImpresionMapper = ticketImpresionMapper;
     }
 
@@ -272,5 +282,53 @@ public class MesaController {
         ComandaImpresionResponse comanda = ticketImpresionMapper.toComanda(detalle);
 
         return ResponseEntity.ok(comanda);
+    }
+
+    /**
+     * Envía la comanda de un pedido activo a cocina y genera el buffer ESC/POS.
+     *
+     * POST /api/mesas/{mesaId}/enviar-cocina?soloNuevos=true|false
+     *
+     * HU-29: Impresión térmica de comanda.
+     * - soloNuevos=true (default): imprime solo ítems nuevos y actualiza ultimoEnvioCocina.
+     * - soloNuevos=false: reimprimir la comanda completa SIN actualizar el timestamp.
+     *
+     * @param mesaId ID de la mesa cuya comanda se desea enviar a cocina
+     * @param soloNuevos si true, solo imprime ítems nuevos y marca timestamp
+     * @return buffer ESC/POS codificado en Base64 + metadata del envío
+     */
+    @PostMapping("/{mesaId}/enviar-cocina")
+    public ResponseEntity<EnviarComandaResponse> enviarComandaCocina(
+            @PathVariable String mesaId,
+            @RequestParam(defaultValue = "true") boolean soloNuevos) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        MesaId id = MesaId.from(mesaId);
+
+        EnviarComandaResponse response = enviarComandaCocinaUseCase.ejecutar(localId, id, soloNuevos);
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Genera el ticket de venta en formato ESC/POS para impresión térmica.
+     *
+     * POST /api/mesas/{mesaId}/imprimir-ticket
+     *
+     * HU-29: Ticket de venta para impresora térmica.
+     * Operación de solo lectura — no cierra mesa, no modifica estado.
+     * Se usa POST porque genera un recurso (buffer ESC/POS), no es idempotente
+     * (incluye timestamp actual en cada generación).
+     *
+     * @param mesaId ID de la mesa cuyo ticket se desea generar
+     * @return buffer ESC/POS codificado en Base64
+     */
+    @PostMapping("/{mesaId}/imprimir-ticket")
+    public ResponseEntity<TicketVentaEscPosResponse> generarTicketVentaEscPos(@PathVariable String mesaId) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+        MesaId id = MesaId.from(mesaId);
+
+        String base64 = generarTicketVentaUseCase.ejecutar(localId, id);
+
+        return ResponseEntity.ok(new TicketVentaEscPosResponse(base64));
     }
 }

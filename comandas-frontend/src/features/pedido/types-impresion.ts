@@ -108,3 +108,35 @@ export interface TicketImpresionResponse {
   totales: TotalesTicket;
   footer: FooterTicket;
 }
+
+// ─── Envío a cocina (HU-29) ──────────────────────────────────────────────────
+
+/**
+ * Respuesta del backend al enviar comanda a cocina.
+ * Contiene los bytes ESC/POS codificados en Base64 listos para imprimir.
+ *
+ * @see backend: EnviarComandaResponse
+ */
+export interface EnviarComandaResponse {
+  /** Buffer ESC/POS codificado en Base64 */
+  escPosBase64: string;
+  /** Timestamp del envío (ISO 8601) */
+  timestampEnvio: string;
+  /** Cantidad de ítems marcados como nuevos en esta comanda */
+  cantidadItemsNuevos: number;
+  /** Cantidad total de ítems en el pedido */
+  cantidadItemsTotal: number;
+}
+
+// ─── Ticket de venta ESC/POS (HU-29) ─────────────────────────────────────────
+
+/**
+ * Respuesta del backend al generar un ticket de venta ESC/POS.
+ * Solo contiene los bytes ESC/POS codificados en Base64.
+ *
+ * @see backend: TicketVentaEscPosResponse
+ */
+export interface TicketVentaEscPosResponse {
+  /** Buffer ESC/POS codificado en Base64 */
+  escPosBase64: string;
+}

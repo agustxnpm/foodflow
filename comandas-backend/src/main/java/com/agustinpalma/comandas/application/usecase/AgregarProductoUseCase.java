@@ -211,6 +211,9 @@ public class AgregarProductoUseCase {
         String observacionesFinal = request.observaciones();
         List<ExtraPedido> extrasCombinados = new ArrayList<>(extrasFiltrados);
 
+        // HU-29: Preservar cuántas unidades ya se enviaron a cocina (para merge)
+        int cantidadYaEnviadaCocina = 0;
+
         Optional<ItemPedido> itemExistente = pedido.buscarItemConMismaConfiguracion(
             productoFinal.getId(), observacionesFinal, extrasFiltrados
         );
@@ -220,6 +223,11 @@ public class AgregarProductoUseCase {
             // Configuración idéntica → solo acumular cantidad
             cantidadFinal += existente.getCantidad();
             // Observaciones y extras ya son iguales, no hace falta merge
+            
+            // HU-29: Preservar cuántas unidades ya se enviaron a cocina.
+            // Sin esto, el merge (delete + recreate) haría que TODAS las unidades
+            // parezcan "nuevas" en la próxima comanda.
+            cantidadYaEnviadaCocina = existente.getCantidadEnviadaCocina();
             
             // Remover ítem existente (será reemplazado con cantidad acumulada)
             pedido.eliminarItem(existente.getId());
@@ -240,6 +248,12 @@ public class AgregarProductoUseCase {
             promocionesActivas,
             LocalDateTime.now(clock)
         );
+
+        // HU-29: Si hubo merge, heredar la cantidad ya enviada del ítem original
+        // para que el delta (cantidadNueva) refleje solo las unidades realmente nuevas
+        if (cantidadYaEnviadaCocina > 0) {
+            itemConPromocion.heredarEnvioCocina(cantidadYaEnviadaCocina);
+        }
 
         // 7. Agregar ítem al pedido (con extras y descuentos aplicados)
         pedido.agregarItem(itemConPromocion);

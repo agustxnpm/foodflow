@@ -14,7 +14,8 @@ import {
 import type { DetallePedidoResponse } from '../types';
 import type { TicketImpresionResponse } from '../types-impresion';
 import type { MedioPago, PagoRequest } from '../../salon/types';
-import { useCerrarMesa, useObtenerTicket } from '../../salon/hooks/useMesas';
+import { useCerrarMesa, useObtenerTicket, useGenerarTicketEscPos } from '../../salon/hooks/useMesas';
+import { imprimirEscPos } from '../services/printerService';
 import TicketPreview from './TicketPreview';
 import useToast from '../../../hooks/useToast';
 
@@ -79,6 +80,7 @@ export default function CerrarMesaModal({
   const toast = useToast();
   const cerrarMesa = useCerrarMesa();
   const obtenerTicket = useObtenerTicket();
+  const generarTicketEscPos = useGenerarTicketEscPos();
 
   const total = pedido.totalParcial;
 
@@ -162,7 +164,7 @@ export default function CerrarMesaModal({
   );
 
   // ── Handler de cierre ──
-  const handleConfirmar = useCallback(() => {
+  const handleConfirmar = useCallback(async () => {
     if (!pagoValido) return;
 
     // Construir pagos para el backend
@@ -187,11 +189,37 @@ export default function CerrarMesaModal({
       }
     }
 
+    // Generar ticket ESC/POS ANTES de cerrar (el pedido debe estar abierto)
+    let ticketBase64: string | null = null;
+    try {
+      const ticketEscPos = await generarTicketEscPos.mutateAsync(mesaId);
+      ticketBase64 = ticketEscPos.escPosBase64;
+    } catch (err) {
+      // No bloquear el cierre si la generación del ticket falla
+      console.error('[CerrarMesaModal] Error pre-generando ticket ESC/POS:', err);
+    }
+
     cerrarMesa.mutate(
       { mesaId, pagos: pagosRequest },
       {
-        onSuccess: () => {
+        onSuccess: async () => {
           toast.success(`Mesa ${pedido.numeroMesa} cerrada exitosamente`);
+
+          // Imprimir ticket de venta con los bytes pre-generados
+          if (ticketBase64) {
+            try {
+              const result = await imprimirEscPos(
+                ticketBase64,
+                `Ticket Cierre Mesa ${pedido.numeroMesa}`
+              );
+              if (!result.success) {
+                console.error('[CerrarMesaModal] Error de impresión:', result.message);
+              }
+            } catch (err) {
+              console.error('[CerrarMesaModal] Error imprimiendo ticket:', err);
+            }
+          }
+
           onSuccess();
         },
         onError: (error: any) => {
@@ -212,6 +240,7 @@ export default function CerrarMesaModal({
     pedido.numeroMesa,
     toast,
     onSuccess,
+    generarTicketEscPos,
   ]);
 
   const isPending = cerrarMesa.isPending;

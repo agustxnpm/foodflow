@@ -11,6 +11,7 @@ import {
   ChefHat,
   Loader2,
   Receipt,
+  Printer,
 } from 'lucide-react';
 import type { DetallePedidoResponse, ItemDetalle, ExtraDetalle } from '../types';
 
@@ -282,9 +283,9 @@ interface TicketPedidoProps {
   onCerrarMesa: () => void;
   onControlMesa: () => void;
   onMandarCocina: () => void;
+  onReimprimirComanda: () => void;
   enviandoCocina: boolean;
-  /** IDs de ítems que ya fueron enviados a cocina */
-  itemsEnviadosIds: Set<string>;
+  reimprimiendo: boolean;
 }
 
 /**
@@ -307,13 +308,19 @@ export default function TicketPedido({
   onCerrarMesa,
   onControlMesa,
   onMandarCocina,
+  onReimprimirComanda,
   enviandoCocina,
-  itemsEnviadosIds,
+  reimprimiendo,
 }: TicketPedidoProps) {
   const hayItems = pedido && pedido.items.length > 0;
   const hayDescuentos = pedido && pedido.totalDescuentos > 0;
+  /**
+   * HU-29: Los badges NUEVO/ENVIADO ahora provienen del backend (item.esNuevo).
+   * hayItemsNuevos se usa solo para mostrar feedback visual en el botón,
+   * pero NO deshabilita el botón — se permiten reimpresiones ilimitadas.
+   */
   const hayItemsNuevos = pedido
-    ? pedido.items.some((i) => !itemsEnviadosIds.has(i.id))
+    ? pedido.items.some((i) => i.esNuevo)
     : false;
 
   /** El pedido solo se puede modificar si está ABIERTO */
@@ -396,7 +403,7 @@ export default function TicketPedido({
                 item={item}
                 onModificarCantidad={onModificarCantidad}
                 onEliminar={onEliminarItem}
-                enviadoACocina={itemsEnviadosIds.has(item.id)}
+                enviadoACocina={!item.esNuevo}
                 pedidoModificable={pedidoModificable}
               />
             ))}
@@ -439,21 +446,23 @@ export default function TicketPedido({
 
       {/* ── Botonera de acciones ── */}
       <div className="px-4 py-3 border-t border-neutral-800 shrink-0 space-y-2">
-        {/* Botón Mandar a Cocina */}
+        {/* Botón Mandar a Cocina — solo ítems nuevos */}
         <button
           type="button"
           onClick={onMandarCocina}
-          disabled={!hayItemsNuevos || enviandoCocina || !pedidoModificable}
-          className="
+          disabled={!hayItemsNuevos || enviandoCocina || reimprimiendo || !pedidoModificable}
+          title="Envía solo los ítems nuevos (no enviados aún) a la impresora de cocina"
+          className={`
             w-full flex items-center justify-center gap-2
             h-11 rounded-xl
             text-sm font-semibold
-            bg-orange-900/30 text-orange-300
-            border border-orange-700/40
-            hover:bg-orange-900/50 hover:text-orange-200
+            ${hayItemsNuevos
+              ? 'bg-orange-900/30 text-orange-300 border border-orange-700/40 hover:bg-orange-900/50 hover:text-orange-200'
+              : 'bg-neutral-800/60 text-gray-400 border border-neutral-700/40'
+            }
             disabled:opacity-40 disabled:cursor-not-allowed
             transition-colors active:scale-[0.98]
-          "
+          `}
         >
           {enviandoCocina ? (
             <>
@@ -464,6 +473,41 @@ export default function TicketPedido({
             <>
               <ChefHat size={16} />
               <span>Mandar a Cocina</span>
+              {hayItemsNuevos && (
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-orange-700/50 text-orange-200">
+                  {pedido!.items.filter(i => i.esNuevo).length}
+                </span>
+              )}
+            </>
+          )}
+        </button>
+
+        {/* Botón Reimprimir Comanda — todos los ítems */}
+        <button
+          type="button"
+          onClick={onReimprimirComanda}
+          disabled={!hayItems || reimprimiendo || enviandoCocina}
+          title="Reimprime la comanda completa con todos los ítems del pedido"
+          className="
+            w-full flex items-center justify-center gap-2
+            h-9 rounded-xl
+            text-xs font-medium
+            bg-neutral-800/60 text-gray-400
+            border border-neutral-700/40
+            hover:bg-neutral-800 hover:text-gray-300
+            disabled:opacity-40 disabled:cursor-not-allowed
+            transition-colors active:scale-[0.98]
+          "
+        >
+          {reimprimiendo ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              <span>Reimprimiendo…</span>
+            </>
+          ) : (
+            <>
+              <Printer size={14} />
+              <span>Reimprimir Comanda</span>
             </>
           )}
         </button>

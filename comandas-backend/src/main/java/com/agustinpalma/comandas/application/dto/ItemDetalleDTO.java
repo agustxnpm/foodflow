@@ -36,7 +36,10 @@ public record ItemDetalleDTO(
     List<ExtraDetalleDTO> extras,     // Extras aplicados como sub-elementos
 
     // Regla única de extras estructurales
-    boolean puedeAgregarDiscoExtra    // true si está en la variante máxima del grupo
+    boolean puedeAgregarDiscoExtra,   // true si está en la variante máxima del grupo
+
+    // HU-29: Flag de ítem nuevo respecto al último envío a cocina
+    boolean esNuevo                   // true si fue agregado después del último envío
 ) {
     /**
      * Valida que los campos obligatorios no sean nulos.

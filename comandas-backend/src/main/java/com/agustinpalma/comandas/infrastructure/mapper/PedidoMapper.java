@@ -99,7 +99,8 @@ public class PedidoMapper {
             descuentoGlobal,
             entity.getMontoSubtotalFinal(),
             entity.getMontoDescuentosFinal(),
-            entity.getMontoTotalFinal()
+            entity.getMontoTotalFinal(),
+            entity.getUltimoEnvioCocina()  // HU-29: Reconstruir timestamp
         );
     }
 
@@ -148,6 +149,9 @@ public class PedidoMapper {
         entity.setMontoSubtotalFinal(pedido.getMontoSubtotalFinal());
         entity.setMontoDescuentosFinal(pedido.getMontoDescuentosFinal());
         entity.setMontoTotalFinal(pedido.getMontoTotalFinal());
+
+        // HU-29: Persistir timestamp de último envío a cocina
+        entity.setUltimoEnvioCocina(pedido.getUltimoEnvioCocina());
 
         // Convertir y agregar ítems
         for (ItemPedido item : pedido.getItems()) {

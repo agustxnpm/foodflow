@@ -1,7 +1,7 @@
 import apiClient from '../../../lib/apiClient';
 import type { Mesa, CrearMesaRequest, CerrarMesaRequest, CerrarMesaResponse } from '../types';
 import type { DetallePedidoResponse } from '../../pedido/types';
-import type { ComandaImpresionResponse, TicketImpresionResponse } from '../../pedido/types-impresion';
+import type { ComandaImpresionResponse, TicketImpresionResponse, EnviarComandaResponse, TicketVentaEscPosResponse } from '../../pedido/types-impresion';
 
 /**
  * Cliente API para operaciones sobre mesas
@@ -71,6 +71,33 @@ export const mesasApi = {
    */
   obtenerComanda: async (mesaId: string): Promise<ComandaImpresionResponse> => {
     const response = await apiClient.get<ComandaImpresionResponse>(`/mesas/${mesaId}/comanda`);
+    return response.data;
+  },
+
+  /**
+   * HU-29: Enviar comanda a cocina y obtener buffer ESC/POS.
+   * Muta estado: actualiza ultimoEnvioCocina en el pedido.
+   * Retorna bytes ESC/POS codificados en Base64.
+   */
+  enviarCocina: async (mesaId: string): Promise<EnviarComandaResponse> => {
+    const response = await apiClient.post<EnviarComandaResponse>(`/mesas/${mesaId}/enviar-cocina`);
+    return response.data;
+  },
+
+  /**
+   * HU-29: Reimprimir comanda completa (todos los ítems, sin actualizar timestamp).
+   */
+  reimprimirComanda: async (mesaId: string): Promise<EnviarComandaResponse> => {
+    const response = await apiClient.post<EnviarComandaResponse>(`/mesas/${mesaId}/enviar-cocina?soloNuevos=false`);
+    return response.data;
+  },
+
+  /**
+   * HU-29: Generar ticket de venta ESC/POS para impresión térmica.
+   * Solo lectura — no modifica estado del pedido ni de la mesa.
+   */
+  generarTicketEscPos: async (mesaId: string): Promise<TicketVentaEscPosResponse> => {
+    const response = await apiClient.post<TicketVentaEscPosResponse>(`/mesas/${mesaId}/imprimir-ticket`);
     return response.data;
   },
 };

@@ -82,6 +82,9 @@ export interface ItemDetalle {
 
   /** true si el producto está en la variante máxima de su grupo y puede recibir disco extra */
   puedeAgregarDiscoExtra: boolean;
+
+  /** HU-29: true si el ítem fue agregado después del último envío a cocina */
+  esNuevo: boolean;
 }
 
 /**

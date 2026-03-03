@@ -165,21 +165,19 @@ class ProductoTest {
     }
 
     @Test
-    void deberia_rechazar_precio_cero() {
-        // Given / When / Then
-        IllegalArgumentException exception = assertThrows(
-            IllegalArgumentException.class,
-            () -> new Producto(
-                ID_VALIDO,
-                LOCAL_ID_VALIDO,
-                "Gratis",
-                BigDecimal.ZERO,
-                true,
-                "#00FF00"
-            )
+    void deberia_aceptar_precio_cero() {
+        // Given / When — Un producto puede tener precio 0 (cortesía, promo, etc.)
+        Producto producto = new Producto(
+            ID_VALIDO,
+            LOCAL_ID_VALIDO,
+            "Gratis",
+            BigDecimal.ZERO,
+            true,
+            "#00FF00"
         );
 
-        assertTrue(exception.getMessage().contains("mayor a cero"));
+        // Then
+        assertEquals(BigDecimal.ZERO, producto.getPrecio());
     }
 
     @Test
@@ -197,7 +195,7 @@ class ProductoTest {
             )
         );
 
-        assertTrue(exception.getMessage().contains("mayor a cero"));
+        assertTrue(exception.getMessage().contains("negativo"));
     }
 
     @Test
@@ -300,10 +298,10 @@ class ProductoTest {
             "#FF0000"
         );
 
-        // When / Then
+        // When / Then — precio negativo es inválido, cero es válido
         assertThrows(
             IllegalArgumentException.class,
-            () -> producto.actualizarPrecio(BigDecimal.ZERO)
+            () -> producto.actualizarPrecio(new BigDecimal("-1"))
         );
     }
 

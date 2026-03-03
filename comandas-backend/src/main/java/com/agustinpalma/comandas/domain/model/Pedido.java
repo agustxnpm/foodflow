@@ -36,6 +36,9 @@ public class Pedido {
     // Pagos parciales/split del pedido
     private final List<Pago> pagos;
 
+    // HU-29: Timestamp del último envío a cocina (para cálculo de ítems "nuevos")
+    private LocalDateTime ultimoEnvioCocina;
+
     // Snapshot contable: se congela al cerrar para inmutabilidad financiera
     private BigDecimal montoSubtotalFinal;
     private BigDecimal montoDescuentosFinal;
@@ -82,7 +85,8 @@ public class Pedido {
             EstadoPedido estado, LocalDateTime fechaApertura, LocalDateTime fechaCierre,
             List<ItemPedido> items, List<Pago> pagos,
             DescuentoManual descuentoGlobal,
-            BigDecimal montoSubtotalFinal, BigDecimal montoDescuentosFinal, BigDecimal montoTotalFinal
+            BigDecimal montoSubtotalFinal, BigDecimal montoDescuentosFinal, BigDecimal montoTotalFinal,
+            LocalDateTime ultimoEnvioCocina
     ) {
         Pedido pedido = new Pedido(id, localId, mesaId, numero, estado, fechaApertura);
         pedido.fechaCierre = fechaCierre;
@@ -97,6 +101,7 @@ public class Pedido {
         pedido.montoSubtotalFinal = montoSubtotalFinal;
         pedido.montoDescuentosFinal = montoDescuentosFinal;
         pedido.montoTotalFinal = montoTotalFinal;
+        pedido.ultimoEnvioCocina = ultimoEnvioCocina;
         
         return pedido;
     }
@@ -142,6 +147,70 @@ public class Pedido {
 
     public List<ItemPedido> getItems() {
         return Collections.unmodifiableList(items);
+    }
+
+    // ============================================
+    // HU-29: Envío a cocina y cálculo de ítems nuevos
+    // ============================================
+
+    /**
+     * Retorna el timestamp del último envío a cocina.
+     * Null si nunca se envió una comanda.
+     */
+    public LocalDateTime getUltimoEnvioCocina() {
+        return ultimoEnvioCocina;
+    }
+
+    /**
+     * HU-29: Registra que se envió una comanda a cocina en el momento actual.
+     *
+     * Actualiza el timestamp de envío Y marca todos los ítems como enviados,
+     * registrando su cantidad actual como "ya comunicada a cocina".
+     *
+     * Después de esta operación, ningún ítem tiene cantidad nueva
+     * hasta que se agreguen más unidades o productos.
+     *
+     * @param ahora el momento del envío
+     * @throws IllegalStateException si el pedido no está ABIERTO
+     */
+    public void marcarComoEnviadoACocina(LocalDateTime ahora) {
+        Objects.requireNonNull(ahora, "La fecha de envío a cocina no puede ser null");
+        validarPermiteModificacion();
+        this.ultimoEnvioCocina = ahora;
+        // Marcar cada ítem con su cantidad actual como "ya enviada"
+        for (ItemPedido item : items) {
+            item.marcarCantidadEnviada();
+        }
+    }
+
+    /**
+     * HU-29: Determina si un ítem tiene unidades pendientes de envío a cocina.
+     *
+     * Un ítem es "nuevo" si tiene al menos una unidad que no fue comunicada
+     * a cocina (cantidadEnviadaCocina < cantidad).
+     *
+     * Esto cubre correctamente:
+     * - Productos recién agregados (cantidadEnviadaCocina = 0)
+     * - Incrementos de cantidad vía '+' (cantidadEnviadaCocina < cantidad)
+     * - Merge de producto idéntico (hereda cantidadEnviadaCocina del original)
+     *
+     * @param item el ítem a evaluar
+     * @return true si el ítem tiene cantidad sin enviar
+     */
+    public boolean esItemNuevo(ItemPedido item) {
+        Objects.requireNonNull(item, "El item no puede ser null");
+        return item.tieneCantidadNueva();
+    }
+
+    /**
+     * HU-29: Obtiene solo los ítems nuevos (agregados después del último envío).
+     *
+     * @return lista inmutable de ítems nuevos
+     */
+    public List<ItemPedido> obtenerItemsNuevos() {
+        return items.stream()
+            .filter(this::esItemNuevo)
+            .toList();
     }
 
     /**

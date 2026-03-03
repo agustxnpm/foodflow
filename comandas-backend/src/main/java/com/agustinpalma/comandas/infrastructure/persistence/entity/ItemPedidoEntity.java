@@ -154,6 +154,30 @@ public class ItemPedidoEntity {
     )
     private java.util.List<ExtraPedidoEmbeddable> extras = new java.util.ArrayList<>();
 
+    // ============================================
+    // HU-29: Timestamp de creación del ítem
+    // ============================================
+
+    /**
+     * Fecha en que se agregó este ítem al pedido.
+     * Se usa para determinar si es "nuevo" respecto al último envío a cocina.
+     * Null para datos legacy pre-HU-29.
+     */
+    @Column(name = "fecha_agregado")
+    private LocalDateTime fechaAgregado;
+
+    // ============================================
+    // HU-29: Control de envío a cocina (delta)
+    // ============================================
+
+    /**
+     * Cantidad de unidades ya enviadas a cocina.
+     * Permite calcular el delta cuando se reenvía la comanda.
+     * Default 0: ninguna unidad enviada.
+     */
+    @Column(name = "cantidad_enviada_cocina", nullable = false)
+    private int cantidadEnviadaCocina = 0;
+
     // Constructor vacío para JPA
     protected ItemPedidoEntity() {}
 
@@ -368,5 +392,29 @@ public class ItemPedidoEntity {
 
     public void setCategoriaIdSnapshot(UUID categoriaIdSnapshot) {
         this.categoriaIdSnapshot = categoriaIdSnapshot;
+    }
+
+    // ============================================
+    // HU-29: Getter y Setter de fechaAgregado
+    // ============================================
+
+    public LocalDateTime getFechaAgregado() {
+        return fechaAgregado;
+    }
+
+    public void setFechaAgregado(LocalDateTime fechaAgregado) {
+        this.fechaAgregado = fechaAgregado;
+    }
+
+    // ============================================
+    // HU-29: Getter y Setter de cantidadEnviadaCocina
+    // ============================================
+
+    public int getCantidadEnviadaCocina() {
+        return cantidadEnviadaCocina;
+    }
+
+    public void setCantidadEnviadaCocina(int cantidadEnviadaCocina) {
+        this.cantidadEnviadaCocina = cantidadEnviadaCocina;
     }
 }

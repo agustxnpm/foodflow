@@ -3,6 +3,7 @@ package com.agustinpalma.comandas.domain.model;
 import com.agustinpalma.comandas.domain.model.DomainEnums.ModoDescuento;
 import com.agustinpalma.comandas.domain.model.DomainIds.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -54,6 +55,14 @@ public class ItemPedido {
     // HU-05.1 + HU-22: Extras dinámicos con snapshot de precio
     private final List<ExtraPedido> extras;        // Lista mutable pero encapsulada
 
+    // HU-29: Timestamp de creación del ítem (para cálculo de "ítems nuevos" vs último envío a cocina)
+    private final LocalDateTime fechaAgregado;
+
+    // HU-29: Cantidad de unidades ya enviadas a cocina.
+    // Permite calcular el delta (cantidad nueva = cantidad - cantidadEnviadaCocina)
+    // cuando se reenvía una comanda tras agregar más unidades del mismo producto.
+    private int cantidadEnviadaCocina;
+
     /**
      * Constructor completo para reconstrucción desde persistencia.
      * Usado por la capa de infraestructura (JPA).
@@ -80,6 +89,35 @@ public class ItemPedido {
             Integer cantidadDiscosSnapshot,
             CategoriaId categoriaIdSnapshot
     ) {
+        this(id, pedidoId, productoId, nombreProducto, cantidad, precioUnitario,
+             observacion, montoDescuento, nombrePromocion, promocionId,
+             descuentoManual, extras, grupoVarianteIdSnapshot, cantidadDiscosSnapshot,
+             categoriaIdSnapshot, LocalDateTime.now(), 0);
+    }
+
+    /**
+     * Constructor maestro con todos los campos incluyendo fechaAgregado.
+     * Usado internamente y desde la capa de infraestructura (reconstrucción).
+     */
+    public ItemPedido(
+            ItemPedidoId id, 
+            PedidoId pedidoId, 
+            ProductoId productoId, 
+            String nombreProducto, 
+            int cantidad, 
+            BigDecimal precioUnitario, 
+            String observacion,
+            BigDecimal montoDescuento,
+            String nombrePromocion,
+            UUID promocionId,
+            DescuentoManual descuentoManual,
+            List<ExtraPedido> extras,
+            ProductoId grupoVarianteIdSnapshot,
+            Integer cantidadDiscosSnapshot,
+            CategoriaId categoriaIdSnapshot,
+            LocalDateTime fechaAgregado,
+            int cantidadEnviadaCocina
+    ) {
         this.id = Objects.requireNonNull(id, "El id del item no puede ser null");
         this.pedidoId = Objects.requireNonNull(pedidoId, "El pedidoId no puede ser null");
         this.productoId = Objects.requireNonNull(productoId, "El productoId no puede ser null");
@@ -103,6 +141,12 @@ public class ItemPedido {
         
         // HU-05.1 + HU-22: Extras (copia defensiva)
         this.extras = extras != null ? new ArrayList<>(extras) : new ArrayList<>();
+
+        // HU-29: Timestamp de creación (null para datos legacy)
+        this.fechaAgregado = fechaAgregado;
+
+        // HU-29: Cantidad ya enviada a cocina (0 para ítems nuevos)
+        this.cantidadEnviadaCocina = Math.max(0, cantidadEnviadaCocina);
     }
 
     /**
@@ -361,7 +405,84 @@ public class ItemPedido {
     public String getObservacion() {
         return observacion;
     }
-    
+
+    /**
+     * HU-29: Retorna el timestamp de creación de este ítem.
+     * Se usa para determinar si el ítem es "nuevo" respecto al último envío a cocina.
+     * 
+     * @return fecha de agregado, o null para datos legacy pre-HU-29
+     */
+    public LocalDateTime getFechaAgregado() {
+        return fechaAgregado;
+    }
+
+    // ============================================
+    // HU-29: Control de envío a cocina (delta)
+    // ============================================
+
+    /**
+     * Retorna cuántas unidades de este ítem ya fueron enviadas a cocina.
+     * 
+     * @return cantidad ya enviada (0 para ítems que nunca se enviaron)
+     */
+    public int getCantidadEnviadaCocina() {
+        return cantidadEnviadaCocina;
+    }
+
+    /**
+     * Calcula cuántas unidades son NUEVAS (aún no enviadas a cocina).
+     * 
+     * Este es el "delta" que debe imprimirse en la comanda cuando se reenvía.
+     * Ejemplo: si se pidieron 2 cheeseburgers y ya se envió 1, retorna 1.
+     * 
+     * @return cantidad nueva = max(0, cantidad - cantidadEnviadaCocina)
+     */
+    public int obtenerCantidadNueva() {
+        return Math.max(0, this.cantidad - this.cantidadEnviadaCocina);
+    }
+
+    /**
+     * Indica si este ítem tiene unidades pendientes de envío a cocina.
+     * 
+     * Reemplaza la lógica anterior basada en timestamps (fechaAgregado vs ultimoEnvioCocina)
+     * que no detectaba incrementos de cantidad ni calculaba deltas correctamente.
+     * 
+     * @return true si hay al menos 1 unidad sin enviar
+     */
+    public boolean tieneCantidadNueva() {
+        return obtenerCantidadNueva() > 0;
+    }
+
+    /**
+     * Marca la cantidad actual como enviada a cocina.
+     * 
+     * Se invoca desde Pedido.marcarComoEnviadoACocina() al confirmar el envío
+     * de la comanda. Después de esta operación, tieneCantidadNueva() retorna false
+     * hasta que se agreguen más unidades.
+     * 
+     * Package-private: solo el Aggregate Root (Pedido) puede invocar esto.
+     */
+    void marcarCantidadEnviada() {
+        this.cantidadEnviadaCocina = this.cantidad;
+    }
+
+    /**
+     * Hereda la cantidad ya enviada de un ítem previo durante el merge.
+     * 
+     * Cuando AgregarProductoUseCase fusiona un ítem existente (delete + recreate),
+     * el nuevo ítem necesita saber cuántas unidades ya se enviaron del ítem original.
+     * Sin esto, el merge haría que TODAS las unidades parezcan "nuevas".
+     * 
+     * @param cantidadYaEnviada unidades previamente enviadas a cocina (>= 0)
+     * @throws IllegalArgumentException si cantidadYaEnviada es negativa
+     */
+    public void heredarEnvioCocina(int cantidadYaEnviada) {
+        if (cantidadYaEnviada < 0) {
+            throw new IllegalArgumentException("La cantidad ya enviada a cocina no puede ser negativa");
+        }
+        this.cantidadEnviadaCocina = cantidadYaEnviada;
+    }
+
     // ============================================
     // Snapshot de clasificación del producto
     // ============================================

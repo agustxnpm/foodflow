@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { X, Printer, Loader2, Receipt } from 'lucide-react';
 import type { TicketImpresionResponse } from '../types-impresion';
-import { useObtenerTicket } from '../../salon/hooks/useMesas';
+import { useObtenerTicket, useGenerarTicketEscPos } from '../../salon/hooks/useMesas';
+import { imprimirEscPos } from '../services/printerService';
 import TicketPreview from './TicketPreview';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -33,12 +34,14 @@ export default function TicketPreviewModal({
   onClose,
 }: TicketPreviewModalProps) {
   const obtenerTicket = useObtenerTicket();
+  const generarTicketEscPos = useGenerarTicketEscPos();
 
   const [ticketData, setTicketData] = useState<TicketImpresionResponse | null>(
     null
   );
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [imprimiendo, setImprimiendo] = useState(false);
 
   const ticketRef = useRef<HTMLDivElement>(null);
 
@@ -57,65 +60,27 @@ export default function TicketPreviewModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mesaId]);
 
-  // ── Imprimir ticket en ventana nueva ──
-  const handleImprimir = useCallback(() => {
-    if (!ticketRef.current) return;
+  // ── Imprimir ticket vía impresora térmica ESC/POS ──
+  const handleImprimir = useCallback(async () => {
+    if (imprimiendo) return;
+    setImprimiendo(true);
 
-    const contenido = ticketRef.current.innerHTML;
-    const ventana = window.open('', '_blank', 'width=360,height=640');
-    if (!ventana) return;
+    try {
+      const response = await generarTicketEscPos.mutateAsync(mesaId);
+      const result = await imprimirEscPos(
+        response.escPosBase64,
+        `Ticket Mesa ${ticketData?.header?.numeroMesa ?? mesaId}`
+      );
 
-    ventana.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Ticket</title>
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
-            line-height: 1.6;
-            width: 280px;
-            margin: 0 auto;
-            padding: 12px;
-            color: #1a1a1a;
-            background: #fff;
-          }
-          .ticket-print-wrapper > div {
-            background: #fff !important;
-            color: #1a1a1a !important;
-            border: none !important;
-            box-shadow: none !important;
-            max-width: 100% !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-          }
-          .ticket-print-wrapper span,
-          .ticket-print-wrapper p,
-          .ticket-print-wrapper div {
-            color: #1a1a1a !important;
-          }
-          @media print {
-            body { width: 58mm; margin: 0; padding: 2mm; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="ticket-print-wrapper">${contenido}</div>
-        <script>
-          window.onload = function() {
-            window.print();
-            window.onafterprint = function() { window.close(); };
-            setTimeout(function() { window.close(); }, 10000);
-          };
-        <\/script>
-      </body>
-      </html>
-    `);
-    ventana.document.close();
-  }, []);
+      if (!result.success) {
+        console.error('[TicketPreviewModal] Error de impresión:', result.message);
+      }
+    } catch (err) {
+      console.error('[TicketPreviewModal] Error generando ticket ESC/POS:', err);
+    } finally {
+      setImprimiendo(false);
+    }
+  }, [mesaId, imprimiendo, generarTicketEscPos, ticketData]);
 
   return (
     <>
@@ -213,18 +178,29 @@ export default function TicketPreviewModal({
               <button
                 type="button"
                 onClick={handleImprimir}
+                disabled={imprimiendo}
                 className="
                   flex-1 flex items-center justify-center gap-2
                   h-11 rounded-xl
                   text-sm font-semibold
                   bg-red-600 text-white
                   hover:bg-red-500
+                  disabled:bg-neutral-700 disabled:text-gray-500 disabled:cursor-not-allowed
                   transition-colors active:scale-[0.98]
                   shadow-sm shadow-red-950/40
                 "
               >
-                <Printer size={16} />
-                <span>Imprimir</span>
+                {imprimiendo ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Imprimiendo…</span>
+                  </>
+                ) : (
+                  <>
+                    <Printer size={16} />
+                    <span>Imprimir</span>
+                  </>
+                )}
               </button>
             </div>
           )}

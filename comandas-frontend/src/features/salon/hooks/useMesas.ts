@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mesasApi } from '../api/mesasApi';
 import type { CerrarMesaRequest, CerrarMesaResponse, PagoRequest } from '../types';
-import type { ComandaImpresionResponse, TicketImpresionResponse } from '../../pedido/types-impresion';
+import type { ComandaImpresionResponse, TicketImpresionResponse, EnviarComandaResponse, TicketVentaEscPosResponse } from '../../pedido/types-impresion';
 
 /**
  * HU-02: Hook para listar todas las mesas del local.
@@ -125,5 +125,46 @@ export function useObtenerTicket() {
 export function useObtenerComanda() {
   return useMutation<ComandaImpresionResponse, Error, string>({
     mutationFn: (mesaId: string) => mesasApi.obtenerComanda(mesaId),
+  });
+}
+
+/**
+ * HU-29: Enviar comanda a cocina con generación de buffer ESC/POS.
+ *
+ * Muta estado en el backend: actualiza ultimoEnvioCocina del pedido.
+ * Retorna el buffer ESC/POS en Base64 para enviarlo a la impresora vía printerService.
+ *
+ * Invalida la query del pedido para refrescar los badges NUEVO/ENVIADO
+ * que ahora provienen del campo esNuevo del backend.
+ */
+export function useEnviarComandaCocina() {
+  const queryClient = useQueryClient();
+
+  return useMutation<EnviarComandaResponse, Error, string>({
+    mutationFn: (mesaId: string) => mesasApi.enviarCocina(mesaId),
+    onSuccess: (_data, mesaId) => {
+      // Refrescar los datos del pedido para actualizar badges esNuevo
+      queryClient.invalidateQueries({ queryKey: ['pedido', mesaId] });
+    },
+  });
+}
+
+/**
+ * HU-29: Reimprimir comanda completa (todos los ítems, sin actualizar timestamp).
+ * No invalida queries porque no muta estado.
+ */
+export function useReimprimirComanda() {
+  return useMutation<EnviarComandaResponse, Error, string>({
+    mutationFn: (mesaId: string) => mesasApi.reimprimirComanda(mesaId),
+  });
+}
+
+/**
+ * HU-29: Generar ticket de venta ESC/POS para impresión térmica.
+ * Solo lectura — no muta estado. Retorna Base64 para enviar a impresora vía printerService.
+ */
+export function useGenerarTicketEscPos() {
+  return useMutation<TicketVentaEscPosResponse, Error, string>({
+    mutationFn: (mesaId: string) => mesasApi.generarTicketEscPos(mesaId),
   });
 }

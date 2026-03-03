@@ -77,6 +77,9 @@ public class PedidoRepositoryImpl implements PedidoRepository {
         entity.setFechaCierre(pedido.getFechaCierre());
         entity.setMedioPago(pedido.getMedioPago());
         
+        // HU-29: Persistir timestamp de último envío a cocina
+        entity.setUltimoEnvioCocina(pedido.getUltimoEnvioCocina());
+        
         // Sincronizar snapshot contable
         entity.setMontoSubtotalFinal(pedido.getMontoSubtotalFinal());
         entity.setMontoDescuentosFinal(pedido.getMontoDescuentosFinal());
@@ -141,6 +144,9 @@ public class PedidoRepositoryImpl implements PedidoRepository {
                 existingItem.setMontoDescuento(domainItem.getMontoDescuento());
                 existingItem.setNombrePromocion(domainItem.getNombrePromocion());
                 existingItem.setPromocionId(domainItem.getPromocionId());
+                
+                // HU-29: Sincronizar cantidad enviada a cocina
+                existingItem.setCantidadEnviadaCocina(domainItem.getCantidadEnviadaCocina());
                 
                 // Actualizar descuento manual si existe
                 if (domainItem.getDescuentoManual() != null) {

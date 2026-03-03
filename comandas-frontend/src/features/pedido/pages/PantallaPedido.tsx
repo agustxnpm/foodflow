@@ -10,7 +10,7 @@ import type { ConfigurarProductoPayload } from '../components/ConfigurarProducto
 import VarianteSelectorModal from '../components/VarianteSelectorModal';
 import { useProductos } from '../../catalogo/hooks/useProductos';
 import type { ProductoResponse } from '../../catalogo/types';
-import { usePedidoMesa, useObtenerComanda } from '../../salon/hooks/useMesas';
+import { usePedidoMesa, useEnviarComandaCocina, useReimprimirComanda } from '../../salon/hooks/useMesas';
 import {
   useAgregarProducto,
   useModificarCantidad,
@@ -19,6 +19,7 @@ import {
 import { permiteAbrirModal } from '../utils/productoUtils';
 import { useCategorias } from '../../categorias/hooks/useCategorias';
 import useToast from '../../../hooks/useToast';
+import { imprimirEscPos } from '../services/printerService';
 
 interface PantallaPedidoProps {
   mesaId: string;
@@ -54,8 +55,6 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   const [mostrarTicketPreview, setMostrarTicketPreview] = useState(false);
   /** Producto seleccionado para configurar (observaciones + extras) antes de agregar */
   const [productoSeleccionado, setProductoSeleccionado] = useState<ProductoResponse | null>(null);
-  /** IDs de ítems ya enviados a cocina (tracking local por sesión) */
-  const [itemsEnviadosIds, setItemsEnviadosIds] = useState<Set<string>>(new Set());
 
   // ── Estado de variantes ──
   /** Producto base del grupo de variantes que abrió el selector */
@@ -79,7 +78,8 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
   const agregarProducto = useAgregarProducto();
   const modificarCantidad = useModificarCantidad();
   const eliminarItem = useEliminarItem();
-  const obtenerComanda = useObtenerComanda();
+  const enviarComandaCocina = useEnviarComandaCocina();
+  const reimprimirComanda = useReimprimirComanda();
 
   // ── Bloquear scroll del body mientras el modal está abierto ──
   useEffect(() => {
@@ -300,19 +300,33 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
     setMostrarCierre(true);
   }, [pedido]);
 
+  // ── Número de mesa para el header del ticket ──
+  const numeroMesa = pedido?.numeroMesa ?? 0;
+
   /**
-   * Mandar a cocina: llama al endpoint de comanda y marca
-   * los ítems actuales como "enviados" en el estado local.
+   * HU-29: Mandar a cocina — genera buffer ESC/POS en backend,
+   * actualiza timestamp de envío, y envía bytes a la impresora.
+   *
+   * El backend actualiza ultimoEnvioCocina, lo que cambia el campo esNuevo
+   * de cada ítem. Al invalidar la query del pedido, los badges NUEVO/ENVIADO
+   * se actualizan automáticamente desde el backend.
    */
   const handleMandarCocina = useCallback(() => {
     if (!pedido?.pedidoId) return;
 
-    obtenerComanda.mutate(mesaId, {
-      onSuccess: () => {
-        // Marcar todos los ítems actuales como enviados
-        const idsActuales = new Set(pedido.items.map((i) => i.id));
-        setItemsEnviadosIds((prev) => new Set([...prev, ...idsActuales]));
-        toast.success('Comanda enviada a cocina');
+    enviarComandaCocina.mutate(mesaId, {
+      onSuccess: async (data) => {
+        toast.success(`Comanda enviada (${data.cantidadItemsNuevos} nuevos)`);
+
+        // Enviar bytes ESC/POS a la impresora
+        const result = await imprimirEscPos(
+          data.escPosBase64,
+          `Comanda Mesa ${numeroMesa}`
+        );
+
+        if (!result.success) {
+          toast.error(`Error de impresora: ${result.message}`);
+        }
       },
       onError: (error: any) => {
         const msg =
@@ -320,7 +334,34 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
         toast.error(msg);
       },
     });
-  }, [pedido, mesaId, obtenerComanda, toast]);
+  }, [pedido, mesaId, enviarComandaCocina, toast, numeroMesa]);
+
+  /**
+   * HU-29: Reimprimir comanda completa — todos los ítems, sin actualizar timestamp.
+   */
+  const handleReimprimirComanda = useCallback(() => {
+    if (!pedido?.pedidoId) return;
+
+    reimprimirComanda.mutate(mesaId, {
+      onSuccess: async (data) => {
+        toast.success(`Comanda reimpresa (${data.cantidadItemsTotal} ítems)`);
+
+        const result = await imprimirEscPos(
+          data.escPosBase64,
+          `Reimpresión Mesa ${numeroMesa}`
+        );
+
+        if (!result.success) {
+          toast.error(`Error de impresora: ${result.message}`);
+        }
+      },
+      onError: (error: any) => {
+        const msg =
+          error?.response?.data?.message || 'Error al reimprimir comanda';
+        toast.error(msg);
+      },
+    });
+  }, [pedido, mesaId, reimprimirComanda, toast, numeroMesa]);
 
   /**
    * Callback tras cierre exitoso de mesa:
@@ -330,12 +371,6 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
     setMostrarCierre(false);
     onCerrar();
   }, [onCerrar]);
-
-  // ── Memo: Set de IDs enviados (estable para prop del TicketPedido) ──
-  const itemsEnviadosSet = useMemo(() => itemsEnviadosIds, [itemsEnviadosIds]);
-
-  // ── Número de mesa para el header del ticket ──
-  const numeroMesa = pedido?.numeroMesa ?? 0;
 
   return (
     <>
@@ -404,8 +439,9 @@ export default function PantallaPedido({ mesaId, onCerrar }: PantallaPedidoProps
               onCerrarMesa={handleCerrarMesa}
               onControlMesa={handleControlMesa}
               onMandarCocina={handleMandarCocina}
-              enviandoCocina={obtenerComanda.isPending}
-              itemsEnviadosIds={itemsEnviadosSet}
+              onReimprimirComanda={handleReimprimirComanda}
+              enviandoCocina={enviarComandaCocina.isPending}
+              reimprimiendo={reimprimirComanda.isPending}
             />
           </aside>
         </section>

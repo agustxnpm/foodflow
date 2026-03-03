@@ -68,7 +68,9 @@ public class ItemPedidoMapper {
             extras,
             entity.getGrupoVarianteIdSnapshot() != null ? new ProductoId(entity.getGrupoVarianteIdSnapshot()) : null,
             entity.getCantidadDiscosSnapshot(),
-            entity.getCategoriaIdSnapshot() != null ? new CategoriaId(entity.getCategoriaIdSnapshot()) : null
+            entity.getCategoriaIdSnapshot() != null ? new CategoriaId(entity.getCategoriaIdSnapshot()) : null,
+            entity.getFechaAgregado(),  // HU-29: Reconstruir timestamp (null para datos legacy)
+            entity.getCantidadEnviadaCocina()  // HU-29: Reconstruir cantidad ya enviada a cocina
         );
     }
 
@@ -126,6 +128,10 @@ public class ItemPedidoMapper {
         entity.setCategoriaIdSnapshot(
             domain.getCategoriaIdSnapshot() != null ? domain.getCategoriaIdSnapshot().getValue() : null
         );
+
+        // HU-29: Persistir timestamp de creación y cantidad enviada a cocina
+        entity.setFechaAgregado(domain.getFechaAgregado());
+        entity.setCantidadEnviadaCocina(domain.getCantidadEnviadaCocina());
 
         return entity;
     }
