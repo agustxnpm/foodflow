@@ -4,6 +4,8 @@ import com.agustinpalma.comandas.application.dto.CorreccionPedidoRequest;
 import com.agustinpalma.comandas.application.dto.DetallePedidoCerradoResponse;
 import com.agustinpalma.comandas.application.dto.EgresoRequestBody;
 import com.agustinpalma.comandas.application.dto.EgresoResponse;
+import com.agustinpalma.comandas.application.dto.IngresoRequestBody;
+import com.agustinpalma.comandas.application.dto.IngresoResponse;
 import com.agustinpalma.comandas.application.dto.JornadaResumenResponse;
 import com.agustinpalma.comandas.application.dto.ReporteCajaResponse;
 import com.agustinpalma.comandas.application.usecase.CerrarJornadaUseCase;
@@ -12,6 +14,7 @@ import com.agustinpalma.comandas.application.usecase.ConsultarPedidoCerradoUseCa
 import com.agustinpalma.comandas.application.usecase.CorregirPedidoCerradoUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
+import com.agustinpalma.comandas.application.usecase.RegistrarIngresoUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
@@ -36,6 +39,7 @@ public class CajaController {
 
     private final LocalContextProvider localContextProvider;
     private final RegistrarEgresoUseCase registrarEgresoUseCase;
+    private final RegistrarIngresoUseCase registrarIngresoUseCase;
     private final GenerarReporteCajaUseCase generarReporteCajaUseCase;
     private final CerrarJornadaUseCase cerrarJornadaUseCase;
     private final ConsultarPedidoCerradoUseCase consultarPedidoCerradoUseCase;
@@ -45,6 +49,7 @@ public class CajaController {
     public CajaController(
             LocalContextProvider localContextProvider,
             RegistrarEgresoUseCase registrarEgresoUseCase,
+            RegistrarIngresoUseCase registrarIngresoUseCase,
             GenerarReporteCajaUseCase generarReporteCajaUseCase,
             CerrarJornadaUseCase cerrarJornadaUseCase,
             ConsultarPedidoCerradoUseCase consultarPedidoCerradoUseCase,
@@ -53,6 +58,7 @@ public class CajaController {
     ) {
         this.localContextProvider = localContextProvider;
         this.registrarEgresoUseCase = registrarEgresoUseCase;
+        this.registrarIngresoUseCase = registrarIngresoUseCase;
         this.generarReporteCajaUseCase = generarReporteCajaUseCase;
         this.cerrarJornadaUseCase = cerrarJornadaUseCase;
         this.consultarPedidoCerradoUseCase = consultarPedidoCerradoUseCase;
@@ -73,6 +79,25 @@ public class CajaController {
         LocalId localId = localContextProvider.getCurrentLocalId();
 
         EgresoResponse response = registrarEgresoUseCase.ejecutar(localId, body.monto(), body.descripcion());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * Registra un ingreso manual de caja.
+     * 
+     * POST /api/caja/ingresos
+     * 
+     * Un ingreso representa efectivo que entra al local sin provenir de un
+     * pedido/mesa convencional (ej: cobro de PedidosYa/Rappi en efectivo).
+     * 
+     * @param body JSON con monto y descripción del ingreso
+     * @return 201 CREATED con los datos del movimiento registrado
+     */
+    @PostMapping("/ingresos")
+    public ResponseEntity<IngresoResponse> registrarIngreso(@RequestBody IngresoRequestBody body) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+
+        IngresoResponse response = registrarIngresoUseCase.ejecutar(localId, body.monto(), body.descripcion());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

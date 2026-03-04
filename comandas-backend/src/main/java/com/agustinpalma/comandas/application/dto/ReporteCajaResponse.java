@@ -17,10 +17,11 @@ import java.util.Map;
  *
  * @param totalVentasReales suma de pedidos cerrados excluyendo pagos A_CUENTA
  * @param totalConsumoInterno suma de pagos A_CUENTA
- * @param totalEgresos suma de movimientos de caja
- * @param balanceEfectivo (total pagos EFECTIVO) − (total egresos)
+ * @param totalIngresos suma de ingresos manuales de efectivo
+ * @param totalEgresos suma de egresos de caja (salidas de efectivo)
+ * @param balanceEfectivo (total pagos EFECTIVO) + totalIngresos − totalEgresos
  * @param desglosePorMedioPago mapa con el total por cada medio de pago comercial
- * @param movimientos lista de movimientos de caja del día (egresos)
+ * @param movimientos lista de movimientos de caja del día (egresos + ingresos)
  * @param ventas lista de pedidos cerrados del día (historial de ventas)
  * @param pagosDetalle lista plana de pagos individuales con contexto del pedido/mesa
  * @param jornadaCerrada indica si ya existe una jornada cerrada para la fecha consultada
@@ -28,6 +29,7 @@ import java.util.Map;
 public record ReporteCajaResponse(
     BigDecimal totalVentasReales,
     BigDecimal totalConsumoInterno,
+    BigDecimal totalIngresos,
     BigDecimal totalEgresos,
     BigDecimal balanceEfectivo,
     Map<MedioPago, BigDecimal> desglosePorMedioPago,
@@ -39,13 +41,15 @@ public record ReporteCajaResponse(
 
     /**
      * Resumen de un movimiento de caja para el reporte.
+     * Incluye el tipo (EGRESO/INGRESO) para diferenciación visual en la UI.
      */
     public record MovimientoResumen(
         String id,
         BigDecimal monto,
         String descripcion,
         LocalDateTime fecha,
-        String numeroComprobante
+        String numeroComprobante,
+        String tipo
     ) {
         public static MovimientoResumen fromDomain(MovimientoCaja movimiento) {
             return new MovimientoResumen(
@@ -53,7 +57,8 @@ public record ReporteCajaResponse(
                 movimiento.getMonto(),
                 movimiento.getDescripcion(),
                 movimiento.getFecha(),
-                movimiento.getNumeroComprobante()
+                movimiento.getNumeroComprobante(),
+                movimiento.getTipo().name()
             );
         }
     }
@@ -129,6 +134,7 @@ public record ReporteCajaResponse(
         return new ReporteCajaResponse(
             reporte.getTotalVentasReales(),
             reporte.getTotalConsumoInterno(),
+            reporte.getTotalIngresos(),
             reporte.getTotalEgresos(),
             reporte.getBalanceEfectivo(),
             reporte.getDesglosePorMedioPago(),

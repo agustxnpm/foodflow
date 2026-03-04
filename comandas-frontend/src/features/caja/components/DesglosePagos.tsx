@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { MedioPago } from '../../salon/types';
 import type { PagoDetalle } from '../types';
+import { imprimirEscPos, EscPosBuilder } from '../../pedido/services/printerService';
 
 // ─── Utilidades ───────────────────────────────────────────────────────────────
 
@@ -92,25 +93,43 @@ interface GrupoMedioPago {
   cantidad: number;
 }
 
-// ─── Stub ESC/POS ─────────────────────────────────────────────────────────────
+// ── Impresión ESC/POS Comprobante de pago ─────────────────────────────────────────────────
 
-function imprimirComprobantePago(pago: PagoDetalle): void {
-  const buffer = [
-    '================================',
-    '     COMPROBANTE DE INGRESO     ',
-    '================================',
-    `Mesa:        ${pago.mesaNumero}`,
-    `Pedido:      #${pago.numeroPedido}`,
-    `Medio:       ${pago.medioPago}`,
-    `Monto:       $${fmt(pago.monto)}`,
-    `Fecha:       ${new Date(pago.fecha).toLocaleString('es-AR')}`,
-    '================================',
-    '',
-  ].join('\n');
+/**
+ * Genera buffer ESC/POS para comprobante de pago y lo envía a la impresora.
+ *
+ * En Tauri: imprime directamente vía `invoke('imprimir_ticket')`.
+ * En navegador: renderiza el ticket en consola como mock visual.
+ */
+async function imprimirComprobantePago(pago: PagoDetalle): Promise<void> {
+  const fechaFormateada = new Date(pago.fecha).toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
-  // TODO: Reemplazar por invoke Tauri cuando el módulo de impresión esté listo
-  // await window.__TAURI__.invoke('imprimir_comprobante_pago', { buffer });
-  console.log('[ESC/POS Stub] imprimirComprobantePago →\n', buffer);
+  const base64 = new EscPosBuilder()
+    .centrado()
+    .negrita(true)
+    .tamanoDoble(true)
+    .linea('COMPROBANTE DE PAGO')
+    .tamanoDoble(false)
+    .negrita(false)
+    .lineaVacia()
+    .separador()
+    .izquierda()
+    .lineaDosColumnas('Mesa:', String(pago.mesaNumero))
+    .lineaDosColumnas('Pedido:', `#${pago.numeroPedido}`)
+    .lineaDosColumnas('Medio:', pago.medioPago)
+    .lineaDosColumnas('Monto:', `$${fmt(pago.monto)}`)
+    .lineaDosColumnas('Fecha:', fechaFormateada)
+    .separador()
+    .cortePapel()
+    .toBase64();
+
+  await imprimirEscPos(base64, `Pago Mesa ${pago.mesaNumero} #${pago.numeroPedido}`);
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -182,7 +201,7 @@ function FilaPago({ pago, config, onVerDetalle }: FilaPagoProps) {
         </button>
         <button
           type="button"
-          onClick={() => imprimirComprobantePago(pago)}
+          onClick={() => void imprimirComprobantePago(pago)}
           className={[
             'p-1.5 rounded-lg text-gray-500',
             'hover:text-gray-200 hover:bg-neutral-700/60',

@@ -14,7 +14,7 @@
  */
 
 import apiClient from '../../../lib/apiClient';
-import type { EgresoRequest, EgresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen } from '../types';
+import type { EgresoRequest, EgresoResponse, IngresoRequest, IngresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen } from '../types';
 
 export const cajaApi = {
   // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -46,6 +46,22 @@ export const cajaApi = {
    */
   registrarEgreso: async (data: EgresoRequest): Promise<EgresoResponse> => {
     const response = await apiClient.post<EgresoResponse>('/caja/egresos', data);
+    return response.data;
+  },
+
+  /**
+   * Registrar un ingreso manual de caja (entrada de efectivo).
+   *
+   * El backend genera automáticamente el número de comprobante
+   * con formato ING-yyyyMMdd-HHmmss-XXXX.
+   *
+   * Usado para registrar efectivo de plataformas externas (PedidosYa/Rappi)
+   * u otros ingresos que no generan ticket de mesa.
+   *
+   * @param data - Monto y descripción del ingreso
+   */
+  registrarIngreso: async (data: IngresoRequest): Promise<IngresoResponse> => {
+    const response = await apiClient.post<IngresoResponse>('/caja/ingresos', data);
     return response.data;
   },
 

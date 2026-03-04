@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import {
   useReporteCaja,
   useRegistrarEgreso,
+  useRegistrarIngreso,
   useCerrarJornada,
 } from '../hooks/useCaja';
 import { MesasAbiertasError, JornadaYaCerradaError } from '../types';
@@ -19,6 +20,7 @@ import ActividadPorHoraChart from './ActividadPorHoraChart';
 import HistorialVentas from './HistorialVentas';
 import ListaMovimientosDia from './ListaMovimientosDia';
 import EgresoModal from './EgresoModal';
+import IngresoModal from './IngresoModal';
 import AlertaMesasAbiertas from './AlertaMesasAbiertas';
 import CorregirPedidoModal from './CorregirPedidoModal';
 import ConfirmarCierreModal from './ConfirmarCierreModal';
@@ -88,10 +90,12 @@ export default function CajaPage() {
   // ── Hooks de datos ──
   const { data: reporte, isLoading: cargandoReporte } = useReporteCaja(hoy);
   const registrarEgreso = useRegistrarEgreso();
+  const registrarIngreso = useRegistrarIngreso();
   const cerrarJornada = useCerrarJornada();
 
   // ── Estado local de UI ──
   const [egresoModalAbierto, setEgresoModalAbierto] = useState(false);
+  const [ingresoModalAbierto, setIngresoModalAbierto] = useState(false);
   const [confirmarCierreAbierto, setConfirmarCierreAbierto] = useState(false);
   const jornadaCerrada = reporte?.jornadaCerrada ?? false;
   const [alertaMesas, setAlertaMesas] = useState<{
@@ -111,6 +115,18 @@ export default function CajaPage() {
       },
       onError: () => {
         toast.error('Error al registrar el egreso');
+      },
+    });
+  };
+
+  const handleRegistrarIngreso = (data: { monto: number; descripcion: string }) => {
+    registrarIngreso.mutate(data, {
+      onSuccess: () => {
+        toast.success('Ingreso registrado correctamente');
+        setIngresoModalAbierto(false);
+      },
+      onError: () => {
+        toast.error('Error al registrar el ingreso');
       },
     });
   };
@@ -200,6 +216,7 @@ export default function CajaPage() {
               reporte={reporte}
               isLoading={cargandoReporte}
               onRegistrarEgreso={() => setEgresoModalAbierto(true)}
+              onRegistrarIngreso={() => setIngresoModalAbierto(true)}
               onCerrarJornada={handleCerrarJornada}
               cerrandoJornada={cerrarJornada.isPending}
               cierreDeshabilitado={jornadaCerrada}
@@ -255,11 +272,11 @@ export default function CajaPage() {
               </div>
             </div>
 
-            {/* Egresos del día */}
+            {/* Movimientos del día */}
             <div className="flex flex-col min-h-0 flex-1 rounded-2xl border border-neutral-800/60 bg-neutral-900/50 p-4">
               <div className="flex items-center justify-between shrink-0 mb-2">
                 <h2 className="text-xs text-gray-500 uppercase tracking-wider font-medium">
-                  Egresos del día
+                  Movimientos del día
                 </h2>
                 {reporte?.movimientos && reporte.movimientos.length > 0 && (
                   <span className="text-xs text-gray-600 font-mono">
@@ -286,6 +303,14 @@ export default function CajaPage() {
           onClose={() => setEgresoModalAbierto(false)}
           onConfirmar={handleRegistrarEgreso}
           isPending={registrarEgreso.isPending}
+        />
+      )}
+
+      {ingresoModalAbierto && (
+        <IngresoModal
+          onClose={() => setIngresoModalAbierto(false)}
+          onConfirmar={handleRegistrarIngreso}
+          isPending={registrarIngreso.isPending}
         />
       )}
 

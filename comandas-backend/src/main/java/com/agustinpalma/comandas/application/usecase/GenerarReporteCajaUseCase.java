@@ -22,7 +22,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -39,8 +38,9 @@ import java.util.stream.Collectors;
  * Fórmulas:
  * - totalVentasReales = Σ pagos comerciales (EFECTIVO, TARJETA, TRANSFERENCIA, QR)
  * - totalConsumoInterno = Σ pagos A_CUENTA
- * - totalEgresos = Σ movimientos de caja
- * - balanceEfectivo = (Σ pagos EFECTIVO) − totalEgresos
+ * - totalIngresos = Σ movimientos tipo INGRESO
+ * - totalEgresos = Σ movimientos tipo EGRESO
+ * - balanceEfectivo = (Σ pagos EFECTIVO) + totalIngresos − totalEgresos
  */
 @Transactional(readOnly = true)
 public class GenerarReporteCajaUseCase {
@@ -109,6 +109,10 @@ public class GenerarReporteCajaUseCase {
      * - A_CUENTA → consumo interno (no es venta real)
      * - EFECTIVO, TARJETA, TRANSFERENCIA, QR → venta real
      * - EFECTIVO → además suma al balance de efectivo
+     * 
+     * Lógica de clasificación de movimientos:
+     * - EGRESO → salida de efectivo (resta al balance)
+     * - INGRESO → entrada manual de efectivo (suma al balance)
      */
     private ReporteCajaDiario calcularReporte(List<Pedido> pedidosCerrados, 
                                                List<MovimientoCaja> movimientos) {
@@ -140,17 +144,24 @@ public class GenerarReporteCajaUseCase {
             }
         }
 
-        // 4b. Calcular total de egresos
+        // 4b. Calcular totales de movimientos separados por tipo
         BigDecimal totalEgresos = movimientos.stream()
+            .filter(MovimientoCaja::esEgreso)
             .map(MovimientoCaja::getMonto)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // 4c. Balance de efectivo = entradas EFECTIVO - egresos
-        BigDecimal balanceEfectivo = entradasEfectivo.subtract(totalEgresos);
+        BigDecimal totalIngresos = movimientos.stream()
+            .filter(MovimientoCaja::esIngreso)
+            .map(MovimientoCaja::getMonto)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // 4c. Balance de efectivo = entradas EFECTIVO + ingresos manuales - egresos
+        BigDecimal balanceEfectivo = entradasEfectivo.add(totalIngresos).subtract(totalEgresos);
 
         return new ReporteCajaDiario(
             totalVentasReales,
             totalConsumoInterno,
+            totalIngresos,
             totalEgresos,
             balanceEfectivo,
             desglose,

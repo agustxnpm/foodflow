@@ -1,29 +1,31 @@
 import { useState } from 'react';
-import { X, Loader2, Printer } from 'lucide-react';
-import type { EgresoRequest } from '../types';
+import { X, Loader2, Printer, ArrowUpCircle } from 'lucide-react';
+import type { IngresoRequest } from '../types';
 
-interface EgresoModalProps {
+interface IngresoModalProps {
   /** Cierra el modal */
   onClose: () => void;
   /** Dispara la mutación de registro */
-  onConfirmar: (data: EgresoRequest) => void;
+  onConfirmar: (data: IngresoRequest) => void;
   /** Estado de la mutación */
   isPending: boolean;
 }
 
 /**
- * Modal de registro de egreso manual de caja.
+ * Modal de registro de ingreso manual de caja.
+ *
+ * Identidad visual VERDE (Emerald) para diferenciarse del EgresoModal (Ámbar).
  *
  * Inputs:
  * - Monto: input numérico grande, visual destacado
- * - Motivo: textarea para justificación
+ * - Motivo: textarea para justificación (ej: "Cobro PedidosYa en efectivo")
  *
  * El botón de confirmación refleja el estado `isPending` del hook
- * `useRegistrarEgreso`, mostrando "Registrando..." mientras procesa.
+ * `useRegistrarIngreso`, mostrando "Registrando..." mientras procesa.
  *
  * Incluye nota de que se imprimirá un comprobante vía impresora ESC/POS.
  */
-export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoModalProps) {
+export default function IngresoModal({ onClose, onConfirmar, isPending }: IngresoModalProps) {
   const [monto, setMonto] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [error, setError] = useState('');
@@ -71,16 +73,19 @@ export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoM
           ].join(' ')}
           role="dialog"
           aria-modal="true"
-          aria-labelledby="egreso-modal-title"
+          aria-labelledby="ingreso-modal-title"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800">
-            <h2
-              id="egreso-modal-title"
-              className="text-lg font-bold text-gray-100"
-            >
-              Registrar Egreso
-            </h2>
+            <div className="flex items-center gap-2.5">
+              <ArrowUpCircle size={20} className="text-emerald-400" />
+              <h2
+                id="ingreso-modal-title"
+                className="text-lg font-bold text-gray-100"
+              >
+                Registrar Ingreso
+              </h2>
+            </div>
             <button
               type="button"
               onClick={onClose}
@@ -101,7 +106,7 @@ export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoM
             {/* Monto */}
             <div className="space-y-2">
               <label
-                htmlFor="egreso-monto"
+                htmlFor="ingreso-monto"
                 className="block text-sm font-medium text-gray-400 uppercase tracking-wide"
               >
                 Monto
@@ -111,7 +116,7 @@ export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoM
                   $
                 </span>
                 <input
-                  id="egreso-monto"
+                  id="ingreso-monto"
                   type="number"
                   inputMode="decimal"
                   step="0.01"
@@ -126,7 +131,7 @@ export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoM
                     'bg-neutral-800 border-2 border-neutral-700 rounded-xl',
                     'text-3xl font-bold font-mono text-gray-100 text-right',
                     'placeholder:text-neutral-600',
-                    'focus:border-amber-500 focus:outline-none',
+                    'focus:border-emerald-500 focus:outline-none',
                     'transition-colors',
                     'disabled:opacity-50',
                   ].join(' ')}
@@ -137,24 +142,24 @@ export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoM
             {/* Motivo */}
             <div className="space-y-2">
               <label
-                htmlFor="egreso-motivo"
+                htmlFor="ingreso-motivo"
                 className="block text-sm font-medium text-gray-400 uppercase tracking-wide"
               >
                 Motivo / Justificación
               </label>
               <textarea
-                id="egreso-motivo"
+                id="ingreso-motivo"
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
                 disabled={isPending}
-                placeholder="Ej: Productos de limpieza, cambio para delivery..."
+                placeholder="Ej: Cobro PedidosYa en efectivo, ingreso por Rappi..."
                 rows={3}
                 className={[
                   'w-full px-4 py-3',
                   'bg-neutral-800 border-2 border-neutral-700 rounded-xl',
                   'text-base text-gray-200 resize-none',
                   'placeholder:text-neutral-600',
-                  'focus:border-amber-500 focus:outline-none',
+                  'focus:border-emerald-500 focus:outline-none',
                   'transition-colors',
                   'disabled:opacity-50',
                 ].join(' ')}
@@ -172,7 +177,7 @@ export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoM
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-800/60 border border-neutral-700">
               <Printer size={16} className="text-gray-500 shrink-0" />
               <p className="text-xs text-gray-500">
-                Se imprimirá un comprobante de egreso automáticamente.
+                Se imprimirá un comprobante de ingreso automáticamente.
               </p>
             </div>
 
@@ -184,11 +189,11 @@ export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoM
                 'w-full h-14 rounded-xl font-semibold text-base',
                 'flex items-center justify-center gap-3',
                 'transition-all duration-150',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400',
                 isPending
                   ? 'bg-neutral-700 text-gray-400 cursor-wait'
                   : montoValido && descripcionValida
-                    ? 'bg-amber-600 hover:bg-amber-500 text-white active:scale-95'
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95'
                     : 'bg-neutral-700 text-gray-500 cursor-not-allowed',
               ].join(' ')}
             >
@@ -198,7 +203,7 @@ export default function EgresoModal({ onClose, onConfirmar, isPending }: EgresoM
                   Registrando...
                 </>
               ) : (
-                'Confirmar Egreso'
+                'Confirmar Ingreso'
               )}
             </button>
           </form>

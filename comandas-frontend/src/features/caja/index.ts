@@ -3,6 +3,7 @@ export {
   cajaKeys,
   useReporteCaja,
   useRegistrarEgreso,
+  useRegistrarIngreso,
   useCerrarJornada,
   useDetallePedidoCerrado,
   useCorregirPedido,
@@ -12,6 +13,8 @@ export { MesasAbiertasError, JornadaYaCerradaError } from './types';
 export type {
   EgresoRequest,
   EgresoResponse,
+  IngresoRequest,
+  IngresoResponse,
   ReporteCajaResponse,
   ReporteCajaDerivado,
   CierreJornadaErrorData,

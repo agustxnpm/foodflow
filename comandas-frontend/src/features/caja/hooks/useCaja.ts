@@ -7,7 +7,7 @@
  *
  * Hooks expuestos:
  *   useReporteCaja       → Query del arqueo diario + datos derivados
- *   useRegistrarEgreso   → Mutation de egreso + stub ESC/POS
+ *   useRegistrarEgreso   → Mutation de egreso + impresión ESC/POS
  *   useCerrarJornada     → Mutation de cierre + manejo HTTP 400
  *   useReabrirPedido     → Mutation con invalidación cruzada (3 dominios)
  *
@@ -19,9 +19,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 
 import { cajaApi } from '../api/cajaApi';
+import { imprimirEscPos, EscPosBuilder } from '../../pedido/services/printerService';
 import type {
   EgresoRequest,
   EgresoResponse,
+  IngresoRequest,
+  IngresoResponse,
   ReporteCajaResponse,
   ReporteCajaDerivado,
   CierreJornadaErrorData,
@@ -44,34 +47,45 @@ export const cajaKeys = {
   historialJornadas: (desde: string, hasta: string) => ['jornadas-caja', desde, hasta] as const,
 } as const;
 
-// ─── Stub ESC/POS ─────────────────────────────────────────────────────────────
+// ─── Impresión ESC/POS Egreso ─────────────────────────────────────────────────
 
 /**
- * Stub de impresión ESC/POS para ticket de egreso.
+ * Genera buffer ESC/POS para ticket de egreso y lo envía a la impresora.
  *
- * En el futuro, se comunicará con Tauri vía:
- *   window.__TAURI__.invoke('imprimir_ticket', { buffer })
- *
- * Por ahora solo genera un log estructurado del buffer de impresión.
+ * En Tauri: imprime directamente vía `invoke('imprimir_ticket')`.
+ * En navegador: renderiza el ticket en consola como mock visual.
  *
  * @param egreso - Datos del egreso registrado (respuesta del backend)
  */
-function imprimirTicketEgreso(egreso: EgresoResponse): void {
-  const buffer = [
-    '================================',
-    '        EGRESO DE CAJA          ',
-    '================================',
-    `Comprobante: ${egreso.numeroComprobante}`,
-    `Fecha:       ${egreso.fecha}`,
-    `Monto:       $${egreso.monto.toFixed(2)}`,
-    `Motivo:      ${egreso.descripcion}`,
-    '================================',
-    '',
-  ].join('\n');
+async function imprimirTicketEgreso(egreso: EgresoResponse): Promise<void> {
+  const fechaFormateada = new Date(egreso.fecha).toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
-  // TODO: Reemplazar por invoke Tauri cuando el módulo de impresión esté listo
-  // await window.__TAURI__.invoke('imprimir_ticket_egreso', { buffer });
-  console.log('[ESC/POS Stub] imprimirTicketEgreso →\n', buffer);
+  const base64 = new EscPosBuilder()
+    .centrado()
+    .negrita(true)
+    .tamanoDoble(true)
+    .linea('EGRESO DE CAJA')
+    .tamanoDoble(false)
+    .negrita(false)
+    .lineaVacia()
+    .separador()
+    .izquierda()
+    .lineaDosColumnas('Comprobante:', egreso.numeroComprobante)
+    .lineaDosColumnas('Fecha:', fechaFormateada)
+    .lineaDosColumnas('Monto:', `$${egreso.monto.toFixed(2)}`)
+    .separador()
+    .linea(`Motivo: ${egreso.descripcion}`)
+    .separador()
+    .cortePapel()
+    .toBase64();
+
+  await imprimirEscPos(base64, `Egreso ${egreso.numeroComprobante}`);
 }
 
 // ─── useReporteCaja ───────────────────────────────────────────────────────────
@@ -122,7 +136,7 @@ export function useReporteCaja(fecha: string, fondoInicial = 0) {
  *
  * Flujo onSuccess:
  *   1. Invalida `['reporte-caja']` (exact: false) → refresca balance en tiempo real
- *   2. Llama al stub ESC/POS para preparar impresión del comprobante
+ *   2. Genera buffer ESC/POS y lo envía a la impresora térmica
  *
  * La invalidación por prefijo garantiza que cualquier instancia de
  * `useReporteCaja` (sin importar la fecha pasada) se refresque.
@@ -143,11 +157,89 @@ export function useRegistrarEgreso() {
         exact: false,
       });
 
-      // 2. Preparar buffer ESC/POS (stub → Tauri en el futuro)
-      imprimirTicketEgreso(egreso);
+      // 2. Generar buffer ESC/POS y enviar a impresora (fire-and-forget)
+      void imprimirTicketEgreso(egreso);
     },
     onError: (error) => {
       console.error('[useRegistrarEgreso] Error al registrar egreso:', error);
+    },
+  });
+}
+
+// ─── Impresión ESC/POS Ingreso ────────────────────────────────────────────────
+
+/**
+ * Genera buffer ESC/POS para ticket de ingreso y lo envía a la impresora.
+ *
+ * En Tauri: imprime directamente vía `invoke('imprimir_ticket')`.
+ * En navegador: renderiza el ticket en consola como mock visual.
+ *
+ * @param ingreso - Datos del ingreso registrado (respuesta del backend)
+ */
+async function imprimirTicketIngreso(ingreso: IngresoResponse): Promise<void> {
+  const fechaFormateada = new Date(ingreso.fecha).toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const base64 = new EscPosBuilder()
+    .centrado()
+    .negrita(true)
+    .tamanoDoble(true)
+    .linea('INGRESO DE CAJA')
+    .tamanoDoble(false)
+    .negrita(false)
+    .lineaVacia()
+    .separador()
+    .izquierda()
+    .lineaDosColumnas('Comprobante:', ingreso.numeroComprobante)
+    .lineaDosColumnas('Fecha:', fechaFormateada)
+    .lineaDosColumnas('Monto:', `$${ingreso.monto.toFixed(2)}`)
+    .separador()
+    .linea(`Motivo: ${ingreso.descripcion}`)
+    .separador()
+    .cortePapel()
+    .toBase64();
+
+  await imprimirEscPos(base64, `Ingreso ${ingreso.numeroComprobante}`);
+}
+
+// ─── useRegistrarIngreso ──────────────────────────────────────────────────────
+
+/**
+ * Registrar ingreso manual de caja (entrada de efectivo).
+ *
+ * Usado para registrar efectivo proveniente de plataformas externas
+ * (PedidosYa/Rappi) u otros ingresos que no generan ticket de mesa.
+ *
+ * Flujo onSuccess:
+ *   1. Invalida `['reporte-caja']` (exact: false) → refresca balance en tiempo real
+ *   2. Genera buffer ESC/POS y lo envía a la impresora térmica
+ *
+ * @example
+ * const { mutate } = useRegistrarIngreso();
+ * mutate({ monto: 5000, descripcion: 'Cobro PedidosYa en efectivo' });
+ */
+export function useRegistrarIngreso() {
+  const queryClient = useQueryClient();
+
+  return useMutation<IngresoResponse, Error, IngresoRequest>({
+    mutationFn: (data) => cajaApi.registrarIngreso(data),
+    onSuccess: (ingreso) => {
+      // 1. Refrescar reporte de caja para actualizar balance
+      queryClient.invalidateQueries({
+        queryKey: cajaKeys.all,
+        exact: false,
+      });
+
+      // 2. Generar buffer ESC/POS y enviar a impresora (fire-and-forget)
+      void imprimirTicketIngreso(ingreso);
+    },
+    onError: (error) => {
+      console.error('[useRegistrarIngreso] Error al registrar ingreso:', error);
     },
   });
 }

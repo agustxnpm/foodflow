@@ -166,14 +166,21 @@ public class CerrarJornadaUseCase {
         }
 
         BigDecimal totalEgresos = movimientos.stream()
+            .filter(MovimientoCaja::esEgreso)
             .map(MovimientoCaja::getMonto)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal balanceEfectivo = entradasEfectivo.subtract(totalEgresos);
+        BigDecimal totalIngresos = movimientos.stream()
+            .filter(MovimientoCaja::esIngreso)
+            .map(MovimientoCaja::getMonto)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal balanceEfectivo = entradasEfectivo.add(totalIngresos).subtract(totalEgresos);
 
         return new ReporteCajaDiario(
             totalVentasReales,
             totalConsumoInterno,
+            totalIngresos,
             totalEgresos,
             balanceEfectivo,
             desglose,

@@ -13,9 +13,10 @@ import type { MedioPago } from '../salon/types';
 
 /**
  * Tipo de movimiento de caja.
- * Actualmente solo soporta EGRESO (salida de efectivo).
+ * EGRESO: salida de efectivo.
+ * INGRESO: entrada manual de efectivo (plataformas externas, ajustes).
  */
-export type TipoMovimiento = 'EGRESO';
+export type TipoMovimiento = 'EGRESO' | 'INGRESO';
 
 // ─── Requests ─────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,17 @@ export interface EgresoRequest {
   /** Monto del egreso (debe ser > 0) */
   monto: number;
   /** Descripción del egreso (ej: "Productos de limpieza") */
+  descripcion: string;
+}
+
+/**
+ * Body HTTP para registrar un ingreso manual de caja.
+ * Refleja IngresoRequestBody del backend.
+ */
+export interface IngresoRequest {
+  /** Monto del ingreso (debe ser > 0) */
+  monto: number;
+  /** Descripción del ingreso (ej: "Cobro PedidosYa en efectivo") */
   descripcion: string;
 }
 
@@ -49,6 +61,22 @@ export interface EgresoResponse {
 }
 
 /**
+ * Respuesta al registrar un ingreso manual de caja.
+ * Refleja IngresoResponse del backend.
+ */
+export interface IngresoResponse {
+  id: string;
+  monto: number;
+  descripcion: string;
+  /** ISO 8601 datetime */
+  fecha: string;
+  /** Tipo de movimiento (INGRESO) */
+  tipo: string;
+  /** Número de comprobante generado automáticamente (ING-...) */
+  numeroComprobante: string;
+}
+
+/**
  * Resumen de un movimiento de caja para el reporte (arqueo).
  * Refleja MovimientoResumen anidado en ReporteCajaResponse.
  */
@@ -60,15 +88,15 @@ export interface MovimientoResumen {
   fecha: string;
   numeroComprobante: string;
   /**
-   * Tipo de movimiento: 'EGRESO' | 'PEDIDO'.
+   * Tipo de movimiento: 'EGRESO' | 'INGRESO' | 'PEDIDO'.
    *
-   * Actualmente el backend solo devuelve egresos en la lista.
-   * Cuando se extienda a incluir ventas/pedidos cerrados, este campo
-   * permitirá diferenciar filas y habilitar acciones como reapertura.
+   * - EGRESO: salida de efectivo
+   * - INGRESO: entrada manual de efectivo (plataformas externas)
+   * - PEDIDO: venta (pedido cerrado)
    *
    * Si es undefined se asume EGRESO (compatibilidad backward).
    */
-  tipo?: 'EGRESO' | 'PEDIDO';
+  tipo?: 'EGRESO' | 'INGRESO' | 'PEDIDO';
 }
 
 /**
@@ -126,9 +154,11 @@ export interface ReporteCajaResponse {
   totalVentasReales: number;
   /** Suma de pagos A_CUENTA (consumo interno / empleados) */
   totalConsumoInterno: number;
-  /** Suma de movimientos de caja (egresos) */
+  /** Suma de ingresos manuales de efectivo (plataformas externas, etc.) */
+  totalIngresos: number;
+  /** Suma de egresos de caja (salidas de efectivo) */
   totalEgresos: number;
-  /** (total pagos EFECTIVO) − (total egresos) */
+  /** (total pagos EFECTIVO) + totalIngresos − totalEgresos */
   balanceEfectivo: number;
   /** Mapa con el total por cada medio de pago comercial */
   desglosePorMedioPago: Record<MedioPago, number>;

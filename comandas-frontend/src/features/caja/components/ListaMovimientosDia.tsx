@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RotateCcw, Receipt, Loader2, AlertTriangle, ArrowDownCircle, ShoppingBag } from 'lucide-react';
+import { RotateCcw, Receipt, Loader2, AlertTriangle, ArrowDownCircle, ArrowUpCircle, ShoppingBag } from 'lucide-react';
 import type { MovimientoResumen } from '../types';
 
 // ─── Utilidad de formato ──────────────────────────────────────────────────────
@@ -185,6 +185,7 @@ export default function ListaMovimientosDia({
   // ── Helpers ─────────────────────────────────────────────────────────────
 
   const esPedido = (mov: MovimientoResumen) => mov.tipo === 'PEDIDO';
+  const esIngreso = (mov: MovimientoResumen) => mov.tipo === 'INGRESO';
 
   // ── Lista ticket ────────────────────────────────────────────────────────
 
@@ -193,6 +194,7 @@ export default function ListaMovimientosDia({
       <div className="rounded-2xl bg-neutral-800/30 overflow-hidden">
         {movimientos.map((mov, idx) => {
           const pedido = esPedido(mov);
+          const ingreso = esIngreso(mov);
 
           return (
             <div
@@ -209,10 +211,18 @@ export default function ListaMovimientosDia({
                   'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
                   pedido
                     ? 'bg-emerald-950/40 text-emerald-500/70'
-                    : 'bg-amber-950/30 text-amber-500/60',
+                    : ingreso
+                      ? 'bg-emerald-950/40 text-emerald-400/70'
+                      : 'bg-amber-950/30 text-amber-500/60',
                 ].join(' ')}
               >
-                {pedido ? <ShoppingBag size={15} /> : <ArrowDownCircle size={15} />}
+                {pedido ? (
+                  <ShoppingBag size={15} />
+                ) : ingreso ? (
+                  <ArrowUpCircle size={15} />
+                ) : (
+                  <ArrowDownCircle size={15} />
+                )}
               </div>
 
               {/* Hora — columna fija */}
@@ -234,10 +244,14 @@ export default function ListaMovimientosDia({
               <span
                 className={[
                   'text-sm font-semibold font-mono shrink-0 tabular-nums',
-                  pedido ? 'text-emerald-400/90' : 'text-amber-400/90',
+                  pedido
+                    ? 'text-emerald-400/90'
+                    : ingreso
+                      ? 'text-emerald-400/90'
+                      : 'text-amber-400/90',
                 ].join(' ')}
               >
-                {pedido ? '+' : '−'}${formatMonto(mov.monto)}
+                {pedido || ingreso ? '+' : '−'}${formatMonto(mov.monto)}
               </span>
 
               {/* Botón Corregir pedido — SOLO en pedidos, siempre visible */}

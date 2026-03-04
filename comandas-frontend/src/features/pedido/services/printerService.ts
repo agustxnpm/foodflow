@@ -451,3 +451,128 @@ function extraerTextoLegible(bytes: Uint8Array): string {
 
   return lines.join('\n');
 }
+
+// ─── EscPosBuilder — Generador de tickets ESC/POS en frontend ─────────────────
+
+/**
+ * Builder liviano para construir buffers ESC/POS sin depender del backend.
+ *
+ * Replica el subconjunto del protocolo ESC/POS que usa EscPosGenerator.java:
+ * - Inicialización (ESC @)
+ * - Alineación (ESC a n)
+ * - Negrita (ESC E n)
+ * - Doble tamaño (GS ! n)
+ * - Corte parcial (GS V 65 3)
+ * - Apertura de cajón (ESC p)
+ *
+ * Codifica texto en ISO-8859-1 (Latin-1), el charset estándar del protocolo.
+ * El resultado se obtiene como Base64 vía `toBase64()` para alimentar `imprimirEscPos()`.
+ *
+ * Ancho de papel: 48 columnas (80mm, Font A estándar).
+ *
+ * @example
+ * const base64 = new EscPosBuilder()
+ *   .centrado().negrita(true).linea('EGRESO DE CAJA').negrita(false)
+ *   .separador()
+ *   .izquierda().lineaDosColumnas('Monto:', '$500.00')
+ *   .cortePapel()
+ *   .toBase64();
+ * await imprimirEscPos(base64, 'Egreso EGR-20260303-001');
+ */
+export class EscPosBuilder {
+  private static readonly LINE_WIDTH = 48;
+
+  // Comandos ESC/POS
+  private static readonly INIT = [0x1b, 0x40];
+  private static readonly ALIGN_LEFT = [0x1b, 0x61, 0x00];
+  private static readonly ALIGN_CENTER = [0x1b, 0x61, 0x01];
+  private static readonly BOLD_ON = [0x1b, 0x45, 0x01];
+  private static readonly BOLD_OFF = [0x1b, 0x45, 0x00];
+  private static readonly DOUBLE_SIZE_ON = [0x1d, 0x21, 0x11];
+  private static readonly DOUBLE_SIZE_OFF = [0x1d, 0x21, 0x00];
+  private static readonly LF = [0x0a];
+  private static readonly CUT_PAPER = [0x1d, 0x56, 0x41, 0x03];
+  private static readonly OPEN_DRAWER = [0x1b, 0x70, 0x00, 0x19, 0xfa];
+
+  private bytes: number[] = [];
+
+  constructor() {
+    this.bytes.push(...EscPosBuilder.INIT);
+  }
+
+  centrado(): this {
+    this.bytes.push(...EscPosBuilder.ALIGN_CENTER);
+    return this;
+  }
+
+  izquierda(): this {
+    this.bytes.push(...EscPosBuilder.ALIGN_LEFT);
+    return this;
+  }
+
+  negrita(on: boolean): this {
+    this.bytes.push(...(on ? EscPosBuilder.BOLD_ON : EscPosBuilder.BOLD_OFF));
+    return this;
+  }
+
+  tamanoDoble(on: boolean): this {
+    this.bytes.push(...(on ? EscPosBuilder.DOUBLE_SIZE_ON : EscPosBuilder.DOUBLE_SIZE_OFF));
+    return this;
+  }
+
+  /** Imprime una línea de texto + salto de línea. */
+  linea(texto: string): this {
+    for (let i = 0; i < texto.length; i++) {
+      // ISO-8859-1: truncar a byte (0x00–0xFF)
+      this.bytes.push(texto.charCodeAt(i) & 0xff);
+    }
+    this.bytes.push(...EscPosBuilder.LF);
+    return this;
+  }
+
+  lineaVacia(): this {
+    this.bytes.push(...EscPosBuilder.LF);
+    return this;
+  }
+
+  /** Línea de guiones (separador sencillo). */
+  separador(): this {
+    return this.linea('-'.repeat(EscPosBuilder.LINE_WIDTH));
+  }
+
+  /** Línea de signos igual (separador doble). */
+  separadorDoble(): this {
+    return this.linea('='.repeat(EscPosBuilder.LINE_WIDTH));
+  }
+
+  /** Imprime dos textos alineados a los extremos de la línea. */
+  lineaDosColumnas(izq: string, der: string): this {
+    const espacios = Math.max(1, EscPosBuilder.LINE_WIDTH - izq.length - der.length);
+    return this.linea(izq + ' '.repeat(espacios) + der);
+  }
+
+  /** 3 líneas vacías + corte parcial. */
+  cortePapel(): this {
+    this.lineaVacia();
+    this.lineaVacia();
+    this.lineaVacia();
+    this.bytes.push(...EscPosBuilder.CUT_PAPER);
+    return this;
+  }
+
+  /** Pulso al pin del cajón de dinero. */
+  abrirCajon(): this {
+    this.bytes.push(...EscPosBuilder.OPEN_DRAWER);
+    return this;
+  }
+
+  /** Retorna el buffer como Base64 listo para `imprimirEscPos()`. */
+  toBase64(): string {
+    const uint8 = new Uint8Array(this.bytes);
+    let binary = '';
+    for (let i = 0; i < uint8.length; i++) {
+      binary += String.fromCharCode(uint8[i]);
+    }
+    return btoa(binary);
+  }
+}

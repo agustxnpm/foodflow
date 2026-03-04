@@ -1,4 +1,4 @@
-import { Wallet, TrendingUp, TrendingDown, ArrowDownCircle, Lock, Loader2, Users } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, ArrowDownCircle, ArrowUpCircle, Lock, Loader2, Users } from 'lucide-react';
 import type { ReporteCajaDerivado } from '../types';
 
 // ─── Utilidad ─────────────────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ interface PanelResumenCajaProps {
   reporte: ReporteCajaDerivado | undefined;
   isLoading: boolean;
   onRegistrarEgreso: () => void;
+  onRegistrarIngreso: () => void;
   onCerrarJornada: () => void;
   cerrandoJornada: boolean;
   cierreDeshabilitado?: boolean;
@@ -63,6 +64,7 @@ export default function PanelResumenCaja({
   reporte,
   isLoading,
   onRegistrarEgreso,
+  onRegistrarIngreso,
   onCerrarJornada,
   cerrandoJornada,
   cierreDeshabilitado = false,
@@ -121,6 +123,19 @@ export default function PanelResumenCaja({
           </span>
         </div>
 
+        {/* Ingresos manuales */}
+        {reporte.totalIngresos > 0 && (
+          <div className="flex items-center justify-between mt-2.5">
+            <div className="flex items-center gap-2">
+              <ArrowUpCircle size={16} className="text-emerald-500/70" />
+              <span className="text-sm text-gray-400">Ingresos manuales</span>
+            </div>
+            <span className="text-lg font-semibold font-mono text-emerald-400">
+              +${fmt(reporte.totalIngresos)}
+            </span>
+          </div>
+        )}
+
         {/* Egresos */}
         <div className="flex items-center justify-between mt-2.5">
           <div className="flex items-center gap-2">
@@ -149,29 +164,47 @@ export default function PanelResumenCaja({
       </div>
 
       {/* ── Botones de acción ── */}
-      <div className="flex gap-2.5">
-        <button
-          type="button"
-          onClick={onRegistrarEgreso}
-          className={[
-            'flex-1 h-12 rounded-xl font-medium text-sm',
-            'flex items-center justify-center gap-2',
-            'bg-neutral-800 border border-neutral-700/80 text-gray-300',
-            'hover:bg-neutral-700/80 hover:border-neutral-600 hover:text-gray-100',
-            'transition-all duration-150 active:scale-[0.97]',
-            'focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500',
-          ].join(' ')}
-        >
-          <ArrowDownCircle size={17} className="text-amber-400" />
-          Registrar egreso
-        </button>
+      <div className="space-y-2.5">
+        <div className="flex gap-2.5">
+          <button
+            type="button"
+            onClick={onRegistrarIngreso}
+            className={[
+              'flex-1 h-12 rounded-xl font-medium text-sm',
+              'flex items-center justify-center gap-2',
+              'bg-neutral-800 border border-neutral-700/80 text-gray-300',
+              'hover:bg-emerald-950/40 hover:border-emerald-800/50 hover:text-emerald-300',
+              'transition-all duration-150 active:scale-[0.97]',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
+            ].join(' ')}
+          >
+            <ArrowUpCircle size={17} className="text-emerald-400" />
+            Registrar ingreso
+          </button>
+
+          <button
+            type="button"
+            onClick={onRegistrarEgreso}
+            className={[
+              'flex-1 h-12 rounded-xl font-medium text-sm',
+              'flex items-center justify-center gap-2',
+              'bg-neutral-800 border border-neutral-700/80 text-gray-300',
+              'hover:bg-neutral-700/80 hover:border-neutral-600 hover:text-gray-100',
+              'transition-all duration-150 active:scale-[0.97]',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-500',
+            ].join(' ')}
+          >
+            <ArrowDownCircle size={17} className="text-amber-400" />
+            Registrar egreso
+          </button>
+        </div>
 
         <button
           type="button"
           onClick={onCerrarJornada}
           disabled={cerrandoJornada || cierreDeshabilitado}
           className={[
-            'flex-1 h-12 rounded-xl font-medium text-sm',
+            'w-full h-12 rounded-xl font-medium text-sm',
             'flex items-center justify-center gap-2',
             'transition-all duration-150',
             'focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50',

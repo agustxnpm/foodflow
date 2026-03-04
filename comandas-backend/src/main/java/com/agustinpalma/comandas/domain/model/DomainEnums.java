@@ -47,10 +47,12 @@ public final class DomainEnums {
 
     /**
      * Tipo de movimiento de caja.
-     * Actualmente solo soporta EGRESO (salida de efectivo).
+     * EGRESO: salida de efectivo (compras, reparaciones, etc.)
+     * INGRESO: entrada manual de efectivo (plataformas externas, ajustes, etc.)
      */
     public enum TipoMovimiento {
-        EGRESO
+        EGRESO,
+        INGRESO
     }
 
     /**

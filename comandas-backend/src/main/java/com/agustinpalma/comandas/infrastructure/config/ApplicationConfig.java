@@ -27,6 +27,7 @@ import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
+import com.agustinpalma.comandas.application.usecase.RegistrarIngresoUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionesUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPromocionUseCase;
 import com.agustinpalma.comandas.application.usecase.CambiarEstadoPromocionUseCase;
@@ -410,6 +411,21 @@ public class ApplicationConfig {
             Clock clock
     ) {
         return new RegistrarEgresoUseCase(movimientoCajaRepository, clock);
+    }
+
+    /**
+     * Bean del caso de uso para registrar ingresos manuales de caja.
+     * 
+     * @param movimientoCajaRepository implementación del repositorio de movimientos
+     * @param clock reloj del sistema para timestamp del movimiento
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public RegistrarIngresoUseCase registrarIngresoUseCase(
+            MovimientoCajaRepository movimientoCajaRepository,
+            Clock clock
+    ) {
+        return new RegistrarIngresoUseCase(movimientoCajaRepository, clock);
     }
 
     /**
