@@ -1,6 +1,8 @@
 export { cajaApi } from './api/cajaApi';
 export {
   cajaKeys,
+  useEstadoCaja,
+  useAbrirCaja,
   useReporteCaja,
   useRegistrarEgreso,
   useRegistrarIngreso,
@@ -12,6 +14,9 @@ export {
 } from './hooks/useCaja';
 export { MesasAbiertasError, JornadaYaCerradaError } from './types';
 export type {
+  AbrirCajaRequest,
+  AbrirCajaResponse,
+  EstadoCajaResponse,
   EgresoRequest,
   EgresoResponse,
   IngresoRequest,

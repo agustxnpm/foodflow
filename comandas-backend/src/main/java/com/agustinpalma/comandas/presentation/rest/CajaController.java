@@ -1,20 +1,25 @@
 package com.agustinpalma.comandas.presentation.rest;
 
+import com.agustinpalma.comandas.application.dto.AbrirCajaRequest;
+import com.agustinpalma.comandas.application.dto.AbrirCajaResponse;
 import com.agustinpalma.comandas.application.dto.CierreJornadaResponse;
 import com.agustinpalma.comandas.application.dto.CorreccionPedidoRequest;
 import com.agustinpalma.comandas.application.dto.DetallePedidoCerradoResponse;
 import com.agustinpalma.comandas.application.dto.EgresoRequestBody;
 import com.agustinpalma.comandas.application.dto.EgresoResponse;
+import com.agustinpalma.comandas.application.dto.EstadoCajaResponse;
 import com.agustinpalma.comandas.application.dto.IngresoRequestBody;
 import com.agustinpalma.comandas.application.dto.IngresoResponse;
 import com.agustinpalma.comandas.application.dto.JornadaResumenResponse;
 import com.agustinpalma.comandas.application.dto.ReporteCajaResponse;
+import com.agustinpalma.comandas.application.usecase.AbrirJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarHistorialJornadasUseCase;
 import com.agustinpalma.comandas.application.usecase.ConsultarPedidoCerradoUseCase;
 import com.agustinpalma.comandas.application.usecase.CorregirPedidoCerradoUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReportePdfJornadaUseCase;
+import com.agustinpalma.comandas.application.usecase.ObtenerEstadoJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarIngresoUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
@@ -43,6 +48,8 @@ import java.util.UUID;
 public class CajaController {
 
     private final LocalContextProvider localContextProvider;
+    private final ObtenerEstadoJornadaUseCase obtenerEstadoJornadaUseCase;
+    private final AbrirJornadaUseCase abrirJornadaUseCase;
     private final RegistrarEgresoUseCase registrarEgresoUseCase;
     private final RegistrarIngresoUseCase registrarIngresoUseCase;
     private final GenerarReporteCajaUseCase generarReporteCajaUseCase;
@@ -54,6 +61,8 @@ public class CajaController {
 
     public CajaController(
             LocalContextProvider localContextProvider,
+            ObtenerEstadoJornadaUseCase obtenerEstadoJornadaUseCase,
+            AbrirJornadaUseCase abrirJornadaUseCase,
             RegistrarEgresoUseCase registrarEgresoUseCase,
             RegistrarIngresoUseCase registrarIngresoUseCase,
             GenerarReporteCajaUseCase generarReporteCajaUseCase,
@@ -64,6 +73,8 @@ public class CajaController {
             ConsultarHistorialJornadasUseCase consultarHistorialJornadasUseCase
     ) {
         this.localContextProvider = localContextProvider;
+        this.obtenerEstadoJornadaUseCase = obtenerEstadoJornadaUseCase;
+        this.abrirJornadaUseCase = abrirJornadaUseCase;
         this.registrarEgresoUseCase = registrarEgresoUseCase;
         this.registrarIngresoUseCase = registrarIngresoUseCase;
         this.generarReporteCajaUseCase = generarReporteCajaUseCase;
@@ -72,6 +83,44 @@ public class CajaController {
         this.consultarPedidoCerradoUseCase = consultarPedidoCerradoUseCase;
         this.corregirPedidoCerradoUseCase = corregirPedidoCerradoUseCase;
         this.consultarHistorialJornadasUseCase = consultarHistorialJornadasUseCase;
+    }
+
+    /**
+     * Consulta el estado actual de la caja (ABIERTA / CERRADA).
+     *
+     * GET /api/caja/estado
+     *
+     * Si hay una jornada abierta, retorna sus datos.
+     * Si no, retorna estado CERRADA con el saldo sugerido de la última jornada histórica.
+     *
+     * @return 200 OK con el estado de la caja
+     */
+    @GetMapping("/estado")
+    public ResponseEntity<EstadoCajaResponse> obtenerEstadoCaja() {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+
+        EstadoCajaResponse response = obtenerEstadoJornadaUseCase.ejecutar(localId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Abre una nueva jornada de caja con un fondo inicial.
+     *
+     * POST /api/caja/abrir
+     *
+     * Valida que no exista una jornada abierta en curso.
+     * Crea una jornada con estado ABIERTA y fondo inicial declarado.
+     *
+     * @param body JSON con el monto inicial
+     * @return 201 CREATED con los datos de la jornada abierta
+     * @throws JornadaYaAbiertaException → 409 Conflict si ya hay una jornada abierta
+     */
+    @PostMapping("/abrir")
+    public ResponseEntity<AbrirCajaResponse> abrirCaja(@RequestBody AbrirCajaRequest body) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+
+        AbrirCajaResponse response = abrirJornadaUseCase.ejecutar(localId, body.montoInicial());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**

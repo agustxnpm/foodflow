@@ -97,7 +97,7 @@ public class GenerarReporteCajaUseCase {
         ReporteCajaDiario reporte = calcularReporte(pedidosCerrados, movimientos);
 
         // 6. Verificar si la jornada ya fue cerrada para esta fecha operativa
-        boolean jornadaCerrada = jornadaCajaRepository.existePorFechaOperativa(localId, fechaReporte);
+        boolean jornadaCerrada = jornadaCajaRepository.existeCerradaPorFechaOperativa(localId, fechaReporte);
 
         return ReporteCajaResponse.fromDomain(reporte, mesaNumeros, jornadaCerrada);
     }

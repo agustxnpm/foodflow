@@ -11,14 +11,15 @@ import java.util.UUID;
 /**
  * Entidad JPA para JornadaCaja.
  * Representa la tabla jornadas_caja en la base de datos.
- * 
- * Cada registro es un snapshot contable de un día operativo cerrado.
+ *
+ * Cada registro es una jornada operativa que inicia ABIERTA (apertura de caja)
+ * y finaliza CERRADA (cierre con snapshot contable).
  * La combinación (local_id, fecha_operativa) es única.
  */
 @Entity
-@Table(name = "jornadas_caja", 
+@Table(name = "jornadas_caja",
     uniqueConstraints = @UniqueConstraint(
-        name = "uk_jornada_local_fecha", 
+        name = "uk_jornada_local_fecha",
         columnNames = {"local_id", "fecha_operativa"}
     ),
     indexes = {
@@ -37,8 +38,14 @@ public class JornadaCajaEntity {
     @Column(name = "fecha_operativa", nullable = false)
     private LocalDate fechaOperativa;
 
-    @Column(name = "fecha_cierre", nullable = false)
+    @Column(name = "fecha_apertura")
+    private LocalDateTime fechaApertura;
+
+    @Column(name = "fecha_cierre")
     private LocalDateTime fechaCierre;
+
+    @Column(name = "fondo_inicial", nullable = false, precision = 12, scale = 2)
+    private BigDecimal fondoInicial;
 
     @Column(name = "total_ventas_reales", nullable = false, precision = 12, scale = 2)
     private BigDecimal totalVentasReales;
@@ -64,14 +71,17 @@ public class JornadaCajaEntity {
     }
 
     public JornadaCajaEntity(UUID id, UUID localId, LocalDate fechaOperativa,
-                              LocalDateTime fechaCierre, BigDecimal totalVentasReales,
-                              BigDecimal totalConsumoInterno, BigDecimal totalEgresos,
-                              BigDecimal balanceEfectivo, int pedidosCerradosCount,
-                              EstadoJornada estado) {
+                              LocalDateTime fechaApertura, LocalDateTime fechaCierre,
+                              BigDecimal fondoInicial,
+                              BigDecimal totalVentasReales, BigDecimal totalConsumoInterno,
+                              BigDecimal totalEgresos, BigDecimal balanceEfectivo,
+                              int pedidosCerradosCount, EstadoJornada estado) {
         this.id = id;
         this.localId = localId;
         this.fechaOperativa = fechaOperativa;
+        this.fechaApertura = fechaApertura;
         this.fechaCierre = fechaCierre;
+        this.fondoInicial = fondoInicial;
         this.totalVentasReales = totalVentasReales;
         this.totalConsumoInterno = totalConsumoInterno;
         this.totalEgresos = totalEgresos;
@@ -94,8 +104,16 @@ public class JornadaCajaEntity {
         return fechaOperativa;
     }
 
+    public LocalDateTime getFechaApertura() {
+        return fechaApertura;
+    }
+
     public LocalDateTime getFechaCierre() {
         return fechaCierre;
+    }
+
+    public BigDecimal getFondoInicial() {
+        return fondoInicial;
     }
 
     public BigDecimal getTotalVentasReales() {

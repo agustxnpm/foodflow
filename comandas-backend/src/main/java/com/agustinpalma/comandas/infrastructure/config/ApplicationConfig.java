@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.infrastructure.config;
 
+import com.agustinpalma.comandas.application.usecase.AbrirJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.AbrirMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.AgregarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.AjustarStockUseCase;
@@ -26,6 +27,7 @@ import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReportePdfJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
+import com.agustinpalma.comandas.application.usecase.ObtenerEstadoJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarIngresoUseCase;
@@ -476,12 +478,12 @@ public class ApplicationConfig {
 
     /**
      * Bean del caso de uso para cerrar la jornada de caja.
-     * Valida mesas abiertas, calcula snapshot contable y persiste el cierre.
+     * Busca la jornada ABIERTA, calcula snapshot contable y transiciona a CERRADA.
      * 
      * @param mesaRepository para validar que no hay mesas abiertas
      * @param pedidoRepository para calcular ventas del día
      * @param movimientoCajaRepository para calcular egresos del día
-     * @param jornadaCajaRepository para persistir la jornada cerrada
+     * @param jornadaCajaRepository para buscar jornada ABIERTA y guardarla CERRADA
      * @param clock reloj del sistema para fecha de cierre
      * @return instancia del caso de uso lista para usar
      */
@@ -497,6 +499,29 @@ public class ApplicationConfig {
             mesaRepository, pedidoRepository, movimientoCajaRepository,
             jornadaCajaRepository, clock
         );
+    }
+
+    /**
+     * Bean del caso de uso para consultar el estado actual de la caja.
+     * Determina si la caja está abierta o cerrada y sugiere fondo inicial.
+     */
+    @Bean
+    public ObtenerEstadoJornadaUseCase obtenerEstadoJornadaUseCase(
+            JornadaCajaRepository jornadaCajaRepository
+    ) {
+        return new ObtenerEstadoJornadaUseCase(jornadaCajaRepository);
+    }
+
+    /**
+     * Bean del caso de uso para abrir una nueva jornada de caja.
+     * Valida unicidad y crea la jornada ABIERTA con fondo inicial.
+     */
+    @Bean
+    public AbrirJornadaUseCase abrirJornadaUseCase(
+            JornadaCajaRepository jornadaCajaRepository,
+            Clock clock
+    ) {
+        return new AbrirJornadaUseCase(jornadaCajaRepository, clock);
     }
 
     /**

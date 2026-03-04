@@ -1,8 +1,10 @@
 import { useState, useMemo, useSyncExternalStore } from 'react';
-import { DollarSign, Calendar, History } from 'lucide-react';
+import { DollarSign, Calendar, History, Vault, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import {
+  useEstadoCaja,
+  useAbrirCaja,
   useReporteCaja,
   useRegistrarEgreso,
   useRegistrarIngreso,
@@ -13,6 +15,7 @@ import type { PagoDetalle } from '../types';
 import useToast from '../../../hooks/useToast';
 import { getDevDateOverride, subscribeDevDate } from '../../../lib/devClock';
 
+import AperturaCajaModal from './AperturaCajaModal';
 import PanelResumenCaja from './PanelResumenCaja';
 import DesglosePagos from './DesglosePagos';
 import DetallePagoPedidoModal from './DetallePagoPedidoModal';
@@ -87,13 +90,23 @@ export default function CajaPage() {
   const toast = useToast();
   const hoy = useFechaOperativa();
 
-  // ── Hooks de datos ──
-  const { data: reporte, isLoading: cargandoReporte } = useReporteCaja(hoy);
+  // ── Estado de caja (gatekeeper) ──
+  const { data: estadoCaja, isLoading: cargandoEstado } = useEstadoCaja();
+  const abrirCaja = useAbrirCaja();
+  const cajaAbierta = estadoCaja?.estado === 'ABIERTA';
+  const fondoInicial = cajaAbierta ? (estadoCaja.fondoInicial ?? 0) : 0;
+
+  // ── Hooks de datos (solo activos si la caja está abierta) ──
+  const { data: reporte, isLoading: cargandoReporte } = useReporteCaja(
+    cajaAbierta ? hoy : '',
+    fondoInicial,
+  );
   const registrarEgreso = useRegistrarEgreso();
   const registrarIngreso = useRegistrarIngreso();
   const cerrarJornada = useCerrarJornada();
 
   // ── Estado local de UI ──
+  const [aperturaModalAbierto, setAperturaModalAbierto] = useState(false);
   const [egresoModalAbierto, setEgresoModalAbierto] = useState(false);
   const [ingresoModalAbierto, setIngresoModalAbierto] = useState(false);
   const [confirmarCierreAbierto, setConfirmarCierreAbierto] = useState(false);
@@ -106,6 +119,18 @@ export default function CajaPage() {
   const [pedidoACorregir, setPedidoACorregir] = useState<string | null>(null);
 
   // ── Handlers ──
+
+  const handleAbrirCaja = (montoInicial: number) => {
+    abrirCaja.mutate({ montoInicial }, {
+      onSuccess: () => {
+        setAperturaModalAbierto(false);
+        toast.success('Jornada abierta. ¡Buen día de trabajo!');
+      },
+      onError: () => {
+        toast.error('Error al abrir la jornada');
+      },
+    });
+  };
 
   const handleRegistrarEgreso = (data: { monto: number; descripcion: string }) => {
     registrarEgreso.mutate(data, {
@@ -183,6 +208,55 @@ export default function CajaPage() {
 
   return (
     <section className="h-[calc(100vh-4rem)] bg-neutral-900 overflow-hidden">
+
+      {/* ── Loading inicial del estado de caja ── */}
+      {cargandoEstado && (
+        <div className="h-full flex items-center justify-center">
+          <Loader2 size={32} className="text-gray-500 animate-spin" />
+        </div>
+      )}
+
+      {/* ── Blank State: Jornada no abierta ── */}
+      {!cargandoEstado && !cajaAbierta && (
+        <div className="h-full flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-20 h-20 rounded-2xl bg-neutral-800 border border-neutral-700/50 flex items-center justify-center mb-6">
+            <Vault size={36} className="text-gray-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-100 mb-2">
+            Jornada cerrada
+          </h2>
+          <p className="text-sm text-gray-500 max-w-sm mb-8 leading-relaxed">
+            Para operar la caja necesitás abrir una nueva jornada.
+            Vas a declarar el fondo inicial de efectivo.
+          </p>
+          <button
+            type="button"
+            onClick={() => setAperturaModalAbierto(true)}
+            className={[
+              'px-8 py-4 rounded-2xl font-semibold text-base',
+              'bg-emerald-600 hover:bg-emerald-500 text-white',
+              'transition-all duration-150 active:scale-[0.97]',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
+              'shadow-lg shadow-emerald-900/30',
+            ].join(' ')}
+          >
+            Abrir nueva jornada
+          </button>
+
+          {/* Link al historial siempre visible */}
+          <Link
+            to="/caja/historial"
+            className="mt-6 flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          >
+            <History size={14} />
+            Ver historial de jornadas
+          </Link>
+        </div>
+      )}
+
+      {/* ── Dashboard principal (solo si la caja está abierta) ── */}
+      {!cargandoEstado && cajaAbierta && (
+      <>
       <div className="h-full w-full px-4 sm:px-6 xl:px-8 py-5 flex flex-col">
         {/* ── Header ── */}
         <header className="flex items-center gap-3 mb-5 shrink-0">
@@ -344,6 +418,18 @@ export default function CajaPage() {
           onConfirmar={handleConfirmarCierre}
           onCancelar={() => setConfirmarCierreAbierto(false)}
           isPending={cerrarJornada.isPending}
+        />
+      )}
+      </>
+      )}
+
+      {/* ── Modal de apertura (visible desde blank state) ── */}
+      {aperturaModalAbierto && (
+        <AperturaCajaModal
+          saldoSugerido={estadoCaja?.saldoSugerido ?? null}
+          onConfirmar={handleAbrirCaja}
+          onCancelar={() => setAperturaModalAbierto(false)}
+          isPending={abrirCaja.isPending}
         />
       )}
     </section>

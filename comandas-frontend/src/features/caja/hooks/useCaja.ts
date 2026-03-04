@@ -21,8 +21,11 @@ import { isAxiosError } from 'axios';
 import { cajaApi } from '../api/cajaApi';
 import { imprimirEscPos, EscPosBuilder } from '../../pedido/services/printerService';
 import type {
+  AbrirCajaRequest,
+  AbrirCajaResponse,
   EgresoRequest,
   EgresoResponse,
+  EstadoCajaResponse,
   IngresoRequest,
   IngresoResponse,
   ReporteCajaResponse,
@@ -41,6 +44,8 @@ import { descargarPdf, nombreArchivoPdf } from '../services/pdfService';
 export const cajaKeys = {
   /** Prefijo raíz: invalida todo lo relacionado a caja */
   all: ['reporte-caja'] as const,
+  /** Estado de la caja (ABIERTA / CERRADA) */
+  estadoCaja: ['estado-caja'] as const,
   /** Reporte filtrado por fecha */
   reporte: (fecha: string) => ['reporte-caja', fecha] as const,
   /** Detalle de pedido cerrado para corrección */
@@ -88,6 +93,60 @@ async function imprimirTicketEgreso(egreso: EgresoResponse): Promise<void> {
     .toBase64();
 
   await imprimirEscPos(base64, `Egreso ${egreso.numeroComprobante}`);
+}
+
+// ─── useEstadoCaja ────────────────────────────────────────────────────────────
+
+/**
+ * Consulta el estado actual de la caja (ABIERTA / CERRADA).
+ *
+ * Determina si el sistema está operativo o requiere apertura explícita.
+ * La CajaPage usa este hook como gatekeeper: si CERRADA, muestra la pantalla
+ * de apertura en lugar del dashboard.
+ *
+ * Si la caja está CERRADA, incluye `saldoSugerido` con el balance de efectivo
+ * de la última jornada histórica (para rellenar el campo de fondo inicial).
+ *
+ * Polling cada 60s para detectar cambios de estado sin F5.
+ */
+export function useEstadoCaja() {
+  return useQuery<EstadoCajaResponse, Error>({
+    queryKey: cajaKeys.estadoCaja,
+    queryFn: () => cajaApi.obtenerEstadoCaja(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
+
+// ─── useAbrirCaja ─────────────────────────────────────────────────────────────
+
+/**
+ * Abre una nueva jornada de caja con el fondo inicial declarado.
+ *
+ * Flujo onSuccess:
+ *   1. Invalida `['estado-caja']` → la UI pasa de pantalla de apertura a dashboard
+ *   2. Invalida `['reporte-caja']` → el reporte se carga con la jornada recién abierta
+ *
+ * Errores posibles:
+ *   - HTTP 409: Ya existe una jornada abierta (invalidación resuelve el estado)
+ *
+ * @example
+ * const { mutate: abrirCaja, isPending } = useAbrirCaja();
+ * abrirCaja({ montoInicial: 5000 });
+ */
+export function useAbrirCaja() {
+  const queryClient = useQueryClient();
+
+  return useMutation<AbrirCajaResponse, Error, AbrirCajaRequest>({
+    mutationFn: (data) => cajaApi.abrirCaja(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cajaKeys.estadoCaja });
+      queryClient.invalidateQueries({ queryKey: cajaKeys.all, exact: false });
+    },
+    onError: (error) => {
+      console.error('[useAbrirCaja] Error al abrir jornada:', error);
+    },
+  });
 }
 
 // ─── useReporteCaja ───────────────────────────────────────────────────────────
@@ -304,6 +363,7 @@ export function useCerrarJornada() {
     },
     onSuccess: (data) => {
       // Refrescar dominios afectados por el cierre
+      queryClient.invalidateQueries({ queryKey: cajaKeys.estadoCaja });
       queryClient.invalidateQueries({ queryKey: cajaKeys.all, exact: false });
       queryClient.invalidateQueries({ queryKey: ['jornadas-caja'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });

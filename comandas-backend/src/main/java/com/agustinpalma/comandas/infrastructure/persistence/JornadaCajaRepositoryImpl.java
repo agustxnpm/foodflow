@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.infrastructure.persistence;
 
+import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoJornada;
 import com.agustinpalma.comandas.domain.model.DomainIds.JornadaCajaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.JornadaCaja;
@@ -42,6 +43,27 @@ public class JornadaCajaRepositoryImpl implements JornadaCajaRepository {
     public Optional<JornadaCaja> buscarPorId(JornadaCajaId id) {
         return springDataRepository.findById(id.getValue())
             .map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<JornadaCaja> buscarAbierta(LocalId localId) {
+        return springDataRepository.findByLocalIdAndEstado(
+            localId.getValue(), EstadoJornada.ABIERTA
+        ).map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<JornadaCaja> buscarUltimaCerrada(LocalId localId) {
+        return springDataRepository.findFirstByLocalIdAndEstadoOrderByFechaOperativaDesc(
+            localId.getValue(), EstadoJornada.CERRADA
+        ).map(mapper::toDomain);
+    }
+
+    @Override
+    public boolean existeCerradaPorFechaOperativa(LocalId localId, LocalDate fechaOperativa) {
+        return springDataRepository.existsByLocalIdAndFechaOperativaAndEstado(
+            localId.getValue(), fechaOperativa, EstadoJornada.CERRADA
+        );
     }
 
     @Override

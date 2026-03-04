@@ -3,7 +3,6 @@ package com.agustinpalma.comandas.application.dto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import com.agustinpalma.comandas.application.dto.AjusteEconomicoDTO;
 
 /**
  * DTO de respuesta para la consulta de detalle de un pedido.

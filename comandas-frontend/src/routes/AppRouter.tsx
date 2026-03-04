@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastContainer } from '../ui';
 import MainLayout from '../layout/MainLayout';
+import RequiereJornadaAbierta from '../components/RequiereJornadaAbierta';
 import SalonPage from '../features/salon/pages/SalonPage';
 import CajaPage from '../features/caja/components/CajaPage';
 import HistorialJornadasPage from '../features/caja/components/HistorialJornadasPage';
@@ -35,15 +36,19 @@ export function AppRouter() {
         <Routes>
           {/* Layout principal con Navbar */}
           <Route element={<MainLayout />}>
-            {/* Home: Salón (gestión de mesas + modal POS) */}
-            <Route index element={<SalonPage />} />
 
-            {/* Caja */}
+            {/* Rutas que requieren jornada de caja abierta */}
+            <Route element={<RequiereJornadaAbierta />}>
+              {/* Home: Salón (gestión de mesas + modal POS) */}
+              <Route index element={<SalonPage />} />
+
+              {/* Mostrador: Catálogo + Promociones */}
+              <Route path="mostrador" element={<MostradorPantalla />} />
+            </Route>
+
+            {/* Caja: tiene su propio gatekeeper (blank state + apertura) */}
             <Route path="caja" element={<CajaPage />} />
             <Route path="caja/historial" element={<HistorialJornadasPage />} />
-
-            {/* Mostrador: Catálogo + Promociones */}
-            <Route path="mostrador" element={<MostradorPantalla />} />
           </Route>
         </Routes>
       </BrowserRouter>

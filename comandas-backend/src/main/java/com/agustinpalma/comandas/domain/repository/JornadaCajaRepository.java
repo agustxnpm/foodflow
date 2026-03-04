@@ -32,12 +32,40 @@ public interface JornadaCajaRepository {
     Optional<JornadaCaja> buscarPorId(JornadaCajaId id);
 
     /**
+     * Busca la jornada ABIERTA activa para un local.
+     * Debería haber como máximo una jornada ABIERTA por local (invariante de negocio).
+     *
+     * @param localId identificador del local (tenant)
+     * @return la jornada abierta si existe, vacío si no
+     */
+    Optional<JornadaCaja> buscarAbierta(LocalId localId);
+
+    /**
+     * Busca la última jornada CERRADA de un local (la más reciente por fecha operativa).
+     * Utilizado para sugerir el saldo remanente como fondo inicial del día siguiente.
+     *
+     * @param localId identificador del local (tenant)
+     * @return la última jornada cerrada si existe, vacío si nunca hubo cierre
+     */
+    Optional<JornadaCaja> buscarUltimaCerrada(LocalId localId);
+
+    /**
      * Verifica si ya existe una jornada cerrada para una fecha operativa y local.
      * Utilizado para prevenir doble cierre de la misma jornada.
      *
      * @param localId identificador del local (tenant)
      * @param fechaOperativa fecha del día operativo
      * @return true si ya existe una jornada cerrada para esa fecha
+     */
+    boolean existeCerradaPorFechaOperativa(LocalId localId, LocalDate fechaOperativa);
+
+    /**
+     * Verifica si ya existe una jornada (cualquier estado) para una fecha operativa y local.
+     * Utilizado para prevenir doble apertura de la misma fecha operativa.
+     *
+     * @param localId identificador del local (tenant)
+     * @param fechaOperativa fecha del día operativo
+     * @return true si ya existe una jornada para esa fecha
      */
     boolean existePorFechaOperativa(LocalId localId, LocalDate fechaOperativa);
 

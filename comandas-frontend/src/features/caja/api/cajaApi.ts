@@ -14,10 +14,23 @@
  */
 
 import apiClient from '../../../lib/apiClient';
-import type { EgresoRequest, EgresoResponse, IngresoRequest, IngresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen, CierreJornadaResponse } from '../types';
+import type { AbrirCajaRequest, AbrirCajaResponse, EgresoRequest, EgresoResponse, EstadoCajaResponse, IngresoRequest, IngresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen, CierreJornadaResponse } from '../types';
 
 export const cajaApi = {
   // ─── Queries ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Consulta el estado actual de la caja (ABIERTA / CERRADA).
+   *
+   * GET /api/caja/estado
+   *
+   * Si hay una jornada abierta retorna sus datos (fondoInicial, fechaApertura).
+   * Si no, retorna estado CERRADA con el saldo sugerido de la última jornada.
+   */
+  obtenerEstadoCaja: async (): Promise<EstadoCajaResponse> => {
+    const response = await apiClient.get<EstadoCajaResponse>('/caja/estado');
+    return response.data;
+  },
 
   /**
    * HU-13: Obtener reporte de caja diario (arqueo).
@@ -82,6 +95,22 @@ export const cajaApi = {
    */
   cerrarJornada: async (): Promise<CierreJornadaResponse> => {
     const response = await apiClient.post<CierreJornadaResponse>('/caja/cierre-jornada');
+    return response.data;
+  },
+
+  /**
+   * Abre una nueva jornada de caja con un fondo inicial declarado.
+   *
+   * POST /api/caja/abrir
+   *
+   * Respuestas del backend:
+   *   - HTTP 201: Jornada abierta exitosamente
+   *   - HTTP 409: Ya existe una jornada abierta en curso
+   *
+   * @param data - Monto inicial de efectivo en caja
+   */
+  abrirCaja: async (data: AbrirCajaRequest): Promise<AbrirCajaResponse> => {
+    const response = await apiClient.post<AbrirCajaResponse>('/caja/abrir', data);
     return response.data;
   },
 

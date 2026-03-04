@@ -1,6 +1,7 @@
 package com.agustinpalma.comandas.infrastructure.exception;
 
 import com.agustinpalma.comandas.domain.exception.JornadaNoEncontradaException;
+import com.agustinpalma.comandas.domain.exception.JornadaYaAbiertaException;
 import com.agustinpalma.comandas.domain.exception.JornadaYaCerradaException;
 import com.agustinpalma.comandas.domain.exception.MesasAbiertasException;
 import org.slf4j.Logger;
@@ -72,6 +73,23 @@ public class GlobalExceptionHandler {
         body.put("mesasAbiertas", ex.getMesasAbiertas());
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * Captura JornadaYaAbiertaException (intento de abrir caja con jornada ya abierta).
+     * HTTP 409 Conflict.
+     */
+    @ExceptionHandler(JornadaYaAbiertaException.class)
+    public ResponseEntity<Map<String, Object>> handleJornadaYaAbierta(JornadaYaAbiertaException ex) {
+        logger.warn("Intento de abrir caja con jornada ya abierta");
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("error", "Conflict");
+        body.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     /**

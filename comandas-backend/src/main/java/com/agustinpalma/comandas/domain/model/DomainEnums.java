@@ -57,10 +57,13 @@ public final class DomainEnums {
 
     /**
      * Estado de una jornada de caja.
-     * Actualmente solo existe CERRADA porque las jornadas se crean al cierre.
-     * No modelamos "ABIERTA" porque la caja se auto-inicia al operar.
+     * ABIERTA: la caja fue abierta explícitamente con un fondo inicial declarado.
+     * CERRADA: la jornada fue cerrada como snapshot contable del día.
+     *
+     * Ciclo de vida: ABIERTA → CERRADA (irreversible).
      */
     public enum EstadoJornada {
+        ABIERTA,
         CERRADA
     }
 

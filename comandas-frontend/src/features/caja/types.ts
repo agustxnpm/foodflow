@@ -12,6 +12,13 @@ import type { MedioPago } from '../salon/types';
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
 /**
+ * Estado de la jornada de caja.
+ * ABIERTA: jornada iniciada, operaciones habilitadas.
+ * CERRADA: jornada archivada o sin iniciar.
+ */
+export type EstadoJornada = 'ABIERTA' | 'CERRADA';
+
+/**
  * Tipo de movimiento de caja.
  * EGRESO: salida de efectivo.
  * INGRESO: entrada manual de efectivo (plataformas externas, ajustes).
@@ -19,6 +26,15 @@ import type { MedioPago } from '../salon/types';
 export type TipoMovimiento = 'EGRESO' | 'INGRESO';
 
 // ─── Requests ─────────────────────────────────────────────────────────────────
+
+/**
+ * Body HTTP para abrir una nueva jornada de caja.
+ * Refleja AbrirCajaRequest del backend.
+ */
+export interface AbrirCajaRequest {
+  /** Monto inicial de efectivo en caja (>= 0) */
+  montoInicial: number;
+}
 
 /**
  * Body HTTP para registrar un egreso de caja.
@@ -170,6 +186,46 @@ export interface ReporteCajaResponse {
   pagosDetalle: PagoDetalle[];
   /** Indica si la jornada ya fue cerrada para la fecha consultada */
   jornadaCerrada: boolean;
+}
+
+// ─── Estado de Caja (Apertura) ───────────────────────────────────────────────
+
+/**
+ * Respuesta del endpoint GET /api/caja/estado.
+ * Indica si hay una jornada abierta y provee datos para la UI de apertura.
+ *
+ * Refleja EstadoCajaResponse del backend.
+ */
+export interface EstadoCajaResponse {
+  /** Estado actual de la caja */
+  estado: EstadoJornada;
+  /** UUID de la jornada abierta (null si CERRADA) */
+  jornadaId: string | null;
+  /** Fondo inicial declarado al abrir (null si CERRADA) */
+  fondoInicial: number | null;
+  /** ISO 8601 datetime — momento de apertura (null si CERRADA) */
+  fechaApertura: string | null;
+  /**
+   * Saldo remanente de la última jornada cerrada (balance efectivo).
+   * Sirve como sugerencia para el fondo inicial de la próxima jornada.
+   * Null si no hay jornadas históricas.
+   */
+  saldoSugerido: number | null;
+}
+
+/**
+ * Respuesta del endpoint POST /api/caja/abrir.
+ * Confirma la apertura exitosa de la jornada.
+ *
+ * Refleja AbrirCajaResponse del backend.
+ */
+export interface AbrirCajaResponse {
+  /** UUID de la jornada recién abierta */
+  jornadaId: string;
+  /** Fondo inicial declarado */
+  fondoInicial: number;
+  /** Fecha operativa calculada (YYYY-MM-DD) */
+  fechaOperativa: string;
 }
 
 // ─── Detalle de Pedido Cerrado (Corrección) ──────────────────────────────────

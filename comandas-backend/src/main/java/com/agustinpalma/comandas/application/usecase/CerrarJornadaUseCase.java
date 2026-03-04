@@ -1,13 +1,11 @@
 package com.agustinpalma.comandas.application.usecase;
 
-import com.agustinpalma.comandas.domain.exception.JornadaYaCerradaException;
 import com.agustinpalma.comandas.domain.exception.MesasAbiertasException;
 import com.agustinpalma.comandas.domain.model.DomainEnums.EstadoMesa;
 import com.agustinpalma.comandas.domain.model.DomainIds.JornadaCajaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.JornadaCaja;
 import com.agustinpalma.comandas.domain.model.Mesa;
-import com.agustinpalma.comandas.domain.model.ReporteCajaDiario;
 import com.agustinpalma.comandas.domain.model.MovimientoCaja;
 import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.model.Pago;
@@ -32,14 +30,13 @@ import java.util.Objects;
  * Caso de uso para cerrar la jornada de caja.
  * 
  * Orquesta las siguientes validaciones y acciones:
- * 1. Valida que no existan mesas con estado ABIERTA
- * 2. Verifica que no se haya cerrado ya la misma fecha operativa
- * 3. Calcula el snapshot contable del día (reutilizando la lógica del reporte)
- * 4. Persiste la jornada cerrada como registro de auditoría
+ * 1. Busca la jornada ABIERTA del local (obligatoria)
+ * 2. Valida que no existan mesas con estado ABIERTA
+ * 3. Calcula el snapshot contable del día
+ * 4. Transiciona la jornada de ABIERTA → CERRADA
  * 
- * La fecha operativa se calcula automáticamente:
- * - Si el cierre ocurre entre 00:00 y 05:59 → fechaOperativa = ayer (turno noche)
- * - Si el cierre ocurre a partir de las 06:00 → fechaOperativa = hoy
+ * Fórmula del arqueo de efectivo:
+ *   balanceEfectivo = fondoInicial + ventasEFECTIVO + ingresosManuales − egresos
  * 
  * No contiene lógica de negocio: delega al dominio (JornadaCaja, excepciones).
  * Solo coordina repositorios y reglas ya definidas.
@@ -71,45 +68,40 @@ public class CerrarJornadaUseCase {
      * Ejecuta el cierre de jornada para un local.
      *
      * @param localId identificador del local (tenant)
-     * @return el ID de la jornada cerrada recién creada
+     * @return el ID de la jornada cerrada
+     * @throws IllegalStateException si no hay jornada abierta
      * @throws MesasAbiertasException si existen mesas con estado ABIERTA
-     * @throws JornadaYaCerradaException si la jornada ya fue cerrada para la fecha operativa
      */
     public JornadaCajaId ejecutar(LocalId localId) {
         Objects.requireNonNull(localId, "El localId es obligatorio");
 
         LocalDateTime ahora = LocalDateTime.now(clock);
 
-        // 1. Validar que no existan mesas abiertas
+        // 1. Buscar jornada ABIERTA (obligatoria para cerrar)
+        JornadaCaja jornada = jornadaCajaRepository.buscarAbierta(localId)
+            .orElseThrow(() -> new IllegalStateException(
+                "No se puede cerrar la jornada: no hay una jornada abierta. Abra la caja primero."));
+
+        // 2. Validar que no existan mesas abiertas
         validarMesasCerradas(localId);
 
-        // 2. Calcular fecha operativa (turno noche: antes de las 06:00 → día anterior)
-        LocalDate fechaOperativa = JornadaCaja.calcularFechaOperativa(ahora);
+        // 3. Calcular snapshot contable del día usando la fecha operativa de la jornada abierta
+        LocalDate fechaOperativa = jornada.getFechaOperativa();
+        SnapshotContable snapshot = calcularSnapshot(localId, fechaOperativa, jornada.getFondoInicial());
 
-        // 3. Verificar idempotencia (no cerrar dos veces el mismo día)
-        if (jornadaCajaRepository.existePorFechaOperativa(localId, fechaOperativa)) {
-            throw new JornadaYaCerradaException(fechaOperativa);
-        }
-
-        // 4. Calcular snapshot contable del día
-        ReporteCajaDiario reporte = calcularReporte(localId, fechaOperativa);
-
-        // 5. Crear y persistir la jornada
-        JornadaCajaId jornadaId = JornadaCajaId.generate();
-        JornadaCaja jornada = new JornadaCaja(
-            jornadaId,
-            localId,
+        // 4. Transicionar ABIERTA → CERRADA (el dominio valida el estado)
+        jornada.cerrar(
             ahora,
-            reporte.getTotalVentasReales(),
-            reporte.getTotalConsumoInterno(),
-            reporte.getTotalEgresos(),
-            reporte.getBalanceEfectivo(),
-            reporte.getPedidosCerrados().size()
+            snapshot.totalVentasReales,
+            snapshot.totalConsumoInterno,
+            snapshot.totalEgresos,
+            snapshot.balanceEfectivo,
+            snapshot.pedidosCerradosCount
         );
 
         jornadaCajaRepository.guardar(jornada);
 
-        return jornadaId;
+        return jornada.getId();
     }
 
     /**
@@ -130,15 +122,12 @@ public class CerrarJornadaUseCase {
     }
 
     /**
-     * Calcula el reporte de caja para la fecha operativa.
-     * Replica la lógica de GenerarReporteCajaUseCase sin crear dependencia circular.
-     * 
-     * Alternativa considerada: inyectar GenerarReporteCajaUseCase directamente.
-     * Descartada porque un use case no debería depender de otro use case — 
-     * el reporte es read-only y el cierre es transaccional. Si la lógica de cálculo
-     * crece, se puede extraer a un Domain Service compartido.
+     * Calcula el snapshot contable del día incluyendo el fondo inicial en el arqueo.
+     *
+     * Fórmula: balanceEfectivo = fondoInicial + entradasEfectivo + totalIngresos − totalEgresos
      */
-    private ReporteCajaDiario calcularReporte(LocalId localId, LocalDate fechaOperativa) {
+    private SnapshotContable calcularSnapshot(LocalId localId, LocalDate fechaOperativa,
+                                               BigDecimal fondoInicial) {
         LocalDateTime inicio = fechaOperativa.atStartOfDay();
         LocalDateTime fin = fechaOperativa.atTime(LocalTime.of(23, 59, 59));
 
@@ -148,7 +137,6 @@ public class CerrarJornadaUseCase {
         BigDecimal totalVentasReales = BigDecimal.ZERO;
         BigDecimal totalConsumoInterno = BigDecimal.ZERO;
         BigDecimal entradasEfectivo = BigDecimal.ZERO;
-        Map<MedioPago, BigDecimal> desglose = new EnumMap<>(MedioPago.class);
 
         for (Pedido pedido : pedidosCerrados) {
             for (Pago pago : pedido.getPagos()) {
@@ -164,8 +152,6 @@ public class CerrarJornadaUseCase {
                 if (medio == MedioPago.EFECTIVO) {
                     entradasEfectivo = entradasEfectivo.add(montoPago);
                 }
-
-                desglose.merge(medio, montoPago, BigDecimal::add);
             }
         }
 
@@ -179,17 +165,26 @@ public class CerrarJornadaUseCase {
             .map(MovimientoCaja::getMonto)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal balanceEfectivo = entradasEfectivo.add(totalIngresos).subtract(totalEgresos);
+        // Arqueo = Fondo Inicial + Ventas Efectivo + Ingresos Manuales − Egresos
+        BigDecimal balanceEfectivo = fondoInicial
+            .add(entradasEfectivo)
+            .add(totalIngresos)
+            .subtract(totalEgresos);
 
-        return new ReporteCajaDiario(
-            totalVentasReales,
-            totalConsumoInterno,
-            totalIngresos,
-            totalEgresos,
-            balanceEfectivo,
-            desglose,
-            movimientos,
-            pedidosCerrados
+        return new SnapshotContable(
+            totalVentasReales, totalConsumoInterno, totalEgresos,
+            balanceEfectivo, pedidosCerrados.size()
         );
     }
+
+    /**
+     * Record interno para transportar el resultado del cálculo contable.
+     */
+    private record SnapshotContable(
+        BigDecimal totalVentasReales,
+        BigDecimal totalConsumoInterno,
+        BigDecimal totalEgresos,
+        BigDecimal balanceEfectivo,
+        int pedidosCerradosCount
+    ) {}
 }
