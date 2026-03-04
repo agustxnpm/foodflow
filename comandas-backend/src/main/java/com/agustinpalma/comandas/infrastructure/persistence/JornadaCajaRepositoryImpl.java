@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.infrastructure.persistence;
 
+import com.agustinpalma.comandas.domain.model.DomainIds.JornadaCajaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.JornadaCaja;
 import com.agustinpalma.comandas.domain.repository.JornadaCajaRepository;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Implementación JPA del repositorio de jornadas de caja.
@@ -34,6 +36,12 @@ public class JornadaCajaRepositoryImpl implements JornadaCajaRepository {
         var entity = mapper.toEntity(jornada);
         var guardado = springDataRepository.save(entity);
         return mapper.toDomain(guardado);
+    }
+
+    @Override
+    public Optional<JornadaCaja> buscarPorId(JornadaCajaId id) {
+        return springDataRepository.findById(id.getValue())
+            .map(mapper::toDomain);
     }
 
     @Override

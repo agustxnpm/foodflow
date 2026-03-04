@@ -141,7 +141,7 @@ export default function CajaPage() {
         setConfirmarCierreAbierto(false);
         setPagoDetalle(null);
         setPedidoACorregir(null);
-        toast.success('Jornada cerrada exitosamente. Los datos quedan registrados.');
+        toast.success('Jornada cerrada exitosamente. Se descargará el reporte PDF.');
       },
       onError: (error) => {
         setConfirmarCierreAbierto(false);

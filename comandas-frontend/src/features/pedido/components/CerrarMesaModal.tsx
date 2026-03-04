@@ -10,6 +10,7 @@ import {
   Loader2,
   Check,
   Printer,
+  Coffee,
 } from 'lucide-react';
 import type { DetallePedidoResponse } from '../types';
 import type { TicketImpresionResponse } from '../types-impresion';
@@ -47,6 +48,7 @@ const MEDIOS_PAGO: Array<{
   { tipo: 'TARJETA', icono: CreditCard, label: 'Tarjeta', color: 'text-blue-400' },
   { tipo: 'TRANSFERENCIA', icono: ArrowRightLeft, label: 'Transfer.', color: 'text-purple-400' },
   { tipo: 'QR', icono: QrCode, label: 'QR', color: 'text-yellow-400' },
+  { tipo: 'A_CUENTA', icono: Coffee, label: 'A Cuenta', color: 'text-orange-400' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

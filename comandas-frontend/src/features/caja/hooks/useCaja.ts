@@ -28,11 +28,13 @@ import type {
   ReporteCajaResponse,
   ReporteCajaDerivado,
   CierreJornadaErrorData,
+  CierreJornadaResponse,
   DetallePedidoCerrado,
   CorreccionPedidoRequest,
   JornadaResumen,
 } from '../types';
 import { MesasAbiertasError, JornadaYaCerradaError } from '../types';
+import { descargarPdf, nombreArchivoPdf } from '../services/pdfService';
 
 // ─── Query Keys (centralizadas para consistencia) ─────────────────────────────
 
@@ -273,10 +275,10 @@ export function useRegistrarIngreso() {
 export function useCerrarJornada() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error | MesasAbiertasError | JornadaYaCerradaError>({
+  return useMutation<CierreJornadaResponse, Error | MesasAbiertasError | JornadaYaCerradaError>({
     mutationFn: async () => {
       try {
-        await cajaApi.cerrarJornada();
+        return await cajaApi.cerrarJornada();
       } catch (error: unknown) {
         if (isAxiosError(error)) {
           // HTTP 400 → mesas abiertas
@@ -300,11 +302,18 @@ export function useCerrarJornada() {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Refrescar dominios afectados por el cierre
       queryClient.invalidateQueries({ queryKey: cajaKeys.all, exact: false });
       queryClient.invalidateQueries({ queryKey: ['jornadas-caja'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
+
+      // Descarga automática del PDF de cierre (fire-and-forget)
+      void cajaApi.descargarReportePdf(data.jornadaId).then((blob) => {
+        descargarPdf(blob, nombreArchivoPdf());
+      }).catch((err) => {
+        console.error('[useCerrarJornada] Error al descargar PDF:', err);
+      });
     },
     onError: (error) => {
       // Log para debugging; la UI maneja la presentación
@@ -386,5 +395,30 @@ export function useHistorialJornadas(desde: string, hasta: string) {
     queryFn: () => cajaApi.obtenerHistorialJornadas(desde, hasta),
     enabled: !!desde && !!hasta,
     staleTime: 5 * 60 * 1000, // 5 min — datos históricos inmutables
+  });
+}
+
+// ─── useDescargarReportePdf ───────────────────────────────────────────────────
+
+/**
+ * Descarga bajo demanda el reporte PDF de una jornada ya cerrada.
+ *
+ * Útil para el botón de re-descarga en el historial de jornadas.
+ * El cierre automático ya descarga el PDF vía `useCerrarJornada.onSuccess`,
+ * pero este hook permite obtenerlo nuevamente.
+ *
+ * @example
+ * const { mutate: descargar, isPending } = useDescargarReportePdf();
+ * descargar(jornadaId);
+ */
+export function useDescargarReportePdf() {
+  return useMutation<void, Error, string>({
+    mutationFn: async (jornadaId: string) => {
+      const blob = await cajaApi.descargarReportePdf(jornadaId);
+      descargarPdf(blob, nombreArchivoPdf());
+    },
+    onError: (error) => {
+      console.error('[useDescargarReportePdf] Error:', error.message);
+    },
   });
 }

@@ -17,6 +17,7 @@ import {
 import { Link } from 'react-router-dom';
 
 import { useHistorialJornadas } from '../hooks/useCaja';
+import BotonDescargarPDF from './BotonDescargarPDF';
 import type { JornadaResumen } from '../types';
 
 // ─── Utilidades ───────────────────────────────────────────────────────────────
@@ -326,6 +327,11 @@ function JornadaCard({ jornada, isExpanded, onToggle }: JornadaCardProps) {
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* Botón descarga de reporte PDF */}
+          <div className="mt-3 pt-3 border-t border-neutral-700/40 flex justify-end">
+            <BotonDescargarPDF jornadaId={jornada.id} label="Descargar reporte" />
           </div>
         </div>
       )}

@@ -71,10 +71,11 @@ public class CerrarJornadaUseCase {
      * Ejecuta el cierre de jornada para un local.
      *
      * @param localId identificador del local (tenant)
+     * @return el ID de la jornada cerrada recién creada
      * @throws MesasAbiertasException si existen mesas con estado ABIERTA
      * @throws JornadaYaCerradaException si la jornada ya fue cerrada para la fecha operativa
      */
-    public void ejecutar(LocalId localId) {
+    public JornadaCajaId ejecutar(LocalId localId) {
         Objects.requireNonNull(localId, "El localId es obligatorio");
 
         LocalDateTime ahora = LocalDateTime.now(clock);
@@ -94,8 +95,9 @@ public class CerrarJornadaUseCase {
         ReporteCajaDiario reporte = calcularReporte(localId, fechaOperativa);
 
         // 5. Crear y persistir la jornada
+        JornadaCajaId jornadaId = JornadaCajaId.generate();
         JornadaCaja jornada = new JornadaCaja(
-            JornadaCajaId.generate(),
+            jornadaId,
             localId,
             ahora,
             reporte.getTotalVentasReales(),
@@ -106,6 +108,8 @@ public class CerrarJornadaUseCase {
         );
 
         jornadaCajaRepository.guardar(jornada);
+
+        return jornadaId;
     }
 
     /**

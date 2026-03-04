@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.infrastructure.exception;
 
+import com.agustinpalma.comandas.domain.exception.JornadaNoEncontradaException;
 import com.agustinpalma.comandas.domain.exception.JornadaYaCerradaException;
 import com.agustinpalma.comandas.domain.exception.MesasAbiertasException;
 import org.slf4j.Logger;
@@ -88,6 +89,23 @@ public class GlobalExceptionHandler {
         body.put("message", ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
+     * Captura JornadaNoEncontradaException (jornada no existe para el ID solicitado).
+     * HTTP 404 Not Found.
+     */
+    @ExceptionHandler(JornadaNoEncontradaException.class)
+    public ResponseEntity<Map<String, Object>> handleJornadaNoEncontrada(JornadaNoEncontradaException ex) {
+        logger.warn("Jornada no encontrada: {}", ex.getJornadaId().getValue());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", HttpStatus.NOT_FOUND.value());
+        body.put("error", "Not Found");
+        body.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
     }
 
     /**

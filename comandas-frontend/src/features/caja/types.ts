@@ -315,3 +315,16 @@ export class JornadaYaCerradaError extends Error {
     this.name = 'JornadaYaCerradaError';
   }
 }
+
+// ─── Respuesta del cierre de jornada ─────────────────────────────────────────
+
+/**
+ * Respuesta del endpoint POST /api/caja/cierre-jornada.
+ * Contiene el ID de la jornada creada para poder descargar el PDF inmediatamente.
+ *
+ * Refleja CierreJornadaResponse del backend.
+ */
+export interface CierreJornadaResponse {
+  /** UUID de la jornada cerrada recién creada */
+  jornadaId: string;
+}

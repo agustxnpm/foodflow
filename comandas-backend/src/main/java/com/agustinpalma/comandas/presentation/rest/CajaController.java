@@ -1,5 +1,6 @@
 package com.agustinpalma.comandas.presentation.rest;
 
+import com.agustinpalma.comandas.application.dto.CierreJornadaResponse;
 import com.agustinpalma.comandas.application.dto.CorreccionPedidoRequest;
 import com.agustinpalma.comandas.application.dto.DetallePedidoCerradoResponse;
 import com.agustinpalma.comandas.application.dto.EgresoRequestBody;
@@ -13,14 +14,18 @@ import com.agustinpalma.comandas.application.usecase.ConsultarHistorialJornadasU
 import com.agustinpalma.comandas.application.usecase.ConsultarPedidoCerradoUseCase;
 import com.agustinpalma.comandas.application.usecase.CorregirPedidoCerradoUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
+import com.agustinpalma.comandas.application.usecase.GenerarReportePdfJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarIngresoUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
+import com.agustinpalma.comandas.domain.model.DomainIds.JornadaCajaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.DomainIds.PedidoId;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -42,6 +47,7 @@ public class CajaController {
     private final RegistrarIngresoUseCase registrarIngresoUseCase;
     private final GenerarReporteCajaUseCase generarReporteCajaUseCase;
     private final CerrarJornadaUseCase cerrarJornadaUseCase;
+    private final GenerarReportePdfJornadaUseCase generarReportePdfJornadaUseCase;
     private final ConsultarPedidoCerradoUseCase consultarPedidoCerradoUseCase;
     private final CorregirPedidoCerradoUseCase corregirPedidoCerradoUseCase;
     private final ConsultarHistorialJornadasUseCase consultarHistorialJornadasUseCase;
@@ -52,6 +58,7 @@ public class CajaController {
             RegistrarIngresoUseCase registrarIngresoUseCase,
             GenerarReporteCajaUseCase generarReporteCajaUseCase,
             CerrarJornadaUseCase cerrarJornadaUseCase,
+            GenerarReportePdfJornadaUseCase generarReportePdfJornadaUseCase,
             ConsultarPedidoCerradoUseCase consultarPedidoCerradoUseCase,
             CorregirPedidoCerradoUseCase corregirPedidoCerradoUseCase,
             ConsultarHistorialJornadasUseCase consultarHistorialJornadasUseCase
@@ -61,6 +68,7 @@ public class CajaController {
         this.registrarIngresoUseCase = registrarIngresoUseCase;
         this.generarReporteCajaUseCase = generarReporteCajaUseCase;
         this.cerrarJornadaUseCase = cerrarJornadaUseCase;
+        this.generarReportePdfJornadaUseCase = generarReportePdfJornadaUseCase;
         this.consultarPedidoCerradoUseCase = consultarPedidoCerradoUseCase;
         this.corregirPedidoCerradoUseCase = corregirPedidoCerradoUseCase;
         this.consultarHistorialJornadasUseCase = consultarHistorialJornadasUseCase;
@@ -131,16 +139,16 @@ public class CajaController {
      * - Cierre entre 00:00 y 05:59 → jornada del día anterior (turno noche)
      * - Cierre a partir de 06:00 → jornada del día actual
      * 
-     * @return 200 OK si el cierre fue exitoso
+     * @return 200 OK con el ID de la jornada cerrada
      * @throws MesasAbiertasException → 400 Bad Request si hay mesas abiertas
      * @throws JornadaYaCerradaException → 409 Conflict si la jornada ya fue cerrada
      */
     @PostMapping("/cierre-jornada")
-    public ResponseEntity<Void> cerrarJornada() {
+    public ResponseEntity<CierreJornadaResponse> cerrarJornada() {
         LocalId localId = localContextProvider.getCurrentLocalId();
 
-        cerrarJornadaUseCase.ejecutar(localId);
-        return ResponseEntity.ok().build();
+        JornadaCajaId jornadaId = cerrarJornadaUseCase.ejecutar(localId);
+        return ResponseEntity.ok(new CierreJornadaResponse(jornadaId.getValue()));
     }
 
     /**
@@ -210,5 +218,33 @@ public class CajaController {
         LocalId localId = localContextProvider.getCurrentLocalId();
         List<JornadaResumenResponse> jornadas = consultarHistorialJornadasUseCase.ejecutar(localId, desde, hasta);
         return ResponseEntity.ok(jornadas);
+    }
+
+    /**
+     * Genera y descarga el reporte PDF de cierre de una jornada específica.
+     *
+     * GET /api/caja/jornadas/{jornadaId}/reporte-pdf
+     *
+     * El PDF se genera bajo demanda a partir de la jornada cerrada y los datos
+     * detallados del día (pedidos, movimientos, desglose por medio de pago).
+     *
+     * @param jornadaId UUID de la jornada cerrada
+     * @return 200 OK con el PDF como application/pdf
+     * @throws JornadaNoEncontradaException → 404 si la jornada no existe
+     */
+    @GetMapping("/jornadas/{jornadaId}/reporte-pdf")
+    public ResponseEntity<byte[]> descargarReportePdf(@PathVariable UUID jornadaId) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+
+        byte[] pdf = generarReportePdfJornadaUseCase.ejecutar(
+            new JornadaCajaId(jornadaId), localId
+        );
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment",
+            String.format("cierre-jornada-%s.pdf", jornadaId));
+
+        return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
     }
 }

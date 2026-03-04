@@ -1,10 +1,12 @@
 package com.agustinpalma.comandas.domain.repository;
 
 import com.agustinpalma.comandas.domain.model.JornadaCaja;
+import com.agustinpalma.comandas.domain.model.DomainIds.JornadaCajaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Contrato del repositorio de jornadas de caja.
@@ -20,6 +22,14 @@ public interface JornadaCajaRepository {
      * @return la jornada guardada
      */
     JornadaCaja guardar(JornadaCaja jornada);
+
+    /**
+     * Busca una jornada de caja por su identificador.
+     *
+     * @param id identificador de la jornada
+     * @return la jornada si existe, vacío si no
+     */
+    Optional<JornadaCaja> buscarPorId(JornadaCajaId id);
 
     /**
      * Verifica si ya existe una jornada cerrada para una fecha operativa y local.

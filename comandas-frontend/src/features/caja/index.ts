@@ -8,6 +8,7 @@ export {
   useDetallePedidoCerrado,
   useCorregirPedido,
   useHistorialJornadas,
+  useDescargarReportePdf,
 } from './hooks/useCaja';
 export { MesasAbiertasError, JornadaYaCerradaError } from './types';
 export type {
@@ -18,6 +19,7 @@ export type {
   ReporteCajaResponse,
   ReporteCajaDerivado,
   CierreJornadaErrorData,
+  CierreJornadaResponse,
   VentaResumen,
   PagoDetalle,
   DetallePedidoCerrado,
@@ -27,4 +29,5 @@ export type {
   JornadaResumen,
 } from './types';
 export { default as CajaPage } from './components/CajaPage';
+export { default as BotonDescargarPDF } from './components/BotonDescargarPDF';
 export { CajaRoutes } from './routes';

@@ -24,6 +24,7 @@ import com.agustinpalma.comandas.application.usecase.EliminarCategoriaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
+import com.agustinpalma.comandas.application.usecase.GenerarReportePdfJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
@@ -47,6 +48,9 @@ import com.agustinpalma.comandas.domain.repository.PromocionRepository;
 import com.agustinpalma.comandas.domain.service.GestorStockService;
 import com.agustinpalma.comandas.domain.service.MotorReglasService;
 import com.agustinpalma.comandas.domain.service.NormalizadorVariantesService;
+
+import com.agustinpalma.comandas.application.ports.output.ReportePdfGenerator;
+import com.agustinpalma.comandas.infrastructure.adapter.FlyingSaucerReportePdfAdapter;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -445,6 +449,29 @@ public class ApplicationConfig {
             JornadaCajaRepository jornadaCajaRepository
     ) {
         return new GenerarReporteCajaUseCase(pedidoRepository, movimientoCajaRepository, mesaRepository, jornadaCajaRepository);
+    }
+
+    // ============================================
+    // Reporte PDF de cierre de jornada
+    // ============================================
+
+    @Bean
+    public ReportePdfGenerator reportePdfGenerator() {
+        return new FlyingSaucerReportePdfAdapter();
+    }
+
+    @Bean
+    public GenerarReportePdfJornadaUseCase generarReportePdfJornadaUseCase(
+            JornadaCajaRepository jornadaCajaRepository,
+            PedidoRepository pedidoRepository,
+            MovimientoCajaRepository movimientoCajaRepository,
+            ReportePdfGenerator reportePdfGenerator,
+            MeisenProperties meisenProperties
+    ) {
+        return new GenerarReportePdfJornadaUseCase(
+            jornadaCajaRepository, pedidoRepository, movimientoCajaRepository,
+            reportePdfGenerator, meisenProperties
+        );
     }
 
     /**

@@ -14,7 +14,7 @@
  */
 
 import apiClient from '../../../lib/apiClient';
-import type { EgresoRequest, EgresoResponse, IngresoRequest, IngresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen } from '../types';
+import type { EgresoRequest, EgresoResponse, IngresoRequest, IngresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen, CierreJornadaResponse } from '../types';
 
 export const cajaApi = {
   // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ export const cajaApi = {
    * POST /api/caja/cierre-jornada
    *
    * Respuestas del backend:
-   *   - HTTP 200: Jornada cerrada exitosamente (body vacío)
+   *   - HTTP 200: Jornada cerrada exitosamente con { jornadaId: UUID }
    *   - HTTP 400: Mesas abiertas → { mensaje: string, mesasAbiertas: number }
    *   - HTTP 409: Jornada ya cerrada para la fecha operativa
    *
@@ -80,8 +80,9 @@ export const cajaApi = {
    * El hook `useCerrarJornada` transforma errores en tipos discriminables
    * (`MesasAbiertasError`, `JornadaYaCerradaError`) para la UI.
    */
-  cerrarJornada: async (): Promise<void> => {
-    await apiClient.post('/caja/cierre-jornada');
+  cerrarJornada: async (): Promise<CierreJornadaResponse> => {
+    const response = await apiClient.post<CierreJornadaResponse>('/caja/cierre-jornada');
+    return response.data;
   },
 
   /**
@@ -133,5 +134,23 @@ export const cajaApi = {
       params: { desde, hasta },
     });
     return response.data;
+  },
+
+  // ─── Reporte PDF ────────────────────────────────────────────────────────────
+
+  /**
+   * Descarga el reporte PDF de cierre de una jornada.
+   *
+   * GET /api/caja/jornadas/{jornadaId}/reporte-pdf
+   *
+   * Retorna un Blob que puede descargarse como archivo.
+   *
+   * @param jornadaId - UUID de la jornada cerrada
+   */
+  descargarReportePdf: async (jornadaId: string): Promise<Blob> => {
+    const response = await apiClient.get(`/caja/jornadas/${jornadaId}/reporte-pdf`, {
+      responseType: 'blob',
+    });
+    return response.data as Blob;
   },
 };
