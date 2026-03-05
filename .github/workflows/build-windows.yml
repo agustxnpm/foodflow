@@ -1,5 +1,6 @@
 name: Build Windows Installer
 # FoodFlow v1.0
+# Prerequisito en PC destino: Java 21 (Temurin) instalado por el técnico.
 
 on:
   workflow_dispatch:
@@ -35,74 +36,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "comandas-frontend\src-tauri\binaries" | Out-Null
           Copy-Item "comandas-backend\target\comandas-backend-0.0.1-SNAPSHOT.jar" "comandas-frontend\src-tauri\binaries\backend.jar"
-          Write-Host "backend.jar copiado correctamente"
+          Write-Host "OK: backend.jar copiado"
 
-      # 5. Generar JRE completo con jlink (embebido en el instalador)
-      - name: Create embedded JRE with jlink
-        shell: pwsh
-        run: |
-          $JAVA_HOME_PATH = $env:JAVA_HOME
-          Write-Host "JAVA_HOME: $JAVA_HOME_PATH"
-          
-          $jreDest = "comandas-frontend\src-tauri\jre"
-          
-          if (Test-Path $jreDest) { Remove-Item -Recurse -Force $jreDest }
-          
-          & "$JAVA_HOME_PATH\bin\jlink" `
-            --add-modules ALL-MODULE-PATH `
-            --no-man-pages `
-            --no-header-files `
-            --output $jreDest
-          
-          if ($LASTEXITCODE -ne 0) { Write-Error "jlink falló"; exit 1 }
-          
-          & "$jreDest\bin\java.exe" -version
-          
-          $size = (Get-ChildItem -Recurse $jreDest | Measure-Object -Property Length -Sum).Sum / 1MB
-          Write-Host "JRE embebido: $([math]::Round($size, 2)) MB"
-
-      # 6. Verificar artefactos y actualizar tauri.conf.json
-      #    Usa reemplazo de texto directo para no corromper el JSON con
-      #    ConvertTo-Json (que puede cambiar tipos, encoding y null values).
-      - name: Verify artifacts and update Tauri config
-        shell: pwsh
-        working-directory: comandas-frontend
-        run: |
-          # Verificar que backend.jar existe
-          if (-not (Test-Path "src-tauri\binaries\backend.jar")) {
-            Write-Error "backend.jar no encontrado en src-tauri\binaries\"
-            exit 1
-          }
-          Write-Host "OK: backend.jar encontrado"
-          
-          # Verificar que JRE existe
-          if (-not (Test-Path "src-tauri\jre\bin\java.exe")) {
-            Write-Error "JRE no encontrado en src-tauri\jre\"
-            Get-ChildItem "src-tauri\" -Depth 1 | Select-Object FullName
-            exit 1
-          }
-          
-          $jreFiles = (Get-ChildItem -Recurse "src-tauri\jre" -File).Count
-          Write-Host "OK: JRE encontrado ($jreFiles archivos)"
-          
-          # Listar directorio src-tauri para diagnóstico
-          Write-Host ""
-          Write-Host "=== Contenido de src-tauri (1 nivel) ==="
-          Get-ChildItem "src-tauri" | ForEach-Object { Write-Host "  $($_.Name)" }
-          
-          # Reemplazo directo del string en tauri.conf.json
-          # Cambia solo la línea de resources para agregar jre/**
-          $confPath = "src-tauri\tauri.conf.json"
-          $content = Get-Content $confPath -Raw
-          $content = $content -replace '"resources":\s*\["binaries/\*"\]', '"resources": ["binaries/*", "jre/**"]'
-          [System.IO.File]::WriteAllText((Resolve-Path $confPath).Path, $content, [System.Text.UTF8Encoding]::new($false))
-          
-          # Mostrar el resultado para verificar
-          Write-Host ""
-          Write-Host "=== tauri.conf.json (resources) ==="
-          Select-String -Path $confPath -Pattern "resources"
-
-      # 7. Setup Node.js
+      # 5. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -110,18 +46,16 @@ jobs:
           cache: 'npm'
           cache-dependency-path: comandas-frontend/package-lock.json
 
-      # 8. Instalar dependencias del frontend
+      # 6. Instalar dependencias del frontend
       - name: Install frontend dependencies
         working-directory: comandas-frontend
         run: npm ci
 
-      # 9. Setup Rust (necesario para Tauri)
+      # 7. Setup Rust (necesario para Tauri)
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # 10. Cache de compilación Rust
-      #     NOTA: Se usa un hash que incluye el workflow file para invalidar
-      #     cache cuando cambia la configuración de build.
+      # 8. Cache de compilación Rust
       - name: Cache Rust build
         uses: actions/cache@v4
         with:
@@ -129,16 +63,16 @@ jobs:
             comandas-frontend/src-tauri/target
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-v2-${{ hashFiles('comandas-frontend/src-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-v3-${{ hashFiles('comandas-frontend/src-tauri/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-v2-
+            ${{ runner.os }}-cargo-v3-
 
-      # 11. Construir Tauri para Windows
+      # 9. Construir Tauri para Windows
       - name: Build Tauri app
         working-directory: comandas-frontend
         run: npm run tauri:build
 
-      # 12. Subir instalador NSIS (.exe)
+      # 10. Subir instalador NSIS (.exe)
       - name: Upload NSIS installer
         uses: actions/upload-artifact@v4
         with:
@@ -146,7 +80,7 @@ jobs:
           path: comandas-frontend/src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 30
 
-      # 13. Subir instalador MSI
+      # 11. Subir instalador MSI
       - name: Upload MSI installer
         uses: actions/upload-artifact@v4
         with:
