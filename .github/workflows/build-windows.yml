@@ -55,19 +55,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # 8. Cache de compilación Rust
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            comandas-frontend/src-tauri/target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-v3-${{ hashFiles('comandas-frontend/src-tauri/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-v3-
-
-      # 9. Construir Tauri para Windows
+      # 8. Construir Tauri para Windows (sin cache — build limpio)
       - name: Build Tauri app
         working-directory: comandas-frontend
         run: npm run tauri:build
