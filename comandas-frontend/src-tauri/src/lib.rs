@@ -151,10 +151,26 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
   // Usar el nombre base, Tauri agregará automáticamente el target triple
   let sidecar_name = "backend";
 
+  // ── Resolver directorio de datos de la aplicación ──────────────────────
+  // El archivo SQLite debe vivir en la carpeta que el SO reserva para
+  // datos de aplicaciones, NO junto al ejecutable / JAR.
+  //   Linux:   ~/.local/share/com.meiser.foodflow/
+  //   Windows: %APPDATA%/com.meiser.foodflow/
+  //   macOS:   ~/Library/Application Support/com.meiser.foodflow/
+  let data_dir = app.path().app_data_dir()
+    .map_err(|e| format!("No se pudo resolver app_data_dir: {}", e))?;
+  std::fs::create_dir_all(&data_dir)?;
+
+  let db_path = data_dir.join("comandas.db");
+  // Normalizar separadores a '/' para compatibilidad JDBC en todos los OS
+  let db_path_str = db_path.to_string_lossy().replace('\\', "/");
+  info!("[Backend] Ruta de base de datos SQLite: {}", db_path_str);
+
   info!("[Backend] Intentando iniciar sidecar: {}", sidecar_name);
 
   let (mut rx, child) = shell
     .sidecar(sidecar_name)?
+    .env("FOODFLOW_DB_PATH", &db_path_str)
     .spawn()?;
 
   // Guardar referencia al proceso

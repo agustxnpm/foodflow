@@ -12,7 +12,11 @@
 #   java -jar foodflow.jar --spring.profiles.active=offline
 #
 # UBICACIÓN DE DATOS:
-#   ./comandas.db (mismo directorio del JAR)
+#   Por defecto: ./comandas.db (mismo directorio del JAR)
+#   Con Tauri:   La variable de entorno FOODFLOW_DB_PATH apunta al
+#                directorio de datos de la aplicación del SO:
+#                  Linux:   ~/.local/share/com.meiser.foodflow/comandas.db
+#                  Windows: %APPDATA%/com.meiser.foodflow/comandas.db
 # ============================================================
 
 spring:
@@ -23,8 +27,10 @@ spring:
   # DATASOURCE - SQLite Embebida
   # ============================================================
   datasource:
-    # Archivo local SQLite en el directorio de ejecución
-    url: jdbc:sqlite:comandas.db
+    # Ruta al archivo SQLite.
+    # FOODFLOW_DB_PATH es inyectada por Tauri con la ruta al app_data_dir del SO.
+    # Si no existe (ejecución manual), se usa 'comandas.db' relativo al CWD.
+    url: jdbc:sqlite:${FOODFLOW_DB_PATH:comandas.db}
     
     # Driver JDBC de Xerial SQLite
     driver-class-name: org.sqlite.JDBC
