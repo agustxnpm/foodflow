@@ -31,6 +31,7 @@ jobs:
       # 4. Copiar JAR a binarios de Tauri
       - name: Copy backend JAR to Tauri binaries
         run: |
+          mkdir -p comandas-frontend\src-tauri\binaries
           copy comandas-backend\target\comandas-backend-0.0.1-SNAPSHOT.jar comandas-frontend\src-tauri\binaries\backend.jar
 
       # 5. Generar JRE completo con jlink (embebido en el instalador)
