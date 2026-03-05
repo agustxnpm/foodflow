@@ -62,8 +62,8 @@ jobs:
           Write-Host "JRE embebido: $([math]::Round($size, 2)) MB"
 
       # 6. Verificar artefactos y actualizar tauri.conf.json
-      #    Modifica el JSON directamente en vez de usar TAURI_CONFIG env var
-      #    para evitar problemas de escaping de ** en PowerShell.
+      #    Usa reemplazo de texto directo para no corromper el JSON con
+      #    ConvertTo-Json (que puede cambiar tipos, encoding y null values).
       - name: Verify artifacts and update Tauri config
         shell: pwsh
         working-directory: comandas-frontend
@@ -73,25 +73,34 @@ jobs:
             Write-Error "backend.jar no encontrado en src-tauri\binaries\"
             exit 1
           }
+          Write-Host "OK: backend.jar encontrado"
           
           # Verificar que JRE existe
           if (-not (Test-Path "src-tauri\jre\bin\java.exe")) {
             Write-Error "JRE no encontrado en src-tauri\jre\"
-            Get-ChildItem "src-tauri\" -Recurse -Depth 1 | Select-Object FullName
+            Get-ChildItem "src-tauri\" -Depth 1 | Select-Object FullName
             exit 1
           }
           
           $jreFiles = (Get-ChildItem -Recurse "src-tauri\jre" -File).Count
-          Write-Host "OK: backend.jar encontrado"
           Write-Host "OK: JRE encontrado ($jreFiles archivos)"
           
-          # Actualizar tauri.conf.json para incluir JRE en resources
-          $confPath = "src-tauri\tauri.conf.json"
-          $json = Get-Content $confPath -Raw | ConvertFrom-Json
-          $json.bundle.resources = @("binaries/*", "jre/**")
-          $json | ConvertTo-Json -Depth 20 | Set-Content $confPath -Encoding UTF8
+          # Listar directorio src-tauri para diagnóstico
+          Write-Host ""
+          Write-Host "=== Contenido de src-tauri (1 nivel) ==="
+          Get-ChildItem "src-tauri" | ForEach-Object { Write-Host "  $($_.Name)" }
           
-          Write-Host "tauri.conf.json actualizado: resources = binaries/* + jre/**"
+          # Reemplazo directo del string en tauri.conf.json
+          # Cambia solo la línea de resources para agregar jre/**
+          $confPath = "src-tauri\tauri.conf.json"
+          $content = Get-Content $confPath -Raw
+          $content = $content -replace '"resources":\s*\["binaries/\*"\]', '"resources": ["binaries/*", "jre/**"]'
+          [System.IO.File]::WriteAllText((Resolve-Path $confPath).Path, $content, [System.Text.UTF8Encoding]::new($false))
+          
+          # Mostrar el resultado para verificar
+          Write-Host ""
+          Write-Host "=== tauri.conf.json (resources) ==="
+          Select-String -Path $confPath -Pattern "resources"
 
       # 7. Setup Node.js
       - name: Setup Node.js
@@ -111,6 +120,8 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       # 10. Cache de compilación Rust
+      #     NOTA: Se usa un hash que incluye el workflow file para invalidar
+      #     cache cuando cambia la configuración de build.
       - name: Cache Rust build
         uses: actions/cache@v4
         with:
@@ -118,9 +129,9 @@ jobs:
             comandas-frontend/src-tauri/target
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('comandas-frontend/src-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-v2-${{ hashFiles('comandas-frontend/src-tauri/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-v2-
 
       # 11. Construir Tauri para Windows
       - name: Build Tauri app
