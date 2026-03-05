@@ -384,3 +384,21 @@ export interface CierreJornadaResponse {
   /** UUID de la jornada cerrada recién creada */
   jornadaId: string;
 }
+
+// ─── Analytics — Reporte de ventas por producto ──────────────────────────────
+
+/**
+ * Fila del reporte de ventas por producto.
+ * Refleja ProductoVendidoReporte del backend.
+ *
+ * Representa la cantidad total vendida y el monto bruto recaudado
+ * de un producto en un día operativo (solo pedidos CERRADOS).
+ */
+export interface ProductoVendidoReporte {
+  /** Nombre del producto (snapshot del item) */
+  productoNombre: string;
+  /** Cantidad total vendida */
+  cantidadTotal: number;
+  /** Total recaudado bruto (precio_unitario × cantidad) */
+  totalRecaudado: number;
+}

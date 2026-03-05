@@ -83,6 +83,7 @@ export function useCerrarMesa() {
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['reporte-caja'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['reporte-ventas-productos'], exact: false });
     },
     onError: (error) => {
       console.error('[useCerrarMesa] Error al cerrar mesa:', error);

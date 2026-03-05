@@ -11,6 +11,7 @@ import com.agustinpalma.comandas.application.dto.EstadoCajaResponse;
 import com.agustinpalma.comandas.application.dto.IngresoRequestBody;
 import com.agustinpalma.comandas.application.dto.IngresoResponse;
 import com.agustinpalma.comandas.application.dto.JornadaResumenResponse;
+import com.agustinpalma.comandas.application.dto.ProductoVendidoReporte;
 import com.agustinpalma.comandas.application.dto.ReporteCajaResponse;
 import com.agustinpalma.comandas.application.usecase.AbrirJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.CerrarJornadaUseCase;
@@ -20,6 +21,7 @@ import com.agustinpalma.comandas.application.usecase.CorregirPedidoCerradoUseCas
 import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReportePdfJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.ObtenerEstadoJornadaUseCase;
+import com.agustinpalma.comandas.application.usecase.ObtenerReporteVentasUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarEgresoUseCase;
 import com.agustinpalma.comandas.application.usecase.RegistrarIngresoUseCase;
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
@@ -58,6 +60,7 @@ public class CajaController {
     private final ConsultarPedidoCerradoUseCase consultarPedidoCerradoUseCase;
     private final CorregirPedidoCerradoUseCase corregirPedidoCerradoUseCase;
     private final ConsultarHistorialJornadasUseCase consultarHistorialJornadasUseCase;
+    private final ObtenerReporteVentasUseCase obtenerReporteVentasUseCase;
 
     public CajaController(
             LocalContextProvider localContextProvider,
@@ -70,7 +73,8 @@ public class CajaController {
             GenerarReportePdfJornadaUseCase generarReportePdfJornadaUseCase,
             ConsultarPedidoCerradoUseCase consultarPedidoCerradoUseCase,
             CorregirPedidoCerradoUseCase corregirPedidoCerradoUseCase,
-            ConsultarHistorialJornadasUseCase consultarHistorialJornadasUseCase
+            ConsultarHistorialJornadasUseCase consultarHistorialJornadasUseCase,
+            ObtenerReporteVentasUseCase obtenerReporteVentasUseCase
     ) {
         this.localContextProvider = localContextProvider;
         this.obtenerEstadoJornadaUseCase = obtenerEstadoJornadaUseCase;
@@ -83,6 +87,7 @@ public class CajaController {
         this.consultarPedidoCerradoUseCase = consultarPedidoCerradoUseCase;
         this.corregirPedidoCerradoUseCase = corregirPedidoCerradoUseCase;
         this.consultarHistorialJornadasUseCase = consultarHistorialJornadasUseCase;
+        this.obtenerReporteVentasUseCase = obtenerReporteVentasUseCase;
     }
 
     /**
@@ -295,5 +300,30 @@ public class CajaController {
             String.format("cierre-jornada-%s.pdf", jornadaId));
 
         return new ResponseEntity<>(pdf, headers, HttpStatus.OK);
+    }
+
+    // ─── Analytics ────────────────────────────────────────────────────────────
+
+    /**
+     * Reporte de ventas por producto para una fecha operativa.
+     *
+     * GET /api/caja/reportes/productos?fecha=YYYY-MM-DD
+     *
+     * Retorna el desglose de productos vendidos agrupando cantidades
+     * y sumando totales, basándose únicamente en pedidos CERRADOS.
+     *
+     * Es una consulta de analytics de solo lectura — no modifica estado.
+     *
+     * @param fecha fecha operativa del reporte en formato ISO
+     * @return 200 OK con la lista de productos vendidos
+     */
+    @GetMapping("/reportes/productos")
+    public ResponseEntity<List<ProductoVendidoReporte>> obtenerReporteVentasProductos(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha
+    ) {
+        LocalId localId = localContextProvider.getCurrentLocalId();
+
+        List<ProductoVendidoReporte> reporte = obtenerReporteVentasUseCase.ejecutar(localId, fecha);
+        return ResponseEntity.ok(reporte);
     }
 }

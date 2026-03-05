@@ -26,6 +26,8 @@ import com.agustinpalma.comandas.application.usecase.EliminarMesaUseCase;
 import com.agustinpalma.comandas.application.usecase.EliminarProductoUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReporteCajaUseCase;
 import com.agustinpalma.comandas.application.usecase.GenerarReportePdfJornadaUseCase;
+import com.agustinpalma.comandas.application.usecase.ObtenerReporteVentasUseCase;
+import com.agustinpalma.comandas.application.ports.output.AnalyticsRepositoryPort;
 import com.agustinpalma.comandas.application.usecase.GestionarItemsPedidoUseCase;
 import com.agustinpalma.comandas.application.usecase.ObtenerEstadoJornadaUseCase;
 import com.agustinpalma.comandas.application.usecase.ReabrirPedidoUseCase;
@@ -645,5 +647,23 @@ public class ApplicationConfig {
         MeisenProperties meisenProperties
     ) {
         return new GenerarTicketVentaUseCase(consultarDetallePedidoUseCase, meisenProperties);
+    }
+
+    // ============================================
+    // Analytics — Reporte de ventas por producto
+    // ============================================
+
+    /**
+     * Bean del caso de uso para obtener el reporte de ventas por producto.
+     * Operación de solo lectura que consulta el puerto de analytics.
+     *
+     * @param analyticsRepository implementación del puerto de analytics (AnalyticsRepositoryAdapter)
+     * @return instancia del caso de uso lista para usar
+     */
+    @Bean
+    public ObtenerReporteVentasUseCase obtenerReporteVentasUseCase(
+            AnalyticsRepositoryPort analyticsRepository
+    ) {
+        return new ObtenerReporteVentasUseCase(analyticsRepository);
     }
 }

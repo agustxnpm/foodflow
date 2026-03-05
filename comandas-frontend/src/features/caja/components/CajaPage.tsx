@@ -27,6 +27,7 @@ import IngresoModal from './IngresoModal';
 import AlertaMesasAbiertas from './AlertaMesasAbiertas';
 import CorregirPedidoModal from './CorregirPedidoModal';
 import ConfirmarCierreModal from './ConfirmarCierreModal';
+import ReporteProductos from './ReporteProductos';
 
 // ─── Utilidad ─────────────────────────────────────────────────────────────────
 
@@ -302,25 +303,29 @@ export default function CajaPage() {
             />
           </div>
 
-          {/* ── Columna 2: Desglose interactivo por medio de pago ── */}
-          <div className="lg:col-span-4 xl:col-span-5 flex flex-col min-h-0 rounded-2xl border border-neutral-800/60 bg-neutral-900/50 p-4">
-            <div className="flex items-center justify-between shrink-0 mb-3">
-              <h2 className="text-xs text-gray-500 uppercase tracking-wider font-medium">
-                Agrupado por medio de pago
-              </h2>
-              {reporte?.pagosDetalle && reporte.pagosDetalle.length > 0 && (
-                <span className="text-xs text-gray-600 font-mono">
-                  {reporte.pagosDetalle.length} {reporte.pagosDetalle.length === 1 ? 'pago' : 'pagos'}
-                </span>
-              )}
+          {/* ── Columna 2: Desglose interactivo por medio de pago + Ventas por producto ── */}
+          <div className="lg:col-span-4 xl:col-span-5 flex flex-col min-h-0 gap-4 overflow-y-auto scrollbar-thin">
+            <div className="rounded-2xl border border-neutral-800/60 bg-neutral-900/50 p-4 flex flex-col min-h-0">
+              <div className="flex items-center justify-between shrink-0 mb-3">
+                <h2 className="text-xs text-gray-500 uppercase tracking-wider font-medium">
+                  Agrupado por medio de pago
+                </h2>
+                {reporte?.pagosDetalle && reporte.pagosDetalle.length > 0 && (
+                  <span className="text-xs text-gray-600 font-mono">
+                    {reporte.pagosDetalle.length} {reporte.pagosDetalle.length === 1 ? 'pago' : 'pagos'}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 overflow-y-auto scrollbar-thin">
+                <DesglosePagos
+                  pagosDetalle={reporte?.pagosDetalle ?? []}
+                  isLoading={cargandoReporte}
+                  onVerDetallePedido={handleVerDetallePago}
+                />
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-thin">
-              <DesglosePagos
-                pagosDetalle={reporte?.pagosDetalle ?? []}
-                isLoading={cargandoReporte}
-                onVerDetallePedido={handleVerDetallePago}
-              />
-            </div>
+
+            <ReporteProductos />
           </div>
 
           {/* ── Columna 3: Ventas + Egresos ── */}

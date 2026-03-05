@@ -99,7 +99,8 @@ export function useEliminarItem() {
 
 /**
  * HU-14: Reabrir pedido cerrado (corrección de errores operativos).
- * Invalida pedido y mesas para actualizar el estado de ambos dominios.
+ * Invalida pedido, mesas y reportes de caja: un pedido reabierto
+ * deja de ser CERRADO y afecta el arqueo y el reporte de ventas.
  */
 export function useReabrirPedido() {
   const queryClient = useQueryClient();
@@ -109,6 +110,8 @@ export function useReabrirPedido() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pedido'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['reporte-caja'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['reporte-ventas-productos'], exact: false });
     },
     onError: (error: Error) => {
       console.error('[useReabrirPedido] Error al reabrir pedido:', error);

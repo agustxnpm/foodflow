@@ -35,6 +35,7 @@ import type {
   DetallePedidoCerrado,
   CorreccionPedidoRequest,
   JornadaResumen,
+  ProductoVendidoReporte,
 } from '../types';
 import { MesasAbiertasError, JornadaYaCerradaError } from '../types';
 import { descargarPdf, nombreArchivoPdf } from '../services/pdfService';
@@ -52,6 +53,8 @@ export const cajaKeys = {
   detallePedido: (pedidoId: string) => ['reporte-caja', 'pedido', pedidoId] as const,
   /** Historial de jornadas por rango */
   historialJornadas: (desde: string, hasta: string) => ['jornadas-caja', desde, hasta] as const,
+  /** Reporte de ventas por producto filtrado por fecha */
+  reporteVentasProductos: (fecha: string) => ['reporte-ventas-productos', fecha] as const,
 } as const;
 
 // ─── Impresión ESC/POS Egreso ─────────────────────────────────────────────────
@@ -365,6 +368,7 @@ export function useCerrarJornada() {
       // Refrescar dominios afectados por el cierre
       queryClient.invalidateQueries({ queryKey: cajaKeys.estadoCaja });
       queryClient.invalidateQueries({ queryKey: cajaKeys.all, exact: false });
+      queryClient.invalidateQueries({ queryKey: ['reporte-ventas-productos'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['jornadas-caja'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['mesas'], exact: false });
 
@@ -427,6 +431,7 @@ export function useCorregirPedido() {
     mutationFn: ({ pedidoId, data }) => cajaApi.corregirPedido(pedidoId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: cajaKeys.all, exact: false });
+      queryClient.invalidateQueries({ queryKey: ['reporte-ventas-productos'], exact: false });
     },
     onError: (error) => {
       console.error('[useCorregirPedido] Error al corregir pedido:', error);
@@ -480,5 +485,33 @@ export function useDescargarReportePdf() {
     onError: (error) => {
       console.error('[useDescargarReportePdf] Error:', error.message);
     },
+  });
+}
+
+// ─── useReporteVentasProductos ────────────────────────────────────────────────
+
+/**
+ * Consulta el desglose de ventas por producto para una fecha operativa.
+ *
+ * Retorna productos vendidos con cantidad total y monto recaudado,
+ * basándose únicamente en pedidos CERRADOS de la fecha indicada.
+ *
+ * La query se ejecuta solo cuando `fecha` es truthy (enabled condicional).
+ * El staleTime se aumenta a 2 min porque los datos de ventas del día
+ * cambian con menor frecuencia que el reporte de caja en tiempo real.
+ *
+ * @param fecha - Fecha operativa ISO (YYYY-MM-DD). Si es falsy, la query no se ejecuta.
+ *
+ * @example
+ * const { data, isPending } = useReporteVentasProductos('2026-03-04');
+ * // data = [{ productoNombre: 'Pizza Muzzarella', cantidadTotal: 12, totalRecaudado: 24000 }]
+ */
+export function useReporteVentasProductos(fecha: string) {
+  return useQuery<ProductoVendidoReporte[], Error>({
+    queryKey: cajaKeys.reporteVentasProductos(fecha),
+    queryFn: () => cajaApi.obtenerVentasProductos(fecha),
+    enabled: !!fecha,
+    refetchInterval: 30_000, // Polling cada 30s — sincronizado con useReporteCaja
+    staleTime: 15_000,       // 15s — se considera fresco entre polls
   });
 }

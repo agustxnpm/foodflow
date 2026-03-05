@@ -14,7 +14,7 @@
  */
 
 import apiClient from '../../../lib/apiClient';
-import type { AbrirCajaRequest, AbrirCajaResponse, EgresoRequest, EgresoResponse, EstadoCajaResponse, IngresoRequest, IngresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen, CierreJornadaResponse } from '../types';
+import type { AbrirCajaRequest, AbrirCajaResponse, EgresoRequest, EgresoResponse, EstadoCajaResponse, IngresoRequest, IngresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen, CierreJornadaResponse, ProductoVendidoReporte } from '../types';
 
 export const cajaApi = {
   // ─── Queries ──────────────────────────────────────────────────────────────────
@@ -164,7 +164,24 @@ export const cajaApi = {
     });
     return response.data;
   },
+  // ─── Analytics ─ Reporte de ventas por producto ────────────────────────────────────────────
 
+  /**
+   * Obtener el desglose de ventas por producto para una fecha operativa.
+   *
+   * GET /api/caja/reportes/productos?fecha=YYYY-MM-DD
+   *
+   * Solo considera pedidos con estado CERRADO.
+   * Retorna productos ordenados por total recaudado descendente.
+   *
+   * @param fecha - Fecha operativa del reporte (YYYY-MM-DD)
+   */
+  obtenerVentasProductos: async (fecha: string): Promise<ProductoVendidoReporte[]> => {
+    const response = await apiClient.get<ProductoVendidoReporte[]>('/caja/reportes/productos', {
+      params: { fecha },
+    });
+    return response.data;
+  },
   // ─── Reporte PDF ────────────────────────────────────────────────────────────
 
   /**
