@@ -28,6 +28,7 @@ import AlertaMesasAbiertas from './AlertaMesasAbiertas';
 import CorregirPedidoModal from './CorregirPedidoModal';
 import ConfirmarCierreModal from './ConfirmarCierreModal';
 import ReporteProductos from './ReporteProductos';
+import PantallaBloqueoLicencia from './PantallaBloqueoLicencia';
 
 // ─── Utilidad ─────────────────────────────────────────────────────────────────
 
@@ -95,6 +96,12 @@ export default function CajaPage() {
   const { data: estadoCaja, isLoading: cargandoEstado } = useEstadoCaja();
   const abrirCaja = useAbrirCaja();
   const cajaAbierta = estadoCaja?.estado === 'ABIERTA';
+
+  // ── Bloqueo por expiración de licencia ──
+  if (estadoCaja?.trialExpired) {
+    return <PantallaBloqueoLicencia />;
+  }
+
   const fondoInicial = cajaAbierta ? (estadoCaja.fondoInicial ?? 0) : 0;
 
   // ── Hooks de datos (solo activos si la caja está abierta) ──

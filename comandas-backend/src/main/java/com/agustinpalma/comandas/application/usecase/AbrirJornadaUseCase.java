@@ -3,6 +3,7 @@ package com.agustinpalma.comandas.application.usecase;
 import com.agustinpalma.comandas.application.dto.AbrirCajaResponse;
 import com.agustinpalma.comandas.domain.exception.JornadaYaAbiertaException;
 import com.agustinpalma.comandas.domain.exception.JornadaYaCerradaException;
+import com.agustinpalma.comandas.domain.exception.TrialExpiredException;
 import com.agustinpalma.comandas.domain.model.DomainIds.JornadaCajaId;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.model.JornadaCaja;
@@ -33,11 +34,15 @@ public class AbrirJornadaUseCase {
 
     private final JornadaCajaRepository jornadaCajaRepository;
     private final Clock clock;
+    private final LocalDate fechaExpiracion;
 
-    public AbrirJornadaUseCase(JornadaCajaRepository jornadaCajaRepository, Clock clock) {
+    public AbrirJornadaUseCase(JornadaCajaRepository jornadaCajaRepository, Clock clock,
+                               LocalDate fechaExpiracion) {
         this.jornadaCajaRepository = Objects.requireNonNull(jornadaCajaRepository,
             "jornadaCajaRepository es obligatorio");
         this.clock = Objects.requireNonNull(clock, "clock es obligatorio");
+        this.fechaExpiracion = Objects.requireNonNull(fechaExpiracion,
+            "fechaExpiracion es obligatorio");
     }
 
     /**
@@ -52,6 +57,11 @@ public class AbrirJornadaUseCase {
     public AbrirCajaResponse ejecutar(LocalId localId, BigDecimal montoInicial) {
         Objects.requireNonNull(localId, "El localId es obligatorio");
         Objects.requireNonNull(montoInicial, "El monto inicial es obligatorio");
+
+        // 0. Validar período de prueba
+        if (LocalDate.now(clock).isAfter(fechaExpiracion)) {
+            throw new TrialExpiredException();
+        }
 
         // 1. Validar que no exista jornada abierta
         if (jornadaCajaRepository.buscarAbierta(localId).isPresent()) {

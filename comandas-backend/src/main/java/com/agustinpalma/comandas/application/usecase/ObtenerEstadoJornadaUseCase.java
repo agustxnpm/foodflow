@@ -6,6 +6,7 @@ import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
 import com.agustinpalma.comandas.domain.repository.JornadaCajaRepository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -23,10 +24,14 @@ import java.util.Optional;
 public class ObtenerEstadoJornadaUseCase {
 
     private final JornadaCajaRepository jornadaCajaRepository;
+    private final LocalDate fechaExpiracion;
 
-    public ObtenerEstadoJornadaUseCase(JornadaCajaRepository jornadaCajaRepository) {
+    public ObtenerEstadoJornadaUseCase(JornadaCajaRepository jornadaCajaRepository,
+                                       LocalDate fechaExpiracion) {
         this.jornadaCajaRepository = Objects.requireNonNull(jornadaCajaRepository,
             "jornadaCajaRepository es obligatorio");
+        this.fechaExpiracion = Objects.requireNonNull(fechaExpiracion,
+            "fechaExpiracion es obligatorio");
     }
 
     /**
@@ -38,6 +43,8 @@ public class ObtenerEstadoJornadaUseCase {
     public EstadoCajaResponse ejecutar(LocalId localId) {
         Objects.requireNonNull(localId, "El localId es obligatorio");
 
+        boolean trialExpired = LocalDate.now().isAfter(fechaExpiracion);
+
         // 1. Buscar jornada ABIERTA
         Optional<JornadaCaja> jornadaAbierta = jornadaCajaRepository.buscarAbierta(localId);
 
@@ -48,7 +55,8 @@ public class ObtenerEstadoJornadaUseCase {
                 jornada.getFondoInicial(),
                 jornada.getFechaApertura() != null
                     ? jornada.getFechaApertura().toString()
-                    : null
+                    : null,
+                trialExpired
             );
         }
 
@@ -56,7 +64,8 @@ public class ObtenerEstadoJornadaUseCase {
         Optional<JornadaCaja> ultimaCerrada = jornadaCajaRepository.buscarUltimaCerrada(localId);
 
         return EstadoCajaResponse.cerrada(
-            ultimaCerrada.map(JornadaCaja::getBalanceEfectivo).orElse(null)
+            ultimaCerrada.map(JornadaCaja::getBalanceEfectivo).orElse(null),
+            trialExpired
         );
     }
 }

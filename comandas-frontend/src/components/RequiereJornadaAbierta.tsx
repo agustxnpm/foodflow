@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useEstadoCaja } from '../features/caja/hooks/useCaja';
+import PantallaBloqueoLicencia from '../features/caja/components/PantallaBloqueoLicencia';
 
 /**
  * Gatekeeper global: bloquea rutas operativas si no hay jornada de caja abierta.
@@ -26,6 +27,11 @@ export default function RequiereJornadaAbierta() {
         <Loader2 size={32} className="text-gray-500 animate-spin" />
       </div>
     );
+  }
+
+  // Si el período de prueba expiró → bloqueo total
+  if (estado?.trialExpired) {
+    return <PantallaBloqueoLicencia />;
   }
 
   // Si no hay jornada abierta → redirigir a /caja

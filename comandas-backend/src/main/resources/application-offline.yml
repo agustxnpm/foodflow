@@ -3,6 +3,12 @@
 # ============================================================
 #
 # Este perfil convierte FoodFlow en una aplicación desktop embebida.
+
+# ── Licencia / Período de evaluación ──────────────────────────
+foodflow:
+  trial:
+    expiration-date: 2026-03-20
+    
 # - Base de datos SQLite local (archivo comandas.db)
 # - Sin conexión a servidor externo
 # - Sin instalación adicional requerida

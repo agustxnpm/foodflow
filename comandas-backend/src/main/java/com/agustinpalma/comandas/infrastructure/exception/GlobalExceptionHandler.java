@@ -4,6 +4,7 @@ import com.agustinpalma.comandas.domain.exception.JornadaNoEncontradaException;
 import com.agustinpalma.comandas.domain.exception.JornadaYaAbiertaException;
 import com.agustinpalma.comandas.domain.exception.JornadaYaCerradaException;
 import com.agustinpalma.comandas.domain.exception.MesasAbiertasException;
+import com.agustinpalma.comandas.domain.exception.TrialExpiredException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -124,6 +125,27 @@ public class GlobalExceptionHandler {
         body.put("message", ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    /**
+     * Captura TrialExpiredException (período de prueba expirado).
+     * HTTP 402 Payment Required.
+     *
+     * Indica al frontend que debe mostrar la pantalla de bloqueo de licencia.
+     * Los datos del local permanecen intactos.
+     */
+    @ExceptionHandler(TrialExpiredException.class)
+    public ResponseEntity<Map<String, Object>> handleTrialExpired(TrialExpiredException ex) {
+        logger.warn("Intento de operación con período de prueba expirado");
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("timestamp", LocalDateTime.now());
+        body.put("status", 402);
+        body.put("error", "Payment Required");
+        body.put("message", ex.getMessage());
+        body.put("trialExpired", true);
+
+        return ResponseEntity.status(402).body(body);
     }
 
     /**
