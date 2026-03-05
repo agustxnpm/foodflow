@@ -1,13 +1,11 @@
 use tauri::Manager;
-use tauri_plugin_shell::ShellExt;
-use tauri_plugin_shell::process::CommandChild;
 use std::sync::Mutex;
 use log::{info, error, warn, debug};
 
 mod impresion;
 
 struct AppState {
-    backend_process: Mutex<Option<CommandChild>>,
+    backend_process: Mutex<Option<tokio::process::Child>>,
 }
 
 // ─── Comandos Tauri: Impresión térmica ESC/POS ───────────────────────────────
@@ -109,12 +107,12 @@ pub fn run() {
         )?;
       }
 
-      // Lanzar backend como sidecar
+      // Lanzar backend Java embebido
       let app_handle = app.handle().clone();
       tauri::async_runtime::spawn(async move {
         match start_backend(&app_handle).await {
-          Ok(_) => info!("[Backend] Sidecar iniciado correctamente"),
-          Err(e) => error!("[Backend] Error al iniciar sidecar: {}", e),
+          Ok(_) => info!("[Backend] Backend iniciado correctamente"),
+          Err(e) => error!("[Backend] Error al iniciar backend: {}", e),
         }
       });
 
@@ -132,7 +130,7 @@ pub fn run() {
         if let Some(state) = app_handle.try_state::<AppState>() {
           if let Ok(mut backend) = state.backend_process.lock() {
             if let Some(mut child) = backend.take() {
-              let _ = child.kill();
+              let _ = child.start_kill();
               info!("[Backend] Proceso detenido por cierre de ventana");
             }
           }
@@ -144,16 +142,34 @@ pub fn run() {
 }
 
 async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
-  use tauri_plugin_shell::process::CommandEvent;
+  use tokio::io::{AsyncBufReadExt, BufReader};
 
-  let shell = app.shell();
-  
-  // Usar el nombre base, Tauri agregará automáticamente el target triple
-  let sidecar_name = "backend";
+  // ── Resolver rutas de JRE y JAR desde el directorio de recursos ────────
+  let resource_dir = app.path().resource_dir()
+    .map_err(|e| format!("No se pudo resolver resource_dir: {}", e))?;
+
+  let java_bin = if cfg!(windows) {
+    resource_dir.join("jre").join("bin").join("java.exe")
+  } else {
+    resource_dir.join("jre").join("bin").join("java")
+  };
+
+  let java_cmd = if java_bin.exists() {
+    info!("[Backend] Usando JRE embebido: {:?}", java_bin);
+    java_bin.to_string_lossy().to_string()
+  } else {
+    info!("[Backend] JRE embebido no encontrado, usando Java del sistema");
+    "java".to_string()
+  };
+
+  let jar_path = resource_dir.join("binaries").join("backend.jar");
+  if !jar_path.exists() {
+    return Err(format!("backend.jar no encontrado en: {:?}", jar_path).into());
+  }
 
   // ── Resolver directorio de datos de la aplicación ──────────────────────
-  // El archivo SQLite debe vivir en la carpeta que el SO reserva para
-  // datos de aplicaciones, NO junto al ejecutable / JAR.
+  // El archivo SQLite vive en la carpeta que el SO reserva para datos de
+  // aplicaciones, NO junto al ejecutable / JAR.
   //   Linux:   ~/.local/share/com.meiser.foodflow/
   //   Windows: %APPDATA%/com.meiser.foodflow/
   //   macOS:   ~/Library/Application Support/com.meiser.foodflow/
@@ -164,46 +180,52 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
   let db_path = data_dir.join("comandas.db");
   // Normalizar separadores a '/' para compatibilidad JDBC en todos los OS
   let db_path_str = db_path.to_string_lossy().replace('\\', "/");
-  info!("[Backend] Ruta de base de datos SQLite: {}", db_path_str);
+  info!("[Backend] Ruta SQLite: {}", db_path_str);
 
-  info!("[Backend] Intentando iniciar sidecar: {}", sidecar_name);
+  info!("[Backend] Iniciando: {} -jar {:?}", java_cmd, jar_path);
 
-  let (mut rx, child) = shell
-    .sidecar(sidecar_name)?
+  let mut child = tokio::process::Command::new(&java_cmd)
+    .arg("-Dspring.profiles.active=offline")
+    .arg("-jar")
+    .arg(&jar_path)
     .env("FOODFLOW_DB_PATH", &db_path_str)
+    .stdout(std::process::Stdio::piped())
+    .stderr(std::process::Stdio::piped())
+    .kill_on_drop(true)
     .spawn()?;
 
-  // Guardar referencia al proceso
+  // Forward stdout
+  if let Some(stdout) = child.stdout.take() {
+    tauri::async_runtime::spawn(async move {
+      let reader = BufReader::new(stdout);
+      let mut lines = reader.lines();
+      while let Ok(Some(line)) = lines.next_line().await {
+        info!("[Backend STDOUT] {}", line);
+      }
+    });
+  }
+
+  // Forward stderr
+  if let Some(stderr) = child.stderr.take() {
+    tauri::async_runtime::spawn(async move {
+      let reader = BufReader::new(stderr);
+      let mut lines = reader.lines();
+      while let Ok(Some(line)) = lines.next_line().await {
+        warn!("[Backend STDERR] {}", line);
+      }
+    });
+  }
+
+  // Guardar referencia al proceso para kill on close
   if let Some(state) = app.try_state::<AppState>() {
     if let Ok(mut backend) = state.backend_process.lock() {
       *backend = Some(child);
     }
   }
 
-  // Escuchar eventos del proceso
-  tauri::async_runtime::spawn(async move {
-    while let Some(event) = rx.recv().await {
-      match event {
-        CommandEvent::Stdout(line) => {
-          info!("[Backend STDOUT] {}", String::from_utf8_lossy(&line));
-        }
-        CommandEvent::Stderr(line) => {
-          warn!("[Backend STDERR] {}", String::from_utf8_lossy(&line));
-        }
-        CommandEvent::Error(err) => {
-          error!("[Backend ERROR] {}", err);
-        }
-        CommandEvent::Terminated(payload) => {
-          warn!("[Backend] Proceso terminado: {:?}", payload);
-        }
-        _ => {}
-      }
-    }
-  });
-
   // Esperar un poco para que el backend arranque
   tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-  info!("[Backend] Sidecar debería estar listo en http://localhost:8080");
+  info!("[Backend] Backend debería estar listo en http://localhost:8080");
 
   Ok(())
 }

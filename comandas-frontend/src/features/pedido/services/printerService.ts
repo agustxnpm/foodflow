@@ -413,7 +413,7 @@ function bytesToHex(bytes: Uint8Array): string {
  * Extrae texto legible de un buffer ESC/POS ignorando bytes de control.
  * Útil para debugging: muestra lo que se imprimiría en la impresora.
  */
-function extraerTextoLegible(bytes: Uint8Array): string {
+export function extraerTextoLegible(bytes: Uint8Array): string {
   const lines: string[] = [];
   let currentLine = '';
 

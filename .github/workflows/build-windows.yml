@@ -90,8 +90,12 @@ jobs:
             ${{ runner.os }}-cargo-
 
       # 10. Construir Tauri para Windows
+      #     TAURI_CONFIG inyecta jre/** como recurso adicional para bundlear
+      #     el JRE embebido junto con el JAR del backend.
       - name: Build Tauri app
         working-directory: comandas-frontend
+        env:
+          TAURI_CONFIG: '{"bundle":{"resources":["binaries/*","jre/**"]}}'
         run: npm run tauri:build
 
       # 11. Subir instalador NSIS (.exe)
