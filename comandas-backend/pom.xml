@@ -59,12 +59,13 @@
 		<dependency>
 			<groupId>org.xerial</groupId>
 			<artifactId>sqlite-jdbc</artifactId>
-			<version>3.45.1.0</version>
+			<version>3.49.1.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.hibernate.orm</groupId>
 			<artifactId>hibernate-community-dialects</artifactId>
-			<version>6.4.4.Final</version>
+			<!-- Usa la misma versión de Hibernate que gestiona Spring Boot -->
+			<version>${hibernate.version}</version>
 		</dependency>
 
 		<dependency>

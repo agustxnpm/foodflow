@@ -156,7 +156,7 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
 
   let java_cmd = if java_bin.exists() {
     info!("[Backend] Usando JRE embebido: {:?}", java_bin);
-    java_bin.to_string_lossy().to_string()
+    strip_extended_path_prefix(&java_bin.to_string_lossy())
   } else {
     info!("[Backend] JRE embebido no encontrado, usando Java del sistema");
     "java".to_string()
@@ -166,6 +166,10 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
   if !jar_path.exists() {
     return Err(format!("backend.jar no encontrado en: {:?}", jar_path).into());
   }
+  // Windows: resource_dir() devuelve paths con prefijo \\?\ (extended-length)
+  // que Java no puede manejar para resolver el classpath dentro del JAR.
+  // Stripeamos ese prefijo para que JarLauncher funcione correctamente.
+  let jar_path_clean = strip_extended_path_prefix(&jar_path.to_string_lossy());
 
   // ── Resolver directorio de datos de la aplicación ──────────────────────
   // El archivo SQLite vive en la carpeta que el SO reserva para datos de
@@ -182,12 +186,12 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
   let db_path_str = db_path.to_string_lossy().replace('\\', "/");
   info!("[Backend] Ruta SQLite: {}", db_path_str);
 
-  info!("[Backend] Iniciando: {} -jar {:?}", java_cmd, jar_path);
+  info!("[Backend] Iniciando: {} -jar {}", java_cmd, jar_path_clean);
 
   let mut child = tokio::process::Command::new(&java_cmd)
     .arg("-Dspring.profiles.active=offline")
     .arg("-jar")
-    .arg(&jar_path)
+    .arg(&jar_path_clean)
     .env("FOODFLOW_DB_PATH", &db_path_str)
     .stdout(std::process::Stdio::piped())
     .stderr(std::process::Stdio::piped())
@@ -228,5 +232,19 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
   info!("[Backend] Backend debería estar listo en http://localhost:8080");
 
   Ok(())
+}
+
+/// Elimina el prefijo `\\?\` de rutas en Windows.
+///
+/// `tauri::path::resource_dir()` y similares devuelven rutas con el prefijo
+/// de extended-length path de Windows (`\\?\C:\...`). Java no maneja este
+/// prefijo al resolver el classpath dentro del JAR, provocando
+/// `ClassNotFoundException: JarLauncher`.
+fn strip_extended_path_prefix(path: &str) -> String {
+  if cfg!(windows) {
+    path.strip_prefix(r"\\?\").unwrap_or(path).to_string()
+  } else {
+    path.to_string()
+  }
 }
 

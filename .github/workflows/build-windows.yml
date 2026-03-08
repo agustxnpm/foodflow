@@ -25,18 +25,36 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
-      # 3. Compilar backend Spring Boot
+      # 3. Compilar backend Spring Boot (fat JAR con JarLauncher embebido)
       - name: Build backend
         working-directory: comandas-backend
         run: ./mvnw.cmd clean package -DskipTests
 
-      # 4. Copiar JAR a binarios de Tauri
+      # 4. Copiar FAT JAR a binarios de Tauri y validar
       - name: Copy backend JAR to Tauri binaries
         shell: pwsh
         run: |
+          $jarSource = "comandas-backend\target\comandas-backend-0.0.1-SNAPSHOT.jar"
+          $jarDest   = "comandas-frontend\src-tauri\binaries\backend.jar"
+
+          # Validar que el fat JAR existe (no el .original)
+          if (-Not (Test-Path $jarSource)) {
+            Write-Error "FATAL: Fat JAR no encontrado en $jarSource. Verificar spring-boot-maven-plugin."
+            exit 1
+          }
+
           New-Item -ItemType Directory -Force -Path "comandas-frontend\src-tauri\binaries" | Out-Null
-          Copy-Item "comandas-backend\target\comandas-backend-0.0.1-SNAPSHOT.jar" "comandas-frontend\src-tauri\binaries\backend.jar"
-          Write-Host "OK: backend.jar copiado"
+          Copy-Item $jarSource $jarDest
+
+          # Validar que el JAR contiene JarLauncher (es un fat JAR válido)
+          $entries = jar tf $jarDest | Select-String "JarLauncher"
+          if (-Not $entries) {
+            Write-Error "FATAL: backend.jar no contiene JarLauncher. El repackage de Spring Boot falló."
+            exit 1
+          }
+
+          $sizeMB = [math]::Round((Get-Item $jarDest).Length / 1MB, 2)
+          Write-Host "OK: backend.jar copiado ($sizeMB MB) — JarLauncher verificado"
 
       # 5. Setup Node.js
       - name: Setup Node.js
