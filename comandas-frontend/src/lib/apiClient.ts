@@ -10,35 +10,54 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Interceptor obligatorio: X-Local-Id (multi-tenant por fila)
+// ── Interceptor de REQUEST: X-Local-Id + logging de debug ────────────────────
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // En modo desktop/offline, el localId se configura en .env
-    // Debe coincidir con app.context.local-id del backend
     const localId = import.meta.env.VITE_LOCAL_ID;
-    
+
     if (!localId) {
       throw new Error('VITE_LOCAL_ID no configurado. Verificar archivo .env');
     }
-    
+
     config.headers['X-Local-Id'] = localId;
+
+    console.info(
+      `[API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`,
+      config.data ? JSON.stringify(config.data) : '(sin body)'
+    );
+
     return config;
   },
   (error) => {
+    console.error('[API Request Error]', error);
     return Promise.reject(error);
   }
 );
 
-// Interceptor de respuesta para manejo de errores
+// ── Interceptor de RESPONSE: logging extremo de errores ──────────────────────
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.info(
+      `[API Response] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`
+    );
+    return response;
+  },
   (error) => {
     if (error.response) {
-      // Error del servidor
-      console.error('API Error:', error.response.status, error.response.data);
+      console.error(
+        `[API Error] Status: ${error.response.status}`,
+        `\nURL: ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+        `\nHeaders:`, JSON.stringify(error.response.headers),
+        `\nBody:`, JSON.stringify(error.response.data)
+      );
     } else if (error.request) {
-      // Error de red
-      console.error('Network Error:', error.message);
+      console.error(
+        '[API Network Error] Sin respuesta del servidor.',
+        `\nURL: ${error.config?.method?.toUpperCase()} ${error.config?.url}`,
+        `\nMessage: ${error.message}`
+      );
+    } else {
+      console.error('[API Setup Error]', error.message);
     }
     return Promise.reject(error);
   }

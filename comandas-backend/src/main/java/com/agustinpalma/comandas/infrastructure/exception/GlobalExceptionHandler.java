@@ -14,9 +14,13 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Global Exception Handler para capturar y exponer errores del backend.
@@ -40,21 +44,36 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationException(MethodArgumentNotValidException ex) {
-        logger.warn("Validación de entrada fallida: {}", ex.getMessage());
-        
+        // Loguear TODOS los campos que fallaron validación
+        List<Map<String, String>> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
+                .map(fe -> {
+                    Map<String, String> detail = new LinkedHashMap<>();
+                    detail.put("field", fe.getField());
+                    detail.put("rejectedValue", String.valueOf(fe.getRejectedValue()));
+                    detail.put("message", fe.getDefaultMessage());
+                    return detail;
+                })
+                .collect(Collectors.toList());
+
+        System.out.println("══════ VALIDATION ERROR ══════");
+        fieldErrors.forEach(fe ->
+                System.out.println("  Campo: " + fe.get("field")
+                        + " | Valor rechazado: " + fe.get("rejectedValue")
+                        + " | Motivo: " + fe.get("message"))
+        );
+        System.out.println("══════════════════════════════");
+
+        logger.warn("Validación de entrada fallida — campos: {}", fieldErrors);
+
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("error", "Bad Request");
-        
-        // Extraer el primer error de validación
-        String errorMessage = ex.getBindingResult().getFieldErrors().stream()
-                .findFirst()
-                .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
-                .orElse("Error de validación");
-        
-        body.put("message", errorMessage);
-        
+        body.put("message", fieldErrors.stream()
+                .map(fe -> fe.get("field") + ": " + fe.get("message"))
+                .collect(Collectors.joining("; ")));
+        body.put("fieldErrors", fieldErrors);
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
@@ -154,6 +173,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        System.out.println("══════ IllegalArgumentException ══════");
+        ex.printStackTrace(System.out);
+        System.out.println("══════════════════════════════════════");
         logger.error("IllegalArgumentException capturada", ex);
         
         Map<String, Object> body = new LinkedHashMap<>();
@@ -172,6 +194,9 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        System.out.println("══════ IllegalStateException ══════");
+        ex.printStackTrace(System.out);
+        System.out.println("═══════════════════════════════════");
         logger.error("IllegalStateException capturada", ex);
         
         Map<String, Object> body = new LinkedHashMap<>();
@@ -189,11 +214,24 @@ public class GlobalExceptionHandler {
      * Captura TODAS las demás excepciones no manejadas.
      * HTTP 500 Internal Server Error.
      * 
-     * CRÍTICO: Devuelve el stack trace completo para debugging.
+     * CRÍTICO: Imprime stack trace completo a System.out (capturado por Tauri)
+     * y devuelve la traza en el body JSON para debugging desde el frontend.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
+        // Imprimir a stdout para que Tauri lo capture en sus logs de archivo
+        System.out.println("══════ UNHANDLED EXCEPTION ══════");
+        System.out.println("Type: " + ex.getClass().getName());
+        System.out.println("Message: " + ex.getMessage());
+        ex.printStackTrace(System.out);
+        System.out.println("═════════════════════════════════");
+
         logger.error("Excepción no controlada capturada", ex);
+
+        // Stack trace completo como String para el body JSON
+        StringWriter sw = new StringWriter();
+        ex.printStackTrace(new PrintWriter(sw));
+        String fullStackTrace = sw.toString();
         
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", LocalDateTime.now());
@@ -202,16 +240,7 @@ public class GlobalExceptionHandler {
         body.put("message", ex.getMessage());
         body.put("exceptionType", ex.getClass().getName());
         body.put("cause", ex.getCause() != null ? ex.getCause().toString() : null);
-        
-        // Stack trace para debugging (solo en desarrollo)
-        StackTraceElement[] stackTrace = ex.getStackTrace();
-        if (stackTrace != null && stackTrace.length > 0) {
-            StringBuilder traceBuilder = new StringBuilder();
-            for (int i = 0; i < Math.min(10, stackTrace.length); i++) {
-                traceBuilder.append(stackTrace[i].toString()).append("\n");
-            }
-            body.put("stackTrace", traceBuilder.toString());
-        }
+        body.put("stackTrace", fullStackTrace);
         
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
