@@ -1,9 +1,18 @@
 import axios from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
+// ── Base URL ─────────────────────────────────────────────────────────────────
+// En DEV, usamos '/api' relativo → Vite proxy lo reenvía a http://127.0.0.1:8080
+// En PROD (Tauri NSIS), NO hay proxy. El frontend se sirve desde el protocolo
+// custom de Tauri (http://tauri.localhost) y las requests relativas NO llegan
+// al backend. Necesitamos la URL absoluta al backend embebido.
+const resolvedBaseURL = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:8080/api')
+  : '/api';
+
 // Cliente HTTP base para FoodFlow
 const apiClient: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: resolvedBaseURL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -34,12 +43,22 @@ apiClient.interceptors.request.use(
   }
 );
 
-// ── Interceptor de RESPONSE: logging extremo de errores ──────────────────────
+// ── Interceptor de RESPONSE: logging + diagnóstico en producción ─────────────
 apiClient.interceptors.response.use(
   (response) => {
-    console.info(
-      `[API Response] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`
-    );
+    // En producción, loggear el payload completo para diagnosticar diferencias
+    // entre el JSON real del backend offline (SQLite) y lo esperado por la UI.
+    // En Tauri, estos logs van al archivo en disco vía tauri-plugin-log.
+    if (import.meta.env.PROD) {
+      console.log(
+        `[PROD-DEBUG] ${response.config.method?.toUpperCase()} ${response.config.url} Status: ${response.status} Payload:`,
+        JSON.stringify(response.data),
+      );
+    } else {
+      console.info(
+        `[API Response] ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`
+      );
+    }
     return response;
   },
   (error) => {

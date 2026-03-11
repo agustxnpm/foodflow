@@ -12,8 +12,14 @@ export const mesasApi = {
    * HU-02: Listar todas las mesas del local
    */
   listar: async (): Promise<Mesa[]> => {
-    const response = await apiClient.get<Mesa[]>('/mesas');
-    return response.data;
+    const response = await apiClient.get('/mesas');
+    // Blindaje: si el backend devuelve Page<> en vez de Array, extraer .content
+    const raw = response.data;
+    if (Array.isArray(raw)) return raw as Mesa[];
+    if (raw && typeof raw === 'object' && 'content' in raw && Array.isArray((raw as any).content)) {
+      return (raw as any).content as Mesa[];
+    }
+    return [] as Mesa[];
   },
 
   /**

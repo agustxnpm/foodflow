@@ -16,6 +16,20 @@
 import apiClient from '../../../lib/apiClient';
 import type { AbrirCajaRequest, AbrirCajaResponse, EgresoRequest, EgresoResponse, EstadoCajaResponse, IngresoRequest, IngresoResponse, ReporteCajaResponse, DetallePedidoCerrado, CorreccionPedidoRequest, JornadaResumen, CierreJornadaResponse, ProductoVendidoReporte } from '../types';
 
+/**
+ * Blindaje contra respuestas paginadas o envueltas.
+ * Spring Data puede devolver un objeto Page { content: [...] } en lugar de un
+ * Array directo según el perfil activo. Al minificar, Vite no tolera iteraciones
+ * sobre objetos — esto normaliza antes de que TanStack Query lo cachee.
+ */
+function ensureArray<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (data && typeof data === 'object' && 'content' in data && Array.isArray((data as any).content)) {
+    return (data as any).content as T[];
+  }
+  return [];
+}
+
 export const cajaApi = {
   // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -44,7 +58,14 @@ export const cajaApi = {
     const response = await apiClient.get<ReporteCajaResponse>('/caja/reporte', {
       params: { fecha },
     });
-    return response.data;
+    const raw = response.data;
+    // Normalizar listas anidadas del reporte (blindaje contra Page<>)
+    return {
+      ...raw,
+      ventas: ensureArray(raw.ventas),
+      movimientos: ensureArray(raw.movimientos),
+      pagosDetalle: ensureArray(raw.pagosDetalle),
+    };
   },
 
   // ─── Mutations ────────────────────────────────────────────────────────────────
@@ -159,10 +180,10 @@ export const cajaApi = {
    * @param hasta - Fecha operativa final (inclusive)
    */
   obtenerHistorialJornadas: async (desde: string, hasta: string): Promise<JornadaResumen[]> => {
-    const response = await apiClient.get<JornadaResumen[]>('/caja/jornadas', {
+    const response = await apiClient.get('/caja/jornadas', {
       params: { desde, hasta },
     });
-    return response.data;
+    return ensureArray<JornadaResumen>(response.data);
   },
   // ─── Analytics ─ Reporte de ventas por producto ────────────────────────────────────────────
 
@@ -177,10 +198,10 @@ export const cajaApi = {
    * @param fecha - Fecha operativa del reporte (YYYY-MM-DD)
    */
   obtenerVentasProductos: async (fecha: string): Promise<ProductoVendidoReporte[]> => {
-    const response = await apiClient.get<ProductoVendidoReporte[]>('/caja/reportes/productos', {
+    const response = await apiClient.get('/caja/reportes/productos', {
       params: { fecha },
     });
-    return response.data;
+    return ensureArray<ProductoVendidoReporte>(response.data);
   },
   // ─── Reporte PDF ────────────────────────────────────────────────────────────
 
