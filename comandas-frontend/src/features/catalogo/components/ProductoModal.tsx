@@ -3,6 +3,7 @@ import { X, Check, HelpCircle } from 'lucide-react';
 import { useCrearProducto, useEditarProducto } from '../hooks/useProductos';
 import type { ProductoResponse, ProductoRequest } from '../types';
 import { useCategorias } from '../../categorias/hooks/useCategorias';
+import useToast from '../../../hooks/useToast';
 
 interface ProductoModalProps {
   /** null = crear nuevo, objeto = editar existente */
@@ -25,6 +26,7 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
   const crearProducto = useCrearProducto();
   const editarProducto = useEditarProducto();
   const { data: categorias = [] } = useCategorias();
+  const toast = useToast();
 
   // Solo categorías asignables (no "Todos")
   const categoriasAsignables = categorias;
@@ -74,10 +76,22 @@ export default function ProductoModal({ producto, onClose }: ProductoModalProps)
     if (esEdicion) {
       editarProducto.mutate(
         { id: producto.id, ...data },
-        { onSuccess: onClose }
+        {
+          onSuccess: onClose,
+          onError: (error: any) => {
+            const mensaje = error?.response?.data?.message || 'Error al editar producto';
+            toast.error(mensaje);
+          },
+        }
       );
     } else {
-      crearProducto.mutate(data, { onSuccess: onClose });
+      crearProducto.mutate(data, {
+        onSuccess: onClose,
+        onError: (error: any) => {
+          const mensaje = error?.response?.data?.message || 'Error al crear producto';
+          toast.error(mensaje);
+        },
+      });
     }
   };
 

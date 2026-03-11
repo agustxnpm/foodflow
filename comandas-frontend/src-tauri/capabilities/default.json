@@ -9,6 +9,8 @@
     "core:default",
     "shell:allow-execute",
     "shell:allow-spawn",
-    "store:default"
+    "store:default",
+    "log:default",
+    "log:allow-log"
   ]
 }

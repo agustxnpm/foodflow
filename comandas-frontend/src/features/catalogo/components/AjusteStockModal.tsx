@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Check, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { useAjustarStock } from '../hooks/useProductos';
 import type { ProductoResponse, TipoMovimientoStock } from '../types';
+import useToast from '../../../hooks/useToast';
 
 interface TipoMovimientoConfig {
   valor: TipoMovimientoStock;
@@ -48,6 +49,7 @@ interface AjusteStockModalProps {
  */
 export default function AjusteStockModal({ producto, onClose }: AjusteStockModalProps) {
   const ajustarStock = useAjustarStock();
+  const toast = useToast();
 
   const [cantidad, setCantidad] = useState('');
   const [tipoSeleccionado, setTipoSeleccionado] = useState<TipoMovimientoConfig>(TIPOS_MOVIMIENTO[0]);
@@ -80,7 +82,13 @@ export default function AjusteStockModal({ producto, onClose }: AjusteStockModal
         tipo: tipoSeleccionado.valor,
         motivo: motivo.trim(),
       },
-      { onSuccess: onClose }
+      {
+        onSuccess: onClose,
+        onError: (error: any) => {
+          const mensaje = error?.response?.data?.message || 'Error al ajustar stock';
+          toast.error(mensaje);
+        },
+      }
     );
   };
 

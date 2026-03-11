@@ -1,7 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutGrid, DollarSign, Coffee } from 'lucide-react';
+import { LayoutGrid, DollarSign, Coffee, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import AjustesModal from '../components/AjustesModal';
 
 // Panel de time-travel: solo se carga en desarrollo (code-split)
 const DevTimeTravelPanel = import.meta.env.DEV
@@ -35,6 +36,8 @@ const navItems: NavItem[] = [
  * maximizar el área útil vertical para el grid de mesas.
  */
 export default function MainLayout() {
+  const [mostrarAjustes, setMostrarAjustes] = useState(false);
+
   return (
     <div className="min-h-screen bg-neutral-900 flex flex-col">
       {/* ── Navbar Superior ── */}
@@ -72,8 +75,16 @@ export default function MainLayout() {
             ))}
           </ul>
 
-          {/* Espacio reservado para futuras acciones (ej: usuario, config) */}
-          <div className="w-20" />
+          {/* Botón de Ajustes */}
+          <div className="w-20 flex justify-end">
+            <button
+              onClick={() => setMostrarAjustes(true)}
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-neutral-800 transition-colors"
+              title="Ajustes"
+            >
+              <Settings size={20} />
+            </button>
+          </div>
         </nav>
       </header>
 
@@ -81,6 +92,9 @@ export default function MainLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
+
+      {/* ── Modal de Ajustes ── */}
+      {mostrarAjustes && <AjustesModal onClose={() => setMostrarAjustes(false)} />}
 
       {/* ── Panel de Time-Travel (solo dev) ── */}
       {DevTimeTravelPanel && (
