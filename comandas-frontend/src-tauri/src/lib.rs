@@ -2,6 +2,9 @@ use tauri::Manager;
 use std::sync::Mutex;
 use log::{info, error, warn, debug};
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 mod impresion;
 
 struct AppState {
@@ -148,8 +151,10 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
   let resource_dir = app.path().resource_dir()
     .map_err(|e| format!("No se pudo resolver resource_dir: {}", e))?;
 
+  // En Windows usamos javaw.exe para evitar que se abra una ventana de consola.
+  // javaw es el binario headless de Java; el usuario no puede cerrarlo por error.
   let java_bin = if cfg!(windows) {
-    resource_dir.join("jre").join("bin").join("java.exe")
+    resource_dir.join("jre").join("bin").join("javaw.exe")
   } else {
     resource_dir.join("jre").join("bin").join("java")
   };
@@ -188,15 +193,25 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
 
   info!("[Backend] Iniciando: {} -jar {}", java_cmd, jar_path_clean);
 
-  let mut child = tokio::process::Command::new(&java_cmd)
+  let mut command = tokio::process::Command::new(&java_cmd);
+  command
     .arg("-Dspring.profiles.active=offline")
     .arg("-jar")
     .arg(&jar_path_clean)
     .env("FOODFLOW_DB_PATH", &db_path_str)
     .stdout(std::process::Stdio::piped())
     .stderr(std::process::Stdio::piped())
-    .kill_on_drop(true)
-    .spawn()?;
+    .kill_on_drop(true);
+
+  // En Windows: CREATE_NO_WINDOW evita la ventana de consola residual
+  // incluso si javaw no la crea por sí mismo (doble seguridad).
+  #[cfg(target_os = "windows")]
+  {
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    command.creation_flags(CREATE_NO_WINDOW);
+  }
+
+  let mut child = command.spawn()?;
 
   // Forward stdout
   if let Some(stdout) = child.stdout.take() {

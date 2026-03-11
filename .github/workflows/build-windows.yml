@@ -74,8 +74,13 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       # 8. Construir Tauri para Windows (sin cache — build limpio)
+      #    Las variables VITE_* deben estar presentes en el entorno para que
+      #    Vite las incruste en el bundle durante el build.
       - name: Build Tauri app
         working-directory: comandas-frontend
+        env:
+          VITE_LOCAL_ID: ${{ secrets.VITE_LOCAL_ID || '123e4567-e89b-12d3-a456-426614174000' }}
+          VITE_API_URL: "http://localhost:8080/api"
         run: npm run tauri:build
 
       # 10. Subir instalador NSIS (.exe)
