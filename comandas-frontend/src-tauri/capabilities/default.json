@@ -9,6 +9,7 @@
     "core:default",
     "shell:allow-execute",
     "shell:allow-spawn",
+    "shell:allow-open",
     "store:default",
     "log:default",
     "log:allow-log"
