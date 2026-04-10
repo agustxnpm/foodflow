@@ -211,12 +211,6 @@ export interface EstadoCajaResponse {
    * Null si no hay jornadas históricas.
    */
   saldoSugerido: number | null;
-  /**
-   * Indica si el período de evaluación ha expirado.
-   * Cuando es true, el frontend debe mostrar la pantalla de bloqueo
-   * e impedir la apertura de jornada y la carga de pedidos.
-   */
-  trialExpired: boolean;
 }
 
 /**
