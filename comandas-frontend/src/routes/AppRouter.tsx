@@ -8,7 +8,9 @@ import CajaPage from '../features/caja/components/CajaPage';
 import HistorialJornadasPage from '../features/caja/components/HistorialJornadasPage';
 import MostradorPantalla from '../pages/MostradorPantalla';
 import { useLicencia } from '../hooks/useLicencia';
+import { useIdentidad } from '../hooks/useIdentidad';
 import PantallaBloqueoLicencia from '../features/caja/components/PantallaBloqueoLicencia';
+import PantallaActivacion from '../features/activacion/PantallaActivacion';
 import IndicadorLicencia from '../components/IndicadorLicencia';
 import { Loader2 } from 'lucide-react';
 
@@ -24,50 +26,75 @@ const queryClient = new QueryClient({
 });
 
 /**
- * Router principal de la aplicación FoodFlow
+ * Router principal de FoodFlow.
  *
- * MainLayout actúa como wrapper de toda la app,
- * provee la Navbar superior y renderiza <Outlet /> para la ruta activa.
+ * Flujo de gatekeeping estricto:
+ *   1. useIdentidad() → ¿configurado?
+ *      NO  → PantallaActivacion (sin navbar, sin atajos)
+ *      SÍ  → paso 2
+ *   2. useLicencia() → ¿bloqueado?
+ *      BLOQUEADO   → PantallaBloqueoLicencia
+ *      POR_VENCER  → banner + app normal
+ *      ACTIVO      → app normal
  *
- * La validación de licencia se hace al nivel más alto (antes del layout).
- * Si la licencia está bloqueada, se renderiza la Lock Screen sin navbar.
- *
- * NOTA: El detalle de pedido (PantallaPedido) se renderiza como modal
- * overlay dentro de SalonPage, no como ruta separada.
+ * Nada de la app principal se renderiza si la identidad no existe o la licencia está bloqueada.
  */
 export function AppRouter() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ToastContainer />
-        <LicenciaGateway />
+        <IdentidadGateway />
       </BrowserRouter>
     </QueryClientProvider>
   );
 }
 
-/**
- * Gateway de licencia: valida el Gist remoto antes de renderizar la app.
- *
- * - Cargando → spinner
- * - BLOQUEADO → Lock Screen (sin navbar, sin navegación)
- * - ACTIVO / POR_VENCER → rutas normales (con indicador sutil si POR_VENCER)
- */
+// ── Gate 1: Identidad ────────────────────────────────────────────────────────
+
+function LoadingScreen() {
+  return (
+    <div className="h-screen bg-neutral-950 flex items-center justify-center">
+      <Loader2 size={32} className="text-neutral-500 animate-spin" />
+    </div>
+  );
+}
+
+function IdentidadGateway() {
+  const { data, isLoading, isError } = useIdentidad();
+
+  if (isLoading) return <LoadingScreen />;
+
+  // Error de red al consultar identidad → mostrar activación
+  // (el backend puede estar arrancando o no alcanzable)
+  if (isError || !data) return <PantallaActivacion />;
+
+  if (!data.configured) return <PantallaActivacion />;
+
+  // Identidad confirmada → validar licencia
+  return <LicenciaGateway />;
+}
+
+// ── Gate 2: Licencia ─────────────────────────────────────────────────────────
+
 function LicenciaGateway() {
-  const { estado, diasRestantes, cargando } = useLicencia();
+  const licencia = useLicencia();
 
-  if (cargando) {
-    return (
-      <div className="h-screen bg-neutral-900 flex items-center justify-center">
-        <Loader2 size={32} className="text-gray-500 animate-spin" />
-      </div>
-    );
-  }
+  // Hook retornó null (localId aún no en store) — transición breve
+  if (!licencia) return <LoadingScreen />;
 
-  if (estado === 'BLOQUEADO') {
-    return <PantallaBloqueoLicencia />;
-  }
+  const { estado, diasRestantes, cargando } = licencia;
 
+  if (cargando) return <LoadingScreen />;
+
+  if (estado === 'BLOQUEADO') return <PantallaBloqueoLicencia />;
+
+  return <AppRoutes estado={estado} diasRestantes={diasRestantes} />;
+}
+
+// ── Rutas de la aplicación ───────────────────────────────────────────────────
+
+function AppRoutes({ estado, diasRestantes }: { estado: string; diasRestantes: number | null }) {
   return (
     <>
       {estado === 'POR_VENCER' && (

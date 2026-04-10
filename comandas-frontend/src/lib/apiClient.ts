@@ -1,5 +1,6 @@
 import axios from 'axios';
 import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import useIdentityStore from '../store/useIdentityStore';
 
 // ── Base URL ─────────────────────────────────────────────────────────────────
 // En DEV, usamos '/api' relativo → Vite proxy lo reenvía a http://127.0.0.1:8080
@@ -20,15 +21,19 @@ const apiClient: AxiosInstance = axios.create({
 });
 
 // ── Interceptor de REQUEST: X-Local-Id + logging de debug ────────────────────
+// Rutas que NO llevan X-Local-Id (pre-activación)
+const IDENTITY_PATH = '/config/identity';
+
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const localId = import.meta.env.VITE_LOCAL_ID;
+    const isIdentityCall = config.url?.includes(IDENTITY_PATH);
 
-    if (!localId) {
-      throw new Error('VITE_LOCAL_ID no configurado. Verificar archivo .env');
+    if (!isIdentityCall) {
+      const localId = useIdentityStore.getState().localId;
+      if (localId) {
+        config.headers['X-Local-Id'] = localId;
+      }
     }
-
-    config.headers['X-Local-Id'] = localId;
 
     console.info(
       `[API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`,

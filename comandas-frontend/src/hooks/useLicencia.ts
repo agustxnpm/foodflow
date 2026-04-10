@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useIdentityStore from '../store/useIdentityStore';
 
 type EstadoLicencia = 'ACTIVO' | 'POR_VENCER' | 'BLOQUEADO';
 
@@ -17,13 +18,16 @@ interface LicenciaGist {
 /**
  * Hook que valida la licencia del local contra un GitHub Gist remoto.
  *
+ * - Lee el localId dinámico desde el store de identidad.
+ * - Si no hay localId (app no activada), retorna null sin hacer fetch.
  * - Consulta el Gist al montar el componente.
  * - Compara validoHasta con la fecha actual.
  * - Devuelve ACTIVO, POR_VENCER (≤ 5 días) o BLOQUEADO.
  * - Fail-Open: si no hay red o el fetch falla, retorna ACTIVO
  *   para no frenar la operatoria del local.
  */
-export function useLicencia(): Licencia {
+export function useLicencia(): Licencia | null {
+  const localId = useIdentityStore((s) => s.localId);
   const [licencia, setLicencia] = useState<Licencia>({
     estado: 'ACTIVO',
     diasRestantes: null,
@@ -31,12 +35,16 @@ export function useLicencia(): Licencia {
   });
 
   useEffect(() => {
+    if (!localId) {
+      setLicencia({ estado: 'ACTIVO', diasRestantes: null, cargando: false });
+      return;
+    }
+
     const validar = async () => {
       try {
         const gistUrl = import.meta.env.VITE_LICENSE_GIST_URL;
-        const localId = import.meta.env.VITE_LOCAL_ID;
 
-        if (!gistUrl || !localId) {
+        if (!gistUrl) {
           // Sin configuración → Fail-Open
           setLicencia({ estado: 'ACTIVO', diasRestantes: null, cargando: false });
           return;
@@ -91,7 +99,9 @@ export function useLicencia(): Licencia {
     };
 
     validar();
-  }, []);
+  }, [localId]);
+
+  if (!localId) return null;
 
   return licencia;
 }
