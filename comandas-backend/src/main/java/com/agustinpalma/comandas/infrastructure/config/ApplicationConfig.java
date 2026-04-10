@@ -470,11 +470,11 @@ public class ApplicationConfig {
             PedidoRepository pedidoRepository,
             MovimientoCajaRepository movimientoCajaRepository,
             ReportePdfGenerator reportePdfGenerator,
-            MeisenProperties meisenProperties
+            LocalConfigService localConfigService
     ) {
         return new GenerarReportePdfJornadaUseCase(
             jornadaCajaRepository, pedidoRepository, movimientoCajaRepository,
-            reportePdfGenerator, meisenProperties
+            reportePdfGenerator, localConfigService
         );
     }
 
@@ -631,10 +631,9 @@ public class ApplicationConfig {
     @Bean
     public EnviarComandaCocinaUseCase enviarComandaCocinaUseCase(
         MesaRepository mesaRepository,
-        PedidoRepository pedidoRepository,
-        MeisenProperties meisenProperties
+        PedidoRepository pedidoRepository
     ) {
-        return new EnviarComandaCocinaUseCase(mesaRepository, pedidoRepository, meisenProperties);
+        return new EnviarComandaCocinaUseCase(mesaRepository, pedidoRepository);
     }
 
     /**
@@ -644,9 +643,9 @@ public class ApplicationConfig {
     @Bean
     public GenerarTicketVentaUseCase generarTicketVentaUseCase(
         ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase,
-        MeisenProperties meisenProperties
+        LocalConfigService localConfigService
     ) {
-        return new GenerarTicketVentaUseCase(consultarDetallePedidoUseCase, meisenProperties);
+        return new GenerarTicketVentaUseCase(consultarDetallePedidoUseCase, localConfigService);
     }
 
     // ============================================

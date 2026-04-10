@@ -10,7 +10,7 @@ import com.agustinpalma.comandas.infrastructure.adapter.EscPosGenerator;
 import com.agustinpalma.comandas.infrastructure.adapter.EscPosGenerator.TicketVentaData;
 import com.agustinpalma.comandas.infrastructure.adapter.EscPosGenerator.TicketItemData;
 import com.agustinpalma.comandas.infrastructure.adapter.EscPosGenerator.TicketExtraData;
-import com.agustinpalma.comandas.infrastructure.config.MeisenProperties;
+import com.agustinpalma.comandas.infrastructure.config.LocalConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,16 +42,16 @@ public class GenerarTicketVentaUseCase {
     private static final Logger log = LoggerFactory.getLogger(GenerarTicketVentaUseCase.class);
 
     private final ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase;
-    private final MeisenProperties properties;
+    private final LocalConfigService localConfigService;
 
     public GenerarTicketVentaUseCase(
         ConsultarDetallePedidoUseCase consultarDetallePedidoUseCase,
-        MeisenProperties properties
+        LocalConfigService localConfigService
     ) {
         this.consultarDetallePedidoUseCase = Objects.requireNonNull(
             consultarDetallePedidoUseCase, "El consultarDetallePedidoUseCase es obligatorio"
         );
-        this.properties = Objects.requireNonNull(properties, "Las properties son obligatorias");
+        this.localConfigService = Objects.requireNonNull(localConfigService, "El localConfigService es obligatorio");
     }
 
     /**
@@ -110,10 +110,10 @@ public class GenerarTicketVentaUseCase {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new TicketVentaData(
-            properties.getLocal().getNombreLocal(),
-            properties.getLocal().getDireccion(),
-            properties.getLocal().getTelefono(),
-            properties.getLocal().getCuit(),
+            localConfigService.getNombreLocal(),
+            localConfigService.getDireccion(),
+            localConfigService.getTelefono(),
+            localConfigService.getCuit(),
             detalle.numeroMesa(),
             detalle.numeroPedido(),
             LocalDateTime.now(),
@@ -122,7 +122,7 @@ public class GenerarTicketVentaUseCase {
             montoPromos,
             montoManual,
             detalle.totalParcial(),
-            properties.getLocal().getMensajeBienvenida()
+            localConfigService.getMensajeBienvenida()
         );
     }
 

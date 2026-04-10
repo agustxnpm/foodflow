@@ -13,7 +13,7 @@ import com.agustinpalma.comandas.domain.model.Pedido;
 import com.agustinpalma.comandas.domain.repository.JornadaCajaRepository;
 import com.agustinpalma.comandas.domain.repository.MovimientoCajaRepository;
 import com.agustinpalma.comandas.domain.repository.PedidoRepository;
-import com.agustinpalma.comandas.infrastructure.config.MeisenProperties;
+import com.agustinpalma.comandas.infrastructure.config.LocalConfigService;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -44,19 +44,19 @@ public class GenerarReportePdfJornadaUseCase {
     private final PedidoRepository pedidoRepository;
     private final MovimientoCajaRepository movimientoCajaRepository;
     private final ReportePdfGenerator reportePdfGenerator;
-    private final MeisenProperties meisenProperties;
+    private final LocalConfigService localConfigService;
 
     public GenerarReportePdfJornadaUseCase(
             JornadaCajaRepository jornadaCajaRepository,
             PedidoRepository pedidoRepository,
             MovimientoCajaRepository movimientoCajaRepository,
             ReportePdfGenerator reportePdfGenerator,
-            MeisenProperties meisenProperties) {
+            LocalConfigService localConfigService) {
         this.jornadaCajaRepository = Objects.requireNonNull(jornadaCajaRepository);
         this.pedidoRepository = Objects.requireNonNull(pedidoRepository);
         this.movimientoCajaRepository = Objects.requireNonNull(movimientoCajaRepository);
         this.reportePdfGenerator = Objects.requireNonNull(reportePdfGenerator);
-        this.meisenProperties = Objects.requireNonNull(meisenProperties);
+        this.localConfigService = Objects.requireNonNull(localConfigService);
     }
 
     /**
@@ -97,13 +97,11 @@ public class GenerarReportePdfJornadaUseCase {
             .toList();
 
         // 3. Construir DTO con datos del local
-        MeisenProperties.LocalProperties localProps = meisenProperties.getLocal();
-
         ReporteCierreData data = new ReporteCierreData(
-            localProps.getNombreLocal(),
-            localProps.getDireccion(),
-            localProps.getTelefono(),
-            localProps.getCuit(),
+            localConfigService.getNombreLocal(),
+            localConfigService.getDireccion(),
+            localConfigService.getTelefono(),
+            localConfigService.getCuit(),
             jornada.getFechaOperativa(),
             jornada.getFechaCierre(),
             jornada.getTotalVentasReales(),

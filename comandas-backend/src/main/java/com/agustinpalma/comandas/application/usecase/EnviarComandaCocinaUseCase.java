@@ -12,7 +12,6 @@ import com.agustinpalma.comandas.domain.repository.PedidoRepository;
 import com.agustinpalma.comandas.infrastructure.adapter.EscPosGenerator;
 import com.agustinpalma.comandas.infrastructure.adapter.EscPosGenerator.ComandaCocinaData;
 import com.agustinpalma.comandas.infrastructure.adapter.EscPosGenerator.ComandaItemData;
-import com.agustinpalma.comandas.infrastructure.config.MeisenProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,16 +49,13 @@ public class EnviarComandaCocinaUseCase {
 
     private final MesaRepository mesaRepository;
     private final PedidoRepository pedidoRepository;
-    private final MeisenProperties properties;
 
     public EnviarComandaCocinaUseCase(
         MesaRepository mesaRepository,
-        PedidoRepository pedidoRepository,
-        MeisenProperties properties
+        PedidoRepository pedidoRepository
     ) {
         this.mesaRepository = Objects.requireNonNull(mesaRepository, "El mesaRepository es obligatorio");
         this.pedidoRepository = Objects.requireNonNull(pedidoRepository, "El pedidoRepository es obligatorio");
-        this.properties = Objects.requireNonNull(properties, "Las properties son obligatorias");
     }
 
     /**

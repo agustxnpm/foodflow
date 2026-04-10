@@ -12,7 +12,7 @@ import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.FooterT
 import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.HeaderTicket;
 import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.ItemTicket;
 import com.agustinpalma.comandas.application.dto.TicketImpresionResponse.TotalesTicket;
-import com.agustinpalma.comandas.infrastructure.config.MeisenProperties;
+import com.agustinpalma.comandas.infrastructure.config.LocalConfigService;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -36,10 +36,10 @@ import java.util.stream.Collectors;
 @Component
 public class TicketImpresionMapper {
 
-    private final MeisenProperties properties;
+    private final LocalConfigService localConfigService;
 
-    public TicketImpresionMapper(MeisenProperties properties) {
-        this.properties = Objects.requireNonNull(properties, "MeisenProperties es obligatorio");
+    public TicketImpresionMapper(LocalConfigService localConfigService) {
+        this.localConfigService = Objects.requireNonNull(localConfigService, "LocalConfigService es obligatorio");
     }
 
     /**
@@ -52,10 +52,10 @@ public class TicketImpresionMapper {
         Objects.requireNonNull(detalle, "El detalle del pedido no puede ser nulo");
 
         var header = new HeaderTicket(
-                properties.getLocal().getNombreLocal(),
-                properties.getLocal().getDireccion(),
-                properties.getLocal().getTelefono(),
-                properties.getLocal().getCuit(),
+                localConfigService.getNombreLocal(),
+                localConfigService.getDireccion(),
+                localConfigService.getTelefono(),
+                localConfigService.getCuit(),
                 LocalDateTime.now(),
                 detalle.numeroMesa()
         );
@@ -66,7 +66,7 @@ public class TicketImpresionMapper {
 
         var totales = calcularTotales(detalle);
 
-        var footer = new FooterTicket(properties.getLocal().getMensajeBienvenida());
+        var footer = new FooterTicket(localConfigService.getMensajeBienvenida());
 
         return new TicketImpresionResponse(header, items, totales, footer);
     }
