@@ -78,8 +78,6 @@ public class MesaController {
      *
      * GET /api/mesas
      *
-     * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
-     *       Por ahora se usa un localId hardcodeado para permitir testing del endpoint.
      *
      * @return lista de mesas con su estado actual
      */
@@ -96,10 +94,7 @@ public class MesaController {
      * Abre una mesa libre y crea su pedido inicial.
      *
      * POST /api/mesas/{mesaId}/abrir
-     *
-     * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
-     *       Por ahora se usa un localId hardcodeado para permitir testing del endpoint.
-     *
+     * 
      * @param mesaId ID de la mesa a abrir
      * @return información de la mesa abierta y el pedido creado
      */
@@ -120,11 +115,6 @@ public class MesaController {
      *
      * Request body: { "numero": 15 }
      *
-     * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
-     *       Por ahora se usa un localId hardcodeado para permitir testing del endpoint.
-     * TODO: Implementar manejo de excepciones con @ControllerAdvice para capturar:
-     *       - MesaDuplicadaException -> 409 Conflict
-     *       - NumeroMesaInvalidoException -> 400 Bad Request
      *
      * @param request DTO con el número de la nueva mesa
      * @return información de la mesa creada (en estado LIBRE)
@@ -142,14 +132,6 @@ public class MesaController {
      * Elimina una mesa del local (solo si está LIBRE).
      *
      * DELETE /api/mesas/{mesaId}
-     *
-     * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
-     *       Por ahora se usa un localId hardcodeado para permitir testing del endpoint.
-     * TODO: Implementar manejo de excepciones con @ControllerAdvice para capturar:
-     *       - MesaNoEncontradaException -> 404 Not Found
-     *       - AccesoDenegadoException -> 403 Forbidden
-     *       - MesaNoEliminableException -> 409 Conflict
-     *       - UltimaMesaException -> 409 Conflict
      *
      * @param mesaId ID de la mesa a eliminar
      * @return 204 No Content si la eliminación fue exitosa
@@ -171,11 +153,6 @@ public class MesaController {
      *
      * HU-06: Ver pedido de una mesa
      *
-     * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
-     *       Por ahora se usa un localId hardcodeado para permitir testing del endpoint.
-     * TODO: Implementar manejo de excepciones con @ControllerAdvice para capturar:
-     *       - IllegalStateException (mesa no existe o está libre) -> 404 Not Found
-     *       - IllegalArgumentException (mesa de otro local) -> 403 Forbidden
      *
      * @param mesaId ID de la mesa cuyo pedido se desea consultar
      * @return detalle completo del pedido activo (ítems, totales, contexto)
@@ -207,9 +184,7 @@ public class MesaController {
      *     {"medio": "TARJETA", "monto": 2500}
      *   ]
      * }
-     *
-     * TODO: Implementar autenticación/autorización para obtener el localId del usuario logueado.
-     *
+     *     
      * @param mesaId ID de la mesa a cerrar
      * @param request DTO con la lista de pagos
      * @return información de la mesa liberada y el pedido cerrado con snapshot contable
@@ -238,7 +213,7 @@ public class MesaController {
      * Flujo:
      * 1. Obtener tenant vía LocalContextProvider
      * 2. Delegar a ConsultarDetallePedidoUseCase (datos ya calculados por dominio)
-     * 3. Transformar vía TicketImpresionMapper (datos del local desde MeisenProperties)
+     * 3. Transformar vía TicketImpresionMapper (datos del local desde LocalConfigService)
      * 4. Retornar DTO de impresión
      *
      * @param mesaId ID de la mesa cuyo ticket se desea obtener

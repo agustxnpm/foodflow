@@ -2,8 +2,11 @@ package com.agustinpalma.comandas.infrastructure.config;
 
 import com.agustinpalma.comandas.application.ports.output.LocalContextProvider;
 import com.agustinpalma.comandas.domain.model.DomainIds.LocalId;
+import com.agustinpalma.comandas.infrastructure.persistence.entity.LocalConfigEntity;
+import com.agustinpalma.comandas.infrastructure.persistence.jpa.SpringDataLocalConfigRepository;
 import com.agustinpalma.comandas.infrastructure.persistence.jpa.SpringDataLocalRepository;
 import com.agustinpalma.comandas.infrastructure.persistence.jpa.SpringDataMesaRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Valida que:
  * - LocalContextProvider se inyecta correctamente desde la configuración
  * - El LocalId configurado coincide con el esperado
- * - MeisenSeedService se ejecuta al arrancar e inicializa la base de datos
+ * - MeisenSeedService inicializa la base de datos correctamente
  * - La base queda con datos del local (al menos 1 mesa)
  */
 @SpringBootTest
@@ -38,6 +41,21 @@ class ContextIntegrationTest {
 
     @Autowired
     private SpringDataMesaRepository mesaRepository;
+
+    @Autowired
+    private SpringDataLocalConfigRepository localConfigRepository;
+
+    @Autowired
+    private MeisenSeedService seedService;
+
+    @BeforeEach
+    void inicializarDatosDePrueba() {
+        // Insertar identidad en local_config (fuente primaria del FixedLocalContextProvider)
+        if (localConfigRepository.findById("local-id").isEmpty()) {
+            localConfigRepository.save(new LocalConfigEntity("local-id", EXPECTED_LOCAL_UUID.toString()));
+        }
+        seedService.inicializarLocal(EXPECTED_LOCAL_UUID, "Mi Local");
+    }
 
     @Test
     void localContextProvider_debe_estar_inyectado() {
@@ -75,14 +93,11 @@ class ContextIntegrationTest {
         long mesasAntes = mesaRepository.findByLocalIdOrderByNumeroAsc(EXPECTED_LOCAL_UUID).size();
 
         // Simular segunda ejecución del seed
-        MeisenSeedService seedService = new MeisenSeedService(
-            new MeisenProperties() {{
-                setLocalId(EXPECTED_LOCAL_UUID);
-            }},
+        MeisenSeedService otroSeedService = new MeisenSeedService(
             localRepository,
             mesaRepository
         );
-        seedService.run();
+        otroSeedService.inicializarLocal(EXPECTED_LOCAL_UUID, "Mi Local");
 
         long mesasDespues = mesaRepository.findByLocalIdOrderByNumeroAsc(EXPECTED_LOCAL_UUID).size();
 

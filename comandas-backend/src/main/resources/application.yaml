@@ -21,13 +21,3 @@ spring:
     enabled: true
     baseline-on-migrate: true
     baseline-version: -1
-
-app:
-  context:
-    local-id: 123e4567-e89b-12d3-a456-426614174000
-    local:
-      nombre-local: "Meiser Sandwicheria"
-      direccion: "Roque Saenz Peña 173, Puerto Madryn"
-      telefono: ""
-      cuit: ""
-      mensaje-bienvenida: "¡Gracias por su visita!"

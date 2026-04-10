@@ -137,22 +137,6 @@ spring:
       password: admin
 
 # ============================================================
-# CONFIGURACIÓN DE CONTEXTO (MEISEN)
-# ============================================================
-app:
-  context:
-    # ID del local - DEBE configurarse antes del primer arranque
-    local-id: 123e4567-e89b-12d3-a456-426614174000
-    
-    # Datos del local para impresión de tickets
-    local:
-      nombre-local: "Mi Local"
-      direccion: ""
-      telefono: ""
-      cuit: ""
-      mensaje-bienvenida: "¡Gracias por su visita!"
-
-# ============================================================
 # LOGGING
 # ============================================================
 logging:
