@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Printer, Check, RefreshCw } from 'lucide-react';
+import { X, Printer, Check, RefreshCw, Store, Loader2 } from 'lucide-react';
 import { useImpresoras, useImpresoraPredeterminada, useGuardarImpresoraPredeterminada } from '../hooks/useConfiguracion';
 import useToast from '../hooks/useToast';
+import apiClient from '../lib/apiClient';
+import type { IdentityResponse } from '../hooks/useIdentidad';
 
 interface AjustesModalProps {
   onClose: () => void;
@@ -28,6 +30,64 @@ export default function AjustesModal({ onClose }: AjustesModalProps) {
       setSeleccion(impresoraActual);
     }
   }, [impresoraActual]);
+
+  // ── Datos del local ──
+  const [datosLocal, setDatosLocal] = useState({
+    nombreLocal: '',
+    direccion: '',
+    telefono: '',
+    mensajeBienvenida: '',
+  });
+  const [cargandoDatos, setCargandoDatos] = useState(true);
+  const [guardandoDatos, setGuardandoDatos] = useState(false);
+
+  useEffect(() => {
+    apiClient.get<IdentityResponse>('/config/identity')
+      .then(({ data }) => {
+        if (data.configured) {
+          setDatosLocal({
+            nombreLocal: data.nombreLocal ?? '',
+            direccion: data.direccion ?? '',
+            telefono: data.telefono ?? '',
+            mensajeBienvenida: data.mensajeBienvenida ?? '',
+          });
+        }
+      })
+      .catch(() => {
+        toast.error('No se pudieron cargar los datos del local');
+      })
+      .finally(() => setCargandoDatos(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleDatoChange = (field: keyof typeof datosLocal) => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setDatosLocal((prev) => ({ ...prev, [field]: e.target.value }));
+  };
+
+  const handleGuardarDatos = () => {
+    if (!datosLocal.nombreLocal.trim()) {
+      toast.warning('El nombre del local es obligatorio');
+      return;
+    }
+
+    setGuardandoDatos(true);
+    apiClient.put('/config/identity', {
+      nombreLocal: datosLocal.nombreLocal.trim(),
+      direccion: datosLocal.direccion.trim() || null,
+      telefono: datosLocal.telefono.trim() || null,
+      cuit: null,
+      mensajeBienvenida: datosLocal.mensajeBienvenida.trim() || null,
+    })
+      .then(() => {
+        toast.success('Datos del local actualizados');
+      })
+      .catch(() => {
+        toast.error('Error al guardar los datos del local');
+      })
+      .finally(() => setGuardandoDatos(false));
+  };
 
   const handleGuardar = () => {
     if (!seleccion) {
@@ -72,7 +132,69 @@ export default function AjustesModal({ onClose }: AjustesModalProps) {
           </div>
 
           {/* Body */}
-          <div className="px-6 py-5 space-y-6">
+          <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto">
+            {/* Sección: Datos del local */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Store size={18} className="text-gray-400" />
+                <h3 className="text-sm font-semibold text-text-primary uppercase tracking-wider">
+                  Datos del local
+                </h3>
+              </div>
+
+              {cargandoDatos ? (
+                <p className="text-sm text-gray-500">Cargando datos...</p>
+              ) : (
+                <div className="space-y-2.5">
+                  <input
+                    type="text"
+                    value={datosLocal.nombreLocal}
+                    onChange={handleDatoChange('nombreLocal')}
+                    placeholder="Nombre del local *"
+                    className="w-full px-3 py-2.5 bg-background-card border border-gray-700 rounded-lg text-text-primary placeholder-gray-500 text-sm focus:border-red-500 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={datosLocal.direccion}
+                    onChange={handleDatoChange('direccion')}
+                    placeholder="Dirección"
+                    className="w-full px-3 py-2.5 bg-background-card border border-gray-700 rounded-lg text-text-primary placeholder-gray-500 text-sm focus:border-red-500 focus:outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <input
+                      type="text"
+                      value={datosLocal.telefono}
+                      onChange={handleDatoChange('telefono')}
+                      placeholder="Teléfono"
+                      className="w-full px-3 py-2.5 bg-background-card border border-gray-700 rounded-lg text-text-primary placeholder-gray-500 text-sm focus:border-red-500 focus:outline-none"
+                    />
+                    <input
+                      type="text"
+                      value={datosLocal.mensajeBienvenida}
+                      onChange={handleDatoChange('mensajeBienvenida')}
+                      placeholder="Mensaje de bienvenida"
+                      className="w-full px-3 py-2.5 bg-background-card border border-gray-700 rounded-lg text-text-primary placeholder-gray-500 text-sm focus:border-red-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handleGuardarDatos}
+                    disabled={guardandoDatos || !datosLocal.nombreLocal.trim()}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+                  >
+                    {guardandoDatos ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Check size={14} />
+                    )}
+                    {guardandoDatos ? 'Guardando...' : 'Guardar datos'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Separador */}
+            <div className="border-t border-gray-800" />
+
             {/* Sección: Impresora */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
