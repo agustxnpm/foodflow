@@ -28,11 +28,8 @@ npm run dev
 
 ## Configuración local
 
-Crear `.env.local`:
-
-```
-VITE_LOCAL_ID=00000000-0000-0000-0000-000000000001
-```
+La identidad del local se configura desde la pantalla de activación en el primer arranque.
+No se requiere `.env.local` con `VITE_LOCAL_ID`.
 
 ## Stack
 

@@ -83,8 +83,9 @@ export default function DevTimeTravelPanel() {
     let cancelled = false;
     (async () => {
       try {
+        const localId = (await import('../../store/useIdentityStore')).default.getState().localId;
         const res = await fetch('/api/dev/clock', {
-          headers: { 'X-Local-Id': import.meta.env.VITE_LOCAL_ID || '' },
+          headers: localId ? { 'X-Local-Id': localId } : {},
         });
         if (!cancelled && res.ok) {
           // Endpoint existe → cargar estado completo vía apiClient

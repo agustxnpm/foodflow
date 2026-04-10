@@ -18,10 +18,10 @@ npm install
 
 ### Configuración
 
-El archivo `.env` ya está configurado con valores por defecto:
+La identidad del local se configura en el primer arranque (pantalla de activación).
+No requiere variables de entorno para funcionar.
 
 ```env
-VITE_LOCAL_ID=1
 VITE_API_URL=http://localhost:8080/api
 ```
 
