@@ -3,3 +3,5 @@
 # JRE embebido generado por jlink (se genera en build de producción)
 comandas-frontend/src-tauri/jre/*
 !comandas-frontend/src-tauri/jre/.gitkeep
+
+.vite
