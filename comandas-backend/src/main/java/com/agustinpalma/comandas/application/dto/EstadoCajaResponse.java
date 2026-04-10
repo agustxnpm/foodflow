@@ -29,22 +29,21 @@ public record EstadoCajaResponse(
     String jornadaId,
     BigDecimal fondoInicial,
     String fechaApertura,
-    BigDecimal saldoSugerido,
-    boolean trialExpired
+    BigDecimal saldoSugerido
 ) {
 
     /**
      * Factory: caja abierta con datos de la jornada activa.
      */
     public static EstadoCajaResponse abierta(String jornadaId, BigDecimal fondoInicial,
-                                              String fechaApertura, boolean trialExpired) {
-        return new EstadoCajaResponse("ABIERTA", jornadaId, fondoInicial, fechaApertura, null, trialExpired);
+                                              String fechaApertura) {
+        return new EstadoCajaResponse("ABIERTA", jornadaId, fondoInicial, fechaApertura, null);
     }
 
     /**
      * Factory: caja cerrada con sugerencia del último cierre.
      */
-    public static EstadoCajaResponse cerrada(BigDecimal saldoSugerido, boolean trialExpired) {
-        return new EstadoCajaResponse("CERRADA", null, null, null, saldoSugerido, trialExpired);
+    public static EstadoCajaResponse cerrada(BigDecimal saldoSugerido) {
+        return new EstadoCajaResponse("CERRADA", null, null, null, saldoSugerido);
     }
 }

@@ -56,12 +56,10 @@ import com.agustinpalma.comandas.domain.service.NormalizadorVariantesService;
 import com.agustinpalma.comandas.application.ports.output.ReportePdfGenerator;
 import com.agustinpalma.comandas.infrastructure.adapter.FlyingSaucerReportePdfAdapter;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
-import java.time.LocalDate;
 
 /**
  * Configuración de Spring para inyección de dependencias.
@@ -70,9 +68,6 @@ import java.time.LocalDate;
  */
 @Configuration
 public class ApplicationConfig {
-
-    @Value("${foodflow.trial.expiration-date}")
-    private LocalDate trialExpirationDate;
 
     /**
      * Bean del caso de uso para consultar mesas.
@@ -516,7 +511,7 @@ public class ApplicationConfig {
     public ObtenerEstadoJornadaUseCase obtenerEstadoJornadaUseCase(
             JornadaCajaRepository jornadaCajaRepository
     ) {
-        return new ObtenerEstadoJornadaUseCase(jornadaCajaRepository, trialExpirationDate);
+        return new ObtenerEstadoJornadaUseCase(jornadaCajaRepository);
     }
 
     /**
@@ -528,7 +523,7 @@ public class ApplicationConfig {
             JornadaCajaRepository jornadaCajaRepository,
             Clock clock
     ) {
-        return new AbrirJornadaUseCase(jornadaCajaRepository, clock, trialExpirationDate);
+        return new AbrirJornadaUseCase(jornadaCajaRepository, clock);
     }
 
     /**
