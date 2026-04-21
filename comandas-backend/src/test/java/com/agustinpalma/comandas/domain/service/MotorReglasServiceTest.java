@@ -1133,10 +1133,12 @@ class MotorReglasServiceTest {
             porcentaje
         );
         
-        // Trigger temporal con días específicos
+        // Trigger temporal con días específicos.
+        // Usamos un rango fijo que cubra todo el año 2026 (año de las fechas de los tests)
+        // para que el check de fecha no interfiera con la validación del día de semana.
         CriterioActivacion trigger = new CriterioTemporal(
-            LocalDate.now().minusDays(30),
-            LocalDate.now().plusDays(30),
+            LocalDate.of(2026, 1, 1),
+            LocalDate.of(2026, 12, 31),
             diasValidos,
             null,
             null

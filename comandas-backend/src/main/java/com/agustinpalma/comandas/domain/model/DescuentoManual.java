@@ -31,6 +31,7 @@ import java.util.UUID;
  */
 public final class DescuentoManual {
 
+    private static final BigDecimal PORCENTAJE_MINIMO = new BigDecimal("0.01");
     private static final BigDecimal PORCENTAJE_MAXIMO = new BigDecimal("100");
     private static final BigDecimal CIEN = new BigDecimal("100");
 
@@ -65,7 +66,7 @@ public final class DescuentoManual {
         // Validar valor según tipo
         Objects.requireNonNull(valor, "El valor del descuento no puede ser null");
         if (tipo == ModoDescuento.PORCENTAJE) {
-            if (valor.compareTo(BigDecimal.ZERO) <= 0 || valor.compareTo(PORCENTAJE_MAXIMO) > 0) {
+            if (valor.compareTo(PORCENTAJE_MINIMO) < 0 || valor.compareTo(PORCENTAJE_MAXIMO) > 0) {
                 throw new IllegalArgumentException(
                     String.format("El porcentaje debe estar entre 0.01 y 100. Recibido: %s", valor)
                 );

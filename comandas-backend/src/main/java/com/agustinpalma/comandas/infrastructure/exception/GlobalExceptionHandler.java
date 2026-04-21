@@ -12,9 +12,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,13 +19,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Global Exception Handler para capturar y exponer errores del backend.
- * 
- * Propósito: "Caja negra" de debugging que devuelve trazas completas
- * en el body del JSON para facilitar el debugging con CURL.
- * 
- * TODO: En producción, reemplazar por excepciones específicas
- * y mensajes user-friendly sin exponer stack traces.
+ * Global Exception Handler — convierte excepciones en respuestas HTTP seguras.
+ *
+ * Los detalles técnicos (stack traces, tipos de excepción) se loguean
+ * server-side con SLF4J. Al cliente solo llegan mensajes descriptivos
+ * sin información interna del sistema.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -43,7 +38,6 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationException(MethodArgumentNotValidException ex) {
-        // Loguear TODOS los campos que fallaron validación
         List<Map<String, String>> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
                 .map(fe -> {
                     Map<String, String> detail = new LinkedHashMap<>();
@@ -53,14 +47,6 @@ public class GlobalExceptionHandler {
                     return detail;
                 })
                 .collect(Collectors.toList());
-
-        System.out.println("══════ VALIDATION ERROR ══════");
-        fieldErrors.forEach(fe ->
-                System.out.println("  Campo: " + fe.get("field")
-                        + " | Valor rechazado: " + fe.get("rejectedValue")
-                        + " | Motivo: " + fe.get("message"))
-        );
-        System.out.println("══════════════════════════════");
 
         logger.warn("Validación de entrada fallida — campos: {}", fieldErrors);
 
@@ -151,18 +137,14 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
-        System.out.println("══════ IllegalArgumentException ══════");
-        ex.printStackTrace(System.out);
-        System.out.println("══════════════════════════════════════");
-        logger.error("IllegalArgumentException capturada", ex);
-        
+        logger.warn("IllegalArgumentException capturada: {}", ex.getMessage(), ex);
+
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("error", "Bad Request");
         body.put("message", ex.getMessage());
-        body.put("cause", ex.getCause() != null ? ex.getCause().toString() : null);
-        
+
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
@@ -172,18 +154,14 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
-        System.out.println("══════ IllegalStateException ══════");
-        ex.printStackTrace(System.out);
-        System.out.println("═══════════════════════════════════");
-        logger.error("IllegalStateException capturada", ex);
-        
+        logger.warn("IllegalStateException capturada: {}", ex.getMessage(), ex);
+
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.CONFLICT.value());
         body.put("error", "Conflict");
         body.put("message", ex.getMessage());
-        body.put("cause", ex.getCause() != null ? ex.getCause().toString() : null);
-        
+
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
@@ -191,35 +169,20 @@ public class GlobalExceptionHandler {
     /**
      * Captura TODAS las demás excepciones no manejadas.
      * HTTP 500 Internal Server Error.
-     * 
-     * CRÍTICO: Imprime stack trace completo a System.out (capturado por Tauri)
-     * y devuelve la traza en el body JSON para debugging desde el frontend.
+     *
+     * Los detalles técnicos quedan en el log server-side.
+     * Al cliente se le devuelve un mensaje genérico.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
-        // Imprimir a stdout para que Tauri lo capture en sus logs de archivo
-        System.out.println("══════ UNHANDLED EXCEPTION ══════");
-        System.out.println("Type: " + ex.getClass().getName());
-        System.out.println("Message: " + ex.getMessage());
-        ex.printStackTrace(System.out);
-        System.out.println("═════════════════════════════════");
-
         logger.error("Excepción no controlada capturada", ex);
 
-        // Stack trace completo como String para el body JSON
-        StringWriter sw = new StringWriter();
-        ex.printStackTrace(new PrintWriter(sw));
-        String fullStackTrace = sw.toString();
-        
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", LocalDateTime.now());
         body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
         body.put("error", "Internal Server Error");
-        body.put("message", ex.getMessage());
-        body.put("exceptionType", ex.getClass().getName());
-        body.put("cause", ex.getCause() != null ? ex.getCause().toString() : null);
-        body.put("stackTrace", fullStackTrace);
-        
+        body.put("message", "Error interno del servidor");
+
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 }

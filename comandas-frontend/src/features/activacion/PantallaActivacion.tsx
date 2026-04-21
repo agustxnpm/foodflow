@@ -47,6 +47,25 @@ export default function PantallaActivacion() {
     setEnviando(true);
     setError(null);
 
+    // Validar que el UUID exista en el Gist de licencias antes de activar
+    const gistUrl = import.meta.env.VITE_LICENSE_GIST_URL;
+    if (gistUrl) {
+      try {
+        const res = await fetch(`${gistUrl}?t=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) {
+          const data: Record<string, unknown> = await res.json();
+          if (!data[form.localId.trim()]) {
+            setError('El código de activación no es válido. Verificá que esté bien escrito.');
+            setEnviando(false);
+            return;
+          }
+        }
+        // Si el Gist no responde, seguimos (Fail-Open en activación)
+      } catch {
+        // Error de red consultando Gist → no frenar activación
+      }
+    }
+
     try {
       await apiClient.post('/config/identity', {
         localId: form.localId.trim(),

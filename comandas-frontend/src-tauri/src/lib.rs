@@ -242,9 +242,31 @@ async fn start_backend(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error:
     }
   }
 
-  // Esperar un poco para que el backend arranque
-  tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-  info!("[Backend] Backend debería estar listo en http://localhost:8080");
+  // Esperar a que el backend esté listo haciendo polling al health endpoint
+  let max_attempts = 30; // 30 intentos × 1s = 30s máximo
+  let mut ready = false;
+  for attempt in 1..=max_attempts {
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    match reqwest::get("http://localhost:8080/api/health").await {
+      Ok(resp) if resp.status().is_success() => {
+        info!("[Backend] Health check OK en intento {}/{}", attempt, max_attempts);
+        ready = true;
+        break;
+      }
+      Ok(resp) => {
+        debug!("[Backend] Health check intento {}/{} — status: {}", attempt, max_attempts, resp.status());
+      }
+      Err(_) => {
+        debug!("[Backend] Health check intento {}/{} — conexión rechazada", attempt, max_attempts);
+      }
+    }
+  }
+
+  if ready {
+    info!("[Backend] Backend listo en http://localhost:8080");
+  } else {
+    warn!("[Backend] Backend no respondió después de {}s — la app intentará conectarse de todas formas", max_attempts);
+  }
 
   Ok(())
 }
